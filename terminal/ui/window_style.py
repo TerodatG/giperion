@@ -1,7 +1,7 @@
-# Giperion/app/ui/window_style.py                                 v022
+# Giperion/terminal/ui/window_style.py                             v023
 # Футуристическая шкура окна в духе «Кода доступа рай»: тёмный металл
 # с заклёпками и зелёный терминальный лог.
-# Последнее изменение: обычный шрифт названия режима конференции.
+# Последнее изменение: плита «Система» под списком открытых чатов.
 
 from config import BASE_DIR
 
@@ -281,6 +281,21 @@ QLabel#toolsCaption {
     font-weight: bold;
     letter-spacing: 1px;
     padding-left: 12px;
+}
+
+QWidget#systemPanel {
+    background-color: rgba(5, 16, 10, 170);
+    border: 1px solid #23421f;
+    border-radius: 4px;
+}
+
+QLabel#systemCaption {
+    background: transparent;
+    color: #d09a6a;
+    font-family: "Bahnschrift SemiBold", "Segoe UI";
+    font-size: 9pt;
+    font-weight: bold;
+    letter-spacing: 1px;
 }
 
 QLabel#panelCaption {
@@ -798,6 +813,52 @@ QPushButton#aiParamsButton:disabled {
     background-color: #0b0908;
     border: 1px solid #251f19;
     color: #5a4f45;
+}
+
+QWidget#paramsContent {
+    background: transparent;
+}
+
+QFrame#paramsPlate {
+    border-image: url(@PANEL@) 14 fill;
+    border-width: 14px;
+}
+
+QLabel#paramsPlateTitle {
+    background: transparent;
+    color: #d09a6a;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+QWidget#paramsScreen {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 3px;
+}
+
+QWidget#paramsScreen QLabel {
+    background: transparent;
+    font-family: "Consolas", "Courier New", "Lucida Console", monospace;
+    font-size: 9pt;
+}
+
+QLabel#paramsKey {
+    color: #8ee08a;
+}
+
+QLabel#paramsValue {
+    color: #b8f0b0;
+}
+
+QLabel#paramsNote {
+    color: #9fbfa5;
+    font-family: "Consolas", "Courier New", "Lucida Console", monospace;
+    font-size: 8pt;
 }
 
 QLabel#modelName {

@@ -113,7 +113,7 @@ def test_passport_without_sections_is_safe(
     tmp_path,
     monkeypatch,
 ) -> None:
-    """Пустой паспорт не ломает разделы и метрики."""
+    """Пустой паспорт не ломает метрики и не рисует пустых плит."""
 
     document = {"passports": {"giperion": {}}}
     path = tmp_path / "passports.json"
@@ -128,4 +128,40 @@ def test_passport_without_sections_is_safe(
 
     assert len(metrics) == 7
     assert all(value == "не измерено" for _, value in metrics)
-    assert passport_sections(get_passport("giperion"))
+    assert passport_sections(get_passport("giperion")) == []
+
+
+def test_external_model_has_catalog_passport() -> None:
+    """У внешней модели есть разделы доступа и функций, но нет качества."""
+
+    passport = get_passport("deepseek-v4.1-flash-free")
+
+    assert passport is not None
+
+    sections = passport_sections(passport)
+    titles = [title for title, _ in sections]
+    rows = {
+        name: value
+        for _, section_rows in sections
+        for name, value in section_rows
+    }
+
+    assert "ПАСПОРТ" in titles
+    assert "ДОСТУП" in titles
+    assert "ФУНКЦИИ" in titles
+    assert "КАЧЕСТВО" not in titles
+    assert rows["Провайдер"] == "OpenCode"
+    assert rows["Контекст"] == "200 000 токенов"
+    assert rows["Изображения"] == "да"
+    assert rows["Видео"] == "нет"
+
+
+def test_every_catalog_model_has_passport() -> None:
+    """Паспорт заполнен для всех моделей каталога."""
+
+    from terminal.core.model_registry import load_models
+
+    catalog_ids = {model["id"] for model in load_models()}
+    passport_ids = set(model_passport.load_passports())
+
+    assert catalog_ids <= passport_ids

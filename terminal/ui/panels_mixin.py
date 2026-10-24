@@ -1,6 +1,6 @@
-# Giperion/app/ui/panels_mixin.py                                   v011
-# Панели окна: подписи, модули, рост ядра, боковые кнопки и голос.
-# Последнее изменение: состав совета из трёх сенаторов.
+# Giperion/terminal/ui/panels_mixin.py                              v012
+# Панели окна: подписи, модули, рост ядра, плита «Система» и голос.
+# Последнее изменение: системные кнопки переехали под открытые чаты.
 
 import random
 
@@ -472,23 +472,27 @@ class PanelsMixin:
 
         return page
 
-    def _build_side_buttons(self) -> None:
-        """Ставит кнопки-пиктограммы под аватаркой."""
+    def _build_side_buttons(self, parent=None) -> QWidget:
+        """Собирает плиту «Система» с кнопками-пиктограммами."""
 
-        panel = self.window.avatarPanel
-        layout = panel.layout()
-
-        if layout is None:
-            return
+        panel = parent or self.window.toolsPanel
 
         container = QWidget(panel)
-        container.setObjectName("sideActionsPanel")
+        container.setObjectName("systemPanel")
         container.setAttribute(Qt.WA_StyledBackground, True)
 
-        row = QHBoxLayout(container)
-        row.setContentsMargins(6, 6, 6, 6)
-        row.setSpacing(8)
-        row.addStretch(1)
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(7, 5, 7, 7)
+        layout.setSpacing(5)
+
+        caption = QLabel("СИСТЕМА", container)
+        caption.setObjectName("systemCaption")
+        caption.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        row = QGridLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        row.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
         self.skills_button = SideIconButton(
             "skills",
@@ -516,16 +520,16 @@ class PanelsMixin:
             container,
         )
 
-        for button in (
+        buttons = (
             self.skills_button,
             self.models_button,
             self.conference_button,
             self.personalities_button,
             self.settings_button,
-        ):
-            row.addWidget(button)
+        )
 
-        row.addStretch(1)
+        for index, button in enumerate(buttons):
+            row.addWidget(button, index // 3, index % 3)
 
         self.skills_button.clicked.connect(
             self.open_skills_dialog
@@ -543,10 +547,13 @@ class PanelsMixin:
             self.open_settings_dialog
         )
 
-        layout.addWidget(container)
-        layout.setStretch(layout.count() - 1, 0)
+        layout.addWidget(caption)
+        layout.addLayout(row)
 
         self.side_actions_panel = container
+        self.system_panel = container
+
+        return container
 
         # Старая текстовая кнопка из .ui больше не нужна.
         self.window.settingsButton.hide()
@@ -771,6 +778,7 @@ class PanelsMixin:
         layout.addWidget(caption)
         layout.addWidget(self.chat_list, 1)
         layout.addWidget(self.new_chat_button)
+        layout.addWidget(self._build_side_buttons(panel))
 
         # Размерный уголок — в самом низу панели.
         grip = FuturisticGrip(panel)

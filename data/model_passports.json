@@ -66,6 +66,1059 @@
         "Уверенность в среднем ниже точности — калибровка пока не настроена.",
         "Ответы внешних моделей в обучение не попадают: это чужая речь."
       ]
+    },
+    "deepseek-v4.1-flash-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · deepseek-v4.1-flash-free",
+        "context_tokens": 200000,
+        "output_tokens": 32000,
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://www.deepseek.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": true,
+        "vision": true,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "glm-5.3-flash-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · glm-5.3-flash-free",
+        "context_tokens": 200000,
+        "output_tokens": 32000,
+        "input": [
+          "text",
+          "image",
+          "video",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://chatglm.cn"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": true,
+        "vision": true,
+        "pdf": true,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "minimax-m3.1-flash-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · minimax-m3.1-flash-free",
+        "context_tokens": 1000000,
+        "output_tokens": 512000,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://www.minimax.io"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "mimo-v2.6-flash-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · mimo-v2.6-flash-free",
+        "context_tokens": 200000,
+        "output_tokens": 32000,
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://github.com/XiaomiMiMo"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": true,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "nemotron-3.5-super-vl-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · nemotron-3.5-super-vl-free",
+        "context_tokens": 1048576,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://build.nvidia.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "nemotron-3.5-lightning-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · nemotron-3.5-lightning-free",
+        "context_tokens": 262144,
+        "output_tokens": 262144,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://build.nvidia.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": true,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "nemotron-3-ultra-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · nemotron-3-ultra-free",
+        "context_tokens": 1000000,
+        "output_tokens": 128000,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна",
+        "url": "https://build.nvidia.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "flint-40b-free": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · flint-40b-free",
+        "context_tokens": 262144,
+        "output_tokens": 65536,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": true,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "big-pickle": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode · big-pickle",
+        "context_tokens": 200000,
+        "output_tokens": 32000,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode",
+        "api": "opencode",
+        "price": "бесплатно",
+        "status": "доступна"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": true,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-deepseek-v4.1-flash": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · deepseek-v4.1-flash",
+        "context_tokens": 1000000,
+        "output_tokens": 384000,
+        "input": [
+          "text",
+          "image"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$80/мес · Go",
+        "status": "доступна",
+        "url": "https://www.deepseek.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-mimo-v2.6-flash": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · mimo-v2.6-flash",
+        "context_tokens": 1048576,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://github.com/XiaomiMiMo"
+      },
+      "features": {
+        "reasoning": false,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": true,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-longcat-2.0": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · longcat-2.0",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://longcat.chat"
+      },
+      "features": {
+        "reasoning": false,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-glm-5.3-flash": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · glm-5.3-flash",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "video",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://chatglm.cn"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": true,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-qwen3.7-plus": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · qwen3.7-plus",
+        "context_tokens": 1000000,
+        "output_tokens": 65536,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://chat.qwen.ai"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-hy3": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · hy3",
+        "context_tokens": 256000,
+        "output_tokens": 128000,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://hunyuan.tencent.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-minimax-m3": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · minimax-m3",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://www.minimax.io"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-kimi-k2.7-code": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · kimi-k2.7-code",
+        "context_tokens": 262144,
+        "output_tokens": 262144,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://www.kimi.com"
+      },
+      "features": {
+        "reasoning": false,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": false
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-glm-5.2": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · glm-5.2",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$60/мес · Go",
+        "status": "доступна",
+        "url": "https://chatglm.cn"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-qwen3.8-flash": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · qwen3.8-flash",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$30/мес · Go",
+        "status": "доступна",
+        "url": "https://chat.qwen.ai"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-hy4-preview": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · hy4-preview",
+        "context_tokens": 1024000,
+        "output_tokens": 64000,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$30/мес · Go",
+        "status": "доступна",
+        "url": "https://hunyuan.tencent.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-minimax-m3.1-flash": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · minimax-m3.1-flash",
+        "context_tokens": 1000000,
+        "output_tokens": 512000,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$20/мес · Go",
+        "status": "доступна",
+        "url": "https://www.minimax.io"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-claude-haiku-5-5": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · claude-haiku-5-5",
+        "context_tokens": 1000000,
+        "output_tokens": 128000,
+        "input": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://www.anthropic.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": true,
+        "video": false,
+        "audio": false,
+        "temperature": false
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-mimo-v2.6-pro": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · mimo-v2.6-pro",
+        "context_tokens": 1048576,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://github.com/XiaomiMiMo"
+      },
+      "features": {
+        "reasoning": false,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": true,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-deepseek-v4-pro": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · deepseek-v4-pro",
+        "context_tokens": 1000000,
+        "output_tokens": 384000,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://www.deepseek.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-step-5-preview": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · step-5-preview",
+        "context_tokens": 1000000,
+        "output_tokens": 65536,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://stepfun.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-glm-5.3": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · glm-5.3",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://chatglm.cn"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-qwen3.8-max": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · qwen3.8-max",
+        "context_tokens": 1000000,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://chat.qwen.ai"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": true
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-kimi-k3.1-pro": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · kimi-k3.1-pro",
+        "context_tokens": 1048576,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://www.kimi.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": false
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
+    },
+    "go-kimi-k3": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "OpenCode Go · kimi-k3",
+        "context_tokens": 1048576,
+        "output_tokens": 131072,
+        "input": [
+          "text",
+          "image",
+          "video"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "access": {
+        "provider": "OpenCode Go",
+        "api": "opencode-go",
+        "price": "$15/мес · Go",
+        "status": "доступна",
+        "url": "https://www.kimi.com"
+      },
+      "features": {
+        "reasoning": true,
+        "tools": true,
+        "structured": false,
+        "vision": true,
+        "pdf": false,
+        "video": true,
+        "audio": false,
+        "temperature": false
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
     }
   }
 }

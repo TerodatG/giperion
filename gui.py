@@ -1,6 +1,6 @@
-# Giperion/gui.py                                                v035
+# Giperion/gui.py                                                v036
 # Оконный ИИ-собеседник Гиперион на PySide6.
-# Последнее изменение: короткий ник активной модели в чате.
+# Последнее изменение: плита «Система» в правой панели.
 
 import sys
 
@@ -198,7 +198,6 @@ class GiperionWindow(
         self._install_personality_backdrop()
         self._build_core_growth()
         self._build_modules_panel()
-        self._build_side_buttons()
         self._add_attachment_button()
         self.clear_button = self._add_clear_button()
         self._apply_chat_font()

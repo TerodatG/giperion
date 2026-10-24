@@ -22,6 +22,7 @@ from giperion.training.tokenizer import (
 )
 from shared.storage.json_store import read_json, write_json
 from terminal.core.model_passport import PASSPORTS_FILE
+from terminal.core.model_registry import load_models
 from tools.eval_intent_model import (
     build_model,
     classify,
@@ -122,6 +123,81 @@ def intents_counts() -> tuple[int, int]:
     )
 
     return len(intents), patterns
+
+
+def fill_catalog_passports(
+    passports: dict,
+    today: str,
+) -> int:
+    """Заполняет паспорта внешних моделей данными каталога."""
+
+    filled = 0
+
+    for model in load_models():
+        if model["id"] == MODEL_ID:
+            continue
+
+        entry = passports.setdefault(model["id"], {})
+        entry["updated"] = today
+        entry["source"] = "каталог моделей"
+
+        capabilities = model.get("capabilities") or {}
+        limits = capabilities.get("limit") or {}
+        modalities = capabilities.get("modalities") or {}
+        inputs = modalities.get("input") or []
+
+        architecture = entry.setdefault("architecture", {})
+        architecture["kind"] = (
+            f"{model['provider']} · "
+            f"{model.get('model_id') or model['id']}"
+        )
+        architecture["context_tokens"] = (
+            model.get("context_limit") or None
+        )
+        architecture["output_tokens"] = limits.get("output") or None
+        architecture["input"] = list(inputs)
+        architecture["output"] = list(
+            modalities.get("output") or []
+        )
+
+        access = entry.setdefault("access", {})
+        access["provider"] = model["provider"]
+        access["api"] = model["api"]
+        access["price"] = model["price"]
+        access["status"] = (
+            "доступна"
+            if model["available"]
+            else "канал не настроен"
+        )
+
+        if model.get("url"):
+            access["url"] = model["url"]
+
+        features = entry.setdefault("features", {})
+        features["reasoning"] = bool(capabilities.get("reasoning"))
+        features["tools"] = bool(capabilities.get("tool_call"))
+        features["structured"] = bool(
+            capabilities.get("structured_output")
+        )
+        features["vision"] = "image" in inputs
+        features["pdf"] = "pdf" in inputs
+        features["video"] = "video" in inputs
+        features["audio"] = "audio" in inputs
+        features["temperature"] = bool(
+            capabilities.get("temperature")
+        )
+
+        notes = entry.setdefault("notes", [])
+
+        if not notes:
+            notes.append(
+                "Паспорт заполнен из каталога моделей: "
+                "качество на нашем наборе не измерялось."
+            )
+
+        filled += 1
+
+    return filled
 
 
 def main() -> None:
@@ -229,6 +305,8 @@ def main() -> None:
     passport["updated"] = today
     document.setdefault("_meta", {})["updated"] = today
 
+    filled = fill_catalog_passports(passports, today)
+
     write_json(PASSPORTS_FILE, document)
 
     print("=== Паспорт обновлён ===")
@@ -236,6 +314,7 @@ def main() -> None:
     print(f"Macro-F1: {quality['macro_f1']}")
     print(f"Параметры: {architecture['classifier_params']} + "
           f"{architecture['generator_params']}")
+    print(f"Паспорта внешних моделей: {filled}")
     print(f"Файл: {PASSPORTS_FILE}")
 
 

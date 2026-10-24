@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v015
+# Giperion/tests/test_gui_smoke.py                                 v016
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: группы шрифта сенаторов.
+# Последнее изменение: системные кнопки в плите «Система».
 
 import copy
 import os
@@ -498,6 +498,22 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
         == "Личностные матрицы"
     )
     assert window.settings_button.toolTip() == "Настройки"
+
+
+def test_system_buttons_live_in_system_panel(window) -> None:
+    """Системные кнопки стоят в плите «Система» под открытыми чатами."""
+
+    assert window.system_panel.objectName() == "systemPanel"
+    assert window.system_panel.parent() is window.window.toolsPanel
+
+    for button in (
+        window.skills_button,
+        window.models_button,
+        window.conference_button,
+        window.personalities_button,
+        window.settings_button,
+    ):
+        assert button.parent() is window.system_panel
 
 
 def test_model_error_goes_to_system_field(window) -> None:

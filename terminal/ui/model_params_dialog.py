@@ -5,6 +5,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialogButtonBox,
+    QFrame,
     QGridLayout,
     QLabel,
     QScrollArea,
@@ -96,24 +97,35 @@ def _add_section(
     title: str,
     rows: list[tuple[str, str]],
 ) -> None:
-    """Добавляет раздел: заголовок и таблицу «параметр — значение»."""
+    """Добавляет раздел: металлическая плита и зелёный экран с текстом."""
 
-    caption = QLabel(title, parent)
-    caption.setObjectName("settingsSection")
+    plate = QFrame(parent)
+    plate.setObjectName("paramsPlate")
 
-    grid = QGridLayout()
-    grid.setContentsMargins(0, 0, 0, 0)
-    grid.setHorizontalSpacing(12)
+    plate_layout = QVBoxLayout(plate)
+    plate_layout.setContentsMargins(16, 10, 16, 14)
+    plate_layout.setSpacing(7)
+
+    caption = QLabel(title, plate)
+    caption.setObjectName("paramsPlateTitle")
+
+    screen = QWidget(plate)
+    screen.setObjectName("paramsScreen")
+    screen.setAttribute(Qt.WA_StyledBackground, True)
+
+    grid = QGridLayout(screen)
+    grid.setContentsMargins(12, 9, 12, 9)
+    grid.setHorizontalSpacing(14)
     grid.setVerticalSpacing(5)
     grid.setColumnStretch(1, 1)
 
     for row_index, (name, value) in enumerate(rows):
-        name_label = QLabel(f"{name}:", parent)
-        name_label.setObjectName("systemName")
+        name_label = QLabel(f"{name}:", screen)
+        name_label.setObjectName("paramsKey")
         name_label.setWordWrap(True)
 
-        value_label = QLabel(str(value), parent)
-        value_label.setObjectName("systemValue")
+        value_label = QLabel(str(value), screen)
+        value_label.setObjectName("paramsValue")
         value_label.setWordWrap(True)
         value_label.setTextInteractionFlags(
             Qt.TextSelectableByMouse
@@ -122,18 +134,57 @@ def _add_section(
         grid.addWidget(name_label, row_index, 0)
         grid.addWidget(value_label, row_index, 1)
 
-    layout.addWidget(caption)
-    layout.addLayout(grid)
+    plate_layout.addWidget(caption)
+    plate_layout.addWidget(screen)
+
+    layout.addWidget(plate)
+
+
+def _add_notes(
+    layout: QVBoxLayout,
+    parent: QWidget,
+    notes: list[str],
+) -> None:
+    """Добавляет плиту с заметками на зелёном экране."""
+
+    plate = QFrame(parent)
+    plate.setObjectName("paramsPlate")
+
+    plate_layout = QVBoxLayout(plate)
+    plate_layout.setContentsMargins(16, 10, 16, 14)
+    plate_layout.setSpacing(7)
+
+    caption = QLabel("ЗАМЕТКИ", plate)
+    caption.setObjectName("paramsPlateTitle")
+
+    screen = QWidget(plate)
+    screen.setObjectName("paramsScreen")
+    screen.setAttribute(Qt.WA_StyledBackground, True)
+
+    screen_layout = QVBoxLayout(screen)
+    screen_layout.setContentsMargins(12, 9, 12, 9)
+    screen_layout.setSpacing(5)
+
+    for note in notes:
+        label = QLabel("• " + note, screen)
+        label.setObjectName("paramsNote")
+        label.setWordWrap(True)
+        screen_layout.addWidget(label)
+
+    plate_layout.addWidget(caption)
+    plate_layout.addWidget(screen)
+
+    layout.addWidget(plate)
 
 
 def build_params_content(parent: QWidget, model: dict) -> QWidget:
     """Собирает прокручиваемое содержимое окна «Параметры ИИ»."""
 
     content = QWidget(parent)
-    content.setObjectName("systemContent")
+    content.setObjectName("paramsContent")
 
     layout = QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setContentsMargins(0, 0, 6, 0)
     layout.setSpacing(12)
 
     passport = get_passport(model["id"])
@@ -145,15 +196,7 @@ def build_params_content(parent: QWidget, model: dict) -> QWidget:
         notes = passport_notes(passport)
 
         if notes:
-            caption = QLabel("ЗАМЕТКИ", content)
-            caption.setObjectName("settingsSection")
-            layout.addWidget(caption)
-
-            for note in notes:
-                label = QLabel("• " + note, content)
-                label.setObjectName("dialogHint")
-                label.setWordWrap(True)
-                layout.addWidget(label)
+            _add_notes(layout, content, notes)
     else:
         for title, rows in _catalog_sections(model):
             _add_section(layout, content, title, rows)
@@ -163,7 +206,7 @@ def build_params_content(parent: QWidget, model: dict) -> QWidget:
             "Известные данные взяты из каталога моделей.",
             content,
         )
-        hint.setObjectName("dialogHint")
+        hint.setObjectName("paramsNote")
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
