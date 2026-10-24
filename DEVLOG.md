@@ -2049,3 +2049,28 @@
   (7 бесплатных + 20 Go), дублей `id` нет.
 - `python -m pytest -q` — **175 passed**.
 
+
+## 2026-10-25 — шаг 1: граница модели и агента
+
+**Выполнено**
+
+- `tests/test_architecture.py` — AST-тест границы: модули модели
+  (`app/language`, `training`, `neural_engine`, `neural_loader`,
+  `identity_matrix`, `personality_catalog`) не имеют права импортировать
+  агента (`app/ui`, `app/skills`, `app/memory`, агентские `app/core/*`).
+  Тест не зависит от переезда папок: после шага 3 он так же проверяет
+  `giperion/`.
+- Единственное нарушение убрано разворотом зависимости:
+  `learning_commands` больше не зовёт `pending_state` напрямую, а принимает
+  callback `pending`; `chat_pipeline.learning_stage` передаёт
+  `set_pending_action`. Модель сообщает о намерении, состояние диалога
+  хранит агент.
+- `app/core/action_log.py` → `shared/action_log.py`: журнал действий нужен
+  и модели (обучение), и агенту (окно), поэтому он общий, а не агентский.
+
+**Проверено**
+
+- `python -m pytest -q` — **180 passed**.
+- `python -m compileall -q gui.py main.py app tests training tools` — ok.
+
+

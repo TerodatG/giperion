@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from app.core import action_log
+from shared import action_log
 
 
 @pytest.fixture

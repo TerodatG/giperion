@@ -2,7 +2,7 @@
 # Исполнение и отмена системных действий, ожидающих подтверждения.
 # Последнее изменение: выделено из system_handler.
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.core.pending_state import (
     clear_pending_action,
     get_pending_action,

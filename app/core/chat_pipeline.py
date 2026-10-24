@@ -14,7 +14,10 @@ from app.core.model_errors import describe_model_error
 from app.core.module_state import is_module_enabled
 from app.core.neural_engine import get_neural_response
 from app.core.opencode_client import OpenCodeError
-from app.core.pending_state import set_pending_clarification
+from app.core.pending_state import (
+    set_pending_action,
+    set_pending_clarification,
+)
 from app.help_handler import get_help_response
 from app.language.intent_handler import (
     find_close_pattern,
@@ -247,7 +250,10 @@ def show_unknown_stage(context: ChatContext) -> StageResult:
 def learning_stage(context: ChatContext) -> StageResult:
     """Обрабатывает команды обучения и управления знаниями."""
 
-    answer = get_learning_response(context.user_message)
+    answer = get_learning_response(
+        context.user_message,
+        pending=set_pending_action,
+    )
 
     if answer:
         return (answer, False)

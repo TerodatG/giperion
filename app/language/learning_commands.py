@@ -3,9 +3,9 @@
 # Последнее изменение: выделено из learning_handler.
 
 import re
+from typing import Callable
 
-from app.core.action_log import add_action
-from app.core.pending_state import set_pending_action
+from shared.action_log import add_action
 from app.language.knowledge_service import (
     get_category_details,
     validate_answer_change,
@@ -58,9 +58,25 @@ SHOW_CATEGORIES_COMMANDS = {
     "список категорий",
 }
 
+# Куда команда обучения отдаёт ожидающее действие. Модель не знает,
+# как агент хранит состояние диалога: она только сообщает о намерении.
+PendingAction = Callable[..., None]
+
+
+def _stage(
+    pending: PendingAction | None,
+    action: str,
+    **params: str,
+) -> None:
+    """Передаёт ожидающее действие агенту, если он его ждёт."""
+
+    if pending is not None:
+        pending(action, **params)
+
 
 def get_learning_response(
     user_message: str,
+    pending: PendingAction | None = None,
 ) -> str | None:
     """Обрабатывает команды обучения и управления категориями."""
 
@@ -120,7 +136,8 @@ def get_learning_response(
         if error:
             return error
 
-        set_pending_action(
+        _stage(
+            pending,
             "create_category",
             category=category,
             phrase=phrase,
@@ -156,7 +173,8 @@ def get_learning_response(
         if error:
             return error
 
-        set_pending_action(
+        _stage(
+            pending,
             "change_category_answer",
             category=category,
             response=response,
@@ -193,7 +211,8 @@ def get_learning_response(
         if error:
             return error
 
-        set_pending_action(
+        _stage(
+            pending,
             "remove_category_phrase",
             category=category,
             phrase=phrase,
@@ -228,7 +247,8 @@ def get_learning_response(
         if error:
             return error
 
-        set_pending_action(
+        _stage(
+            pending,
             "remove_category",
             category=category,
         )

@@ -4,7 +4,7 @@
 
 import re
 
-from app.core.action_log import (
+from shared.action_log import (
     add_action,
     get_recent_actions,
 )

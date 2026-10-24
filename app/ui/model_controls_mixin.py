@@ -4,7 +4,7 @@
 
 from PySide6.QtCore import QTimer
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.core.model_registry import (
     DEFAULT_MODEL_ID,
     get_current_model_id,

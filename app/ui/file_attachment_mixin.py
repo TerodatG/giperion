@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.skills.file_reader import (
     FileReadError,
     TEXT_FILE_FILTER,

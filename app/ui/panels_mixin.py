@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.core.conference_catalog import (
     get_conference_members,
     get_mode,

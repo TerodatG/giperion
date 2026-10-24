@@ -8,7 +8,7 @@ from colorama import (
     just_fix_windows_console,
 )
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.core.character_handler import (
     get_characteristics_response,
 )

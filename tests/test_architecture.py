@@ -1,0 +1,154 @@
+# Giperion/tests/test_architecture.py                               v001
+# Граница между моделью (giperion) и агентом (terminal).
+# Последнее изменение: первый тест — модель не импортирует агента.
+
+import ast
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+# Модель: собственная папка, а до переноса — её будущие модули.
+MODEL_ROOTS = (
+    "giperion",
+    "app/language",
+    "training",
+)
+
+MODEL_FILES = (
+    "app/core/neural_engine.py",
+    "app/core/neural_loader.py",
+    "app/core/identity_matrix.py",
+    "app/core/personality_catalog.py",
+)
+
+# Агентские пакеты и модули: модели туда нельзя.
+FORBIDDEN_PREFIXES = (
+    "terminal",
+    "app.ui",
+    "app.skills",
+    "app.memory",
+    "app.help_handler",
+)
+
+FORBIDDEN_CORE_MODULES = frozenset(
+    {
+        "chat_context",
+        "chat_pipeline",
+        "chatbot",
+        "character_handler",
+        "character_service",
+        "conference",
+        "conference_catalog",
+        "conference_roster",
+        "evolution_service",
+        "helper_model",
+        "model_availability",
+        "model_catalog",
+        "model_custom",
+        "model_engine",
+        "model_errors",
+        "model_files",
+        "model_registry",
+        "model_settings",
+        "model_stats",
+        "module_state",
+        "opencode_client",
+        "pending_state",
+        "session_commands",
+        "system_info",
+        "window_settings",
+    }
+)
+
+
+def model_files() -> list[Path]:
+    """Собирает файлы модели, которые уже существуют в репозитории."""
+
+    files: list[Path] = []
+
+    for root in MODEL_ROOTS:
+        path = ROOT / root
+
+        if path.is_dir():
+            files.extend(
+                file
+                for file in path.rglob("*.py")
+                if "__pycache__" not in file.parts
+            )
+
+    for name in MODEL_FILES:
+        path = ROOT / name
+
+        if path.is_file():
+            files.append(path)
+
+    return files
+
+
+def imported_modules(path: Path) -> list[tuple[str, tuple[str, ...]]]:
+    """Возвращает импорты файла: модуль и импортированные имена."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                found.append((alias.name, ()))
+        elif (
+            isinstance(node, ast.ImportFrom)
+            and node.level == 0
+            and node.module
+        ):
+            names = tuple(alias.name for alias in node.names)
+            found.append((node.module, names))
+
+    return found
+
+
+def forbidden_target(module: str, names: tuple[str, ...]) -> str | None:
+    """Возвращает описание нарушения или None."""
+
+    for prefix in FORBIDDEN_PREFIXES:
+        if module == prefix or module.startswith(prefix + "."):
+            return module
+
+    if module == "app.core":
+        bad = sorted(
+            name for name in names if name in FORBIDDEN_CORE_MODULES
+        )
+
+        if bad:
+            return "app.core." + ", app.core.".join(bad)
+
+    if module.startswith("app.core."):
+        tail = module.split(".", 2)[2].split(".")[0]
+
+        if tail in FORBIDDEN_CORE_MODULES:
+            return module
+
+    return None
+
+
+def test_model_does_not_import_agent() -> None:
+    """Модель не должна знать про интерфейс, память, навыки и агента."""
+
+    files = model_files()
+
+    assert files, "Не найдено ни одного файла модели"
+
+    violations = []
+
+    for path in files:
+        for module, names in imported_modules(path):
+            target = forbidden_target(module, names)
+
+            if target:
+                violations.append(
+                    f"{path.relative_to(ROOT).as_posix()}: {target}"
+                )
+
+    assert not violations, (
+        "Модель импортирует агента (границу нарушать нельзя):\n"
+        + "\n".join(violations)
+    )

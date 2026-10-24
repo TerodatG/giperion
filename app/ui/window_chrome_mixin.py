@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.ui.dialogs_base import SkinDialog
 from app.ui.theme import WINDOW_EDGE_MARGIN
 from app.ui.window_events import WindowCursorFilter

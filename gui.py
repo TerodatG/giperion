@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication
 
-from app.core.action_log import add_action
+from shared.action_log import add_action
 from app.core.conference_catalog import get_conference_members
 from app.core.model_registry import (
     DEFAULT_MODEL_ID,
