@@ -1,8 +1,13 @@
-# Giperion/app/ui/dashboard_mixin.py                                v001
-# Панели состояния: параметры ядра и карточка активной модели.
-# Последнее изменение: методы вынесены из GiperionWindow как отдельный слой.
+# Giperion/terminal/ui/dashboard_mixin.py                            v002
+# Панели состояния: параметры модели ИИ и карточка активной модели.
+# Последнее изменение: левая вкладка «ИИ» показывает паспорт модели.
 
-from terminal.core.character_service import get_characteristics
+from terminal.core.model_passport import (
+    compact_metrics,
+    get_passport,
+    passport_accuracy,
+    passport_level_code,
+)
 from terminal.core.model_registry import (
     DEFAULT_MODEL_ID,
     build_stars,
@@ -13,7 +18,6 @@ from terminal.core.model_registry import (
 from terminal.ui.value_text import (
     format_percent,
     format_tokens,
-    make_progress_bar,
     tokens_word,
 )
 
@@ -39,23 +43,12 @@ CORE_VALUE_LABELS = (
     "label_8",
 )
 
-# Русские подписи строк панели ядра.
-CORE_FIELD_TITLES = {
-    "identifier": "Идентификатор",
-    "core_version": "Версия ядра",
-    "level": "Уровень",
-    "experience": "Опыт",
-    "skills_count": "Активные навыки",
-    "memory_records_count": "Записей памяти",
-    "unknown_messages_count": "Непонятых фраз",
-}
-
 
 class DashboardMixin:
-    """Методы окна для панелей параметров ядра и модели."""
+    """Методы окна для панелей параметров модели и активной модели."""
 
     def update_core_panel(self) -> None:
-        """Обновляет левую панель: параметры ядра или активной модели."""
+        """Обновляет левую панель: паспорт модели или активной внешней."""
 
         model = get_active_model()
 
@@ -64,78 +57,51 @@ class DashboardMixin:
 
             return
 
+        passport = get_passport(DEFAULT_MODEL_ID)
+        metrics = compact_metrics(passport or {})
+
         if hasattr(self, "personality_title"):
-            self.personality_title.setText("Параметры ИИ-ядра")
+            self.personality_title.setText("Параметры ИИ")
 
         if hasattr(self, "led_caption"):
-            self.led_caption.setText("РОСТ ЯДРА")
+            self.led_caption.setText("ТОЧНОСТЬ МОДЕЛИ")
 
-        characteristics = get_characteristics()
+        accuracy = passport_accuracy(passport)
 
-        # Версия ядра видна и на планке заголовка.
-        if hasattr(self, "title_status"):
-            self.title_status.setText(
-                f"ядро v{characteristics['core_version']}"
-            )
-
-        # Шкала роста ядра в панели инструментов.
         if hasattr(self, "led_meter"):
             self.led_meter.set_level(
-                characteristics["level_percent"]
+                round(accuracy * 100)
+                if accuracy is not None
+                else 0
             )
 
-        # Уровень в панели дополняем прогресс-баром роста.
-        bar = make_progress_bar(
-            int(characteristics["level_percent"])
-        )
-
-        display_values = {
-            "identifier": characteristics["identifier"],
-            "core_version": characteristics["core_version"],
-            "level": (
-                f"{characteristics['level_number']} "
-                f"[{bar}] {characteristics['level_percent']}%"
-            ),
-            "experience": self._format_experience(
-                characteristics
-            ),
-            "skills_count": characteristics["skills_count"],
-            "memory_records_count": (
-                characteristics["memory_records_count"]
-            ),
-            "unknown_messages_count": (
-                characteristics["unknown_messages_count"]
-            ),
-        }
-
-        for label_name, field_key in CORE_FIELDS:
-            label = self.window.findChild(
-                object,
-                label_name,
+        if hasattr(self, "title_status") and model is not None:
+            level = passport_level_code(passport)
+            suffix = f" · {level}" if level else ""
+            self.title_status.setText(
+                f"модель: {model['name']}{suffix}"
             )
 
-            if label is None:
-                continue
-
-            label.setText(
-                f"{CORE_FIELD_TITLES[field_key]}:"
-            )
-
-        for value_name, (_, field_key) in zip(
-            CORE_VALUE_LABELS,
+        for (label_name, _), (title, _) in zip(
             CORE_FIELDS,
+            metrics,
+        ):
+            label = self.window.findChild(object, label_name)
+
+            if label is not None:
+                label.setText(f"{title}:")
+
+        for value_name, (_, value) in zip(
+            CORE_VALUE_LABELS,
+            metrics,
         ):
             value_label = self.window.findChild(
                 object,
                 value_name,
             )
 
-            if value_label is None:
-                continue
-
-            value_label.setText(
-                str(display_values[field_key])
-            )
+            if value_label is not None:
+                value_label.setText(str(value))
 
     def _update_model_panel(self, model: dict) -> None:
         """Показывает в левой панели личное дело внешней модели."""
@@ -207,7 +173,10 @@ class DashboardMixin:
                 label.setText(f"{title}:")
 
         for value_name, (_, value) in zip(CORE_VALUE_LABELS, values):
-            value_label = self.window.findChild(object, value_name)
+            value_label = self.window.findChild(
+                object,
+                value_name,
+            )
 
             if value_label is not None:
                 value_label.setText(str(value))
@@ -223,18 +192,3 @@ class DashboardMixin:
 
         if hasattr(self, "title_status"):
             self.title_status.setText(f"модель: {model['name']}")
-
-    @staticmethod
-    def _format_experience(characteristics: dict) -> str:
-        """Показывает общий опыт и его источники в столбик."""
-
-        breakdown = characteristics["breakdown"]
-
-        lines = [
-            f"{characteristics['experience']}",
-            f"навыки: {breakdown['skills']}",
-            f"память: {breakdown['memory']}",
-            f"знания: {breakdown['knowledge']}",
-        ]
-
-        return "\n".join(lines)

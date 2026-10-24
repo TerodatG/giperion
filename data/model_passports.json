@@ -1,0 +1,71 @@
+{
+  "_meta": {
+    "path": "Giperion/data/model_passports.json",
+    "version": "v001",
+    "description": "Паспорта собственных моделей: архитектура, данные, качество, диалог, скорость и динамика. Отсюда окно «Параметры ИИ» и левая панель берут цифры. Обновлять: python -m tools.update_passport (метрики качества и паспорт) либо вручную.",
+    "updated": "2026-10-25"
+  },
+  "passports": {
+    "giperion": {
+      "updated": "2026-10-25",
+      "level": {
+        "code": "L1",
+        "title": "секретарь-стажёр"
+      },
+      "architecture": {
+        "kind": "гибридный word/char-CNN + seq2seq (Bahdanau)",
+        "classifier_params": 691469,
+        "generator_params": 2205108,
+        "size_mb": 11.1,
+        "vocab_words": 2612,
+        "vocab_chars": 82,
+        "context_tokens": 32,
+        "classes": 77
+      },
+      "training": {
+        "intents": 77,
+        "patterns": 1775,
+        "pairs": 11885,
+        "eval_phrases": 154,
+        "eval_usable": 136
+      },
+      "quality": {
+        "accuracy": 0.64,
+        "accuracy_correct": 87,
+        "accuracy_total": 136,
+        "macro_f1": 0.62,
+        "ci": 0.08,
+        "mean_confidence": 0.482,
+        "ece": null,
+        "fallback": 0.248,
+        "noise_accuracy": null,
+        "ood_auroc": null
+      },
+      "dialogue": {
+        "multi_turn": null,
+        "context_utilization": "1–2 реплики",
+        "retention": null
+      },
+      "speed": {
+        "p50_ms": 1.6,
+        "p95_ms": 2.4,
+        "device": "CUDA",
+        "cold_start_s": null,
+        "ram_mb": null,
+        "cost": "0 ₽"
+      },
+      "dynamics": {
+        "data_efficiency": null,
+        "time_to_fix_days": null,
+        "coverage": null,
+        "label_quality": null
+      },
+      "notes": [
+        "Гиперион — секретарь: понимает реплику, относит к намерению и отвечает коротко.",
+        "Контекст 32 токена: модель видит 1–2 короткие реплики, дальше нужен агент.",
+        "Уверенность в среднем ниже точности — калибровка пока не настроена.",
+        "Ответы внешних моделей в обучение не попадают: это чужая речь."
+      ]
+    }
+  }
+}

@@ -48,6 +48,7 @@ from terminal.ui.model_list_widgets import (
     SENATOR_ICON_ROLE,
     ModelListDelegate,
 )
+from terminal.ui.model_params_dialog import show_model_params_dialog
 from terminal.ui.value_text import (
     CAPABILITY_FEATURES,
     build_model_item_text,
@@ -176,6 +177,20 @@ def show_models_dialog(parent, on_activate=None) -> None:
     nick_label = QLabel(card)
     nick_label.setObjectName("modelNickname")
     nick_label.setWordWrap(True)
+
+    params_button = QPushButton("Параметры ИИ", card)
+    params_button.setObjectName("aiParamsButton")
+    params_button.setCursor(Qt.ArrowCursor)
+    params_button.setFocusPolicy(Qt.NoFocus)
+    params_button.setToolTip(
+        "Паспорт модели: архитектура, качество, скорость и динамика."
+    )
+
+    nick_row = QHBoxLayout()
+    nick_row.setContentsMargins(0, 0, 0, 0)
+    nick_row.setSpacing(8)
+    nick_row.addWidget(nick_label, 1)
+    nick_row.addWidget(params_button, 0, Qt.AlignRight)
 
     provider_label = QLabel(card)
     provider_label.setObjectName("modelProvider")
@@ -315,7 +330,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
     reputation_label.setWordWrap(True)
 
     card_layout.addWidget(name_label)
-    card_layout.addWidget(nick_label)
+    card_layout.addLayout(nick_row)
     card_layout.addWidget(provider_label)
     card_layout.addWidget(strengths_caption)
     card_layout.addLayout(identity)
@@ -606,6 +621,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
             widget.setVisible(model is not None)
 
         activate_button.setEnabled(False)
+        params_button.setEnabled(model is not None)
 
         if model is None:
             name_label.setText("Выбери модель")
@@ -879,6 +895,16 @@ def show_models_dialog(parent, on_activate=None) -> None:
         state["conference"] = set(load_conference_ids())
         refresh_list(model["id"])
 
+    def open_params() -> None:
+        """Открывает паспорт выбранной модели."""
+
+        model = selected_model()
+
+        if model is None:
+            return
+
+        show_model_params_dialog(dialog, model)
+
     def open_site() -> None:
         """Открывает сайт модели в браузере."""
 
@@ -918,6 +944,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
     companion_checkbox.toggled.connect(toggle_companion)
     conference_checkbox.toggled.connect(toggle_conference)
     site_button.clicked.connect(open_site)
+    params_button.clicked.connect(open_params)
     api_button.clicked.connect(connect_api)
 
     # Открываем ту закладку, где находится активная модель.

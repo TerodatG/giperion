@@ -773,6 +773,33 @@ QPushButton#addModelButton {
     min-height: 28px;
 }
 
+QPushButton#aiParamsButton {
+    border-image: none;
+    background-color: #10281a;
+    border: 1px solid #23421f;
+    border-radius: 3px;
+    color: #b8f0b0;
+    font-size: 8pt;
+    padding: 4px 10px;
+}
+
+QPushButton#aiParamsButton:hover {
+    background-color: #123d1f;
+    border: 1px solid #5ce07a;
+    color: #eaffea;
+}
+
+QPushButton#aiParamsButton:pressed {
+    background-color: #1d5a2a;
+    border: 1px solid #7cf58f;
+}
+
+QPushButton#aiParamsButton:disabled {
+    background-color: #0b0908;
+    border: 1px solid #251f19;
+    color: #5a4f45;
+}
+
 QLabel#modelName {
     color: #ffb37a;
     font-family: "Bahnschrift SemiBold", "Segoe UI";
