@@ -2,7 +2,7 @@
 # Проверки выбора внешней модели для помощи Гипериону.
 # Последнее изменение: компаньоны, репутация и навык.
 
-from app.core import helper_model
+from terminal.core import helper_model
 
 
 def make_model(

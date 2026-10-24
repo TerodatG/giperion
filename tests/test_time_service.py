@@ -2,12 +2,12 @@
 # Автоматические тесты сервиса времени и даты Giperion.
 # Последнее изменение: обновлены импорты после переноса time_service в пакет skills.
 
-from app.skills.time_service import (
+from terminal.skills.time_service import (
     get_current_date,
     get_current_time,
     get_current_weekday,
 )
-from app.skills.time_handler import get_time_and_date_response
+from terminal.skills.time_handler import get_time_and_date_response
 
 
 def test_current_time_has_hours_and_minutes() -> None:

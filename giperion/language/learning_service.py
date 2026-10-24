@@ -6,7 +6,7 @@ import json
 import re
 
 from shared.text_tools import normalize_message
-from app.storage.json_store import write_json
+from shared.storage.json_store import write_json
 from config import DATA_DIR
 
 INTENTS_FILE = DATA_DIR / "intents.json"

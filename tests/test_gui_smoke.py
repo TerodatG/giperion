@@ -28,7 +28,7 @@ def qapp():
 def reset_pending_state():
     """Не даёт незавершённым действиям переходить между тестами."""
 
-    from app.core import pending_state
+    from terminal.core import pending_state
 
     pending_state.set_state(pending_state.new_state())
 
@@ -42,9 +42,9 @@ def window(qapp, tmp_path, monkeypatch):
     """Создаёт настоящее окно с изолированными настройками."""
 
     import gui
-    from app.core import chat_context
-    from app.core.window_settings import DEFAULT_WINDOW_SETTINGS
-    from app.memory import confirmations, system_commands
+    from terminal.core import chat_context
+    from terminal.core.window_settings import DEFAULT_WINDOW_SETTINGS
+    from terminal.memory import confirmations, system_commands
 
     monkeypatch.setattr(
         chat_context,
@@ -162,7 +162,7 @@ def test_system_messages_go_to_separate_field(window) -> None:
 def test_pending_action_belongs_to_one_chat(window) -> None:
     """Ожидающее подтверждение не переходит в другой чат."""
 
-    from app.core import pending_state
+    from terminal.core import pending_state
 
     window._create_chat(announce=False)
     pending_state.set_pending_action("clear_conversations")
@@ -185,8 +185,8 @@ def test_confirmation_goes_through_system_path(
 ) -> None:
     """«Подтверждаю» выполняется как системная команда, не как реплика."""
 
-    from app.core import pending_state
-    from app.memory import memory
+    from terminal.core import pending_state
+    from terminal.memory import memory
 
     monkeypatch.setattr(
         memory,
@@ -212,8 +212,8 @@ def test_model_activation_updates_speaker(
 ) -> None:
     """Переключение модели меняет имя отвечающего, но не чистит чат."""
 
-    from app.core.model_registry import get_model
-    from app.ui import model_controls_mixin
+    from terminal.core.model_registry import get_model
+    from terminal.ui import model_controls_mixin
 
     monkeypatch.setattr(
         model_controls_mixin,
@@ -243,8 +243,8 @@ def test_model_activation_disables_conference(
 ) -> None:
     """Активация модели выключает конференцию, чтобы отвечала она."""
 
-    from app.core.model_registry import get_model
-    from app.ui import model_controls_mixin
+    from terminal.core.model_registry import get_model
+    from terminal.ui import model_controls_mixin
 
     monkeypatch.setattr(
         model_controls_mixin,
@@ -284,7 +284,7 @@ def test_startup_reconciles_stale_conference(
 ) -> None:
     """Старое состояние «совет включён, модель вне его» исправляется."""
 
-    from app.ui import model_controls_mixin
+    from terminal.ui import model_controls_mixin
 
     monkeypatch.setattr(
         model_controls_mixin,
@@ -326,8 +326,8 @@ def test_new_chat_uses_active_model_name(
 ) -> None:
     """Имя нового чата берётся из активной модели."""
 
-    from app.core.model_registry import get_model
-    from app.ui import chat_sessions_mixin
+    from terminal.core.model_registry import get_model
+    from terminal.ui import chat_sessions_mixin
 
     model = get_model("deepseek-v4.1-flash-free")
 
@@ -345,7 +345,7 @@ def test_new_chat_uses_active_model_name(
 def test_chat_context_is_hidden_and_complete(window) -> None:
     """Выжимка хранит реплики, но не выводится в чат."""
 
-    from app.core import chat_context
+    from terminal.core import chat_context
 
     window.append_user("первый вопрос")
     window.append_bot("первый ответ")
@@ -384,7 +384,7 @@ def test_conference_participants_need_council_mode(
 ) -> None:
     """Параллельный совет работает только при включённом модуле и режиме."""
 
-    from app.ui import answer_mixin
+    from terminal.ui import answer_mixin
 
     monkeypatch.setattr(
         answer_mixin,
@@ -424,11 +424,11 @@ def test_extracted_dialogs_construct(
 ) -> None:
     """Вынесенные окна собираются без показа и не теряют импорты."""
 
-    from app.ui import dialogs_base
-    from app.ui.conference_dialog import show_conference_dialog
-    from app.ui.models_dialog import show_models_dialog
-    from app.ui.personalities_dialog import show_personalities_dialog
-    from app.ui.skills_dialog import show_skills_dialog
+    from terminal.ui import dialogs_base
+    from terminal.ui.conference_dialog import show_conference_dialog
+    from terminal.ui.models_dialog import show_models_dialog
+    from terminal.ui.personalities_dialog import show_personalities_dialog
+    from terminal.ui.skills_dialog import show_skills_dialog
 
     monkeypatch.setattr(
         dialogs_base.SkinDialog,
@@ -543,8 +543,8 @@ def test_conference_falls_back_to_local_core(
 ) -> None:
     """Если все участники ошиблись, отвечает локальный Гиперион."""
 
-    from app.core.conference import ConferenceReply
-    from app.ui import answer_mixin
+    from terminal.core.conference import ConferenceReply
+    from terminal.ui import answer_mixin
 
     saved = []
 
@@ -595,7 +595,7 @@ def test_conference_falls_back_to_local_core(
 def test_external_font_group_has_size_and_color(window) -> None:
     """У группы внешних моделей свой цвет, размер и стиль."""
 
-    from app.ui.theme import EXTERNAL_COLOR
+    from terminal.ui.theme import EXTERNAL_COLOR
 
     window.chat_font_size = 11
     window.font_sizes = {**window.font_sizes, "external": 15}
@@ -614,7 +614,7 @@ def test_senator_font_groups_are_used(window) -> None:
 
     from PySide6.QtGui import QFont
 
-    from app.ui.theme import SENATOR_COLORS
+    from terminal.ui.theme import SENATOR_COLORS
 
     window.chat_font_size = 11
     window.font_sizes = {

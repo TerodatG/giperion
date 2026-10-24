@@ -1,8 +1,8 @@
 # Giperion/tests/test_chat_context.py                              v001
 # Проверки скрытой выжимки чата и запроса внешней модели с историей.
 
-from app.core import chat_context
-from app.core.model_engine import build_external_prompt
+from terminal.core import chat_context
+from terminal.core.model_engine import build_external_prompt
 
 
 def sample_log() -> list:
@@ -120,7 +120,7 @@ def test_external_prompt_forbids_self_intro() -> None:
 def test_model_response_passes_history(monkeypatch) -> None:
     """История доходит до внешней модели через движок."""
 
-    from app.core import model_engine
+    from terminal.core import model_engine
 
     captured = {}
 

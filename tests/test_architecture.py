@@ -7,58 +7,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Модель: собственная папка, а до переноса — её будущие модули.
-MODEL_ROOTS = (
-    "giperion",
-    "app/language",
-    "training",
-)
+# Модель: собственная папка. Раньше здесь были app/language и training —
+# после шага 3 они переехали, старые пути тест больше не сканирует.
+MODEL_ROOTS = ("giperion",)
 
-MODEL_FILES = (
-    "app/core/neural_engine.py",
-    "app/core/neural_loader.py",
-    "app/core/identity_matrix.py",
-    "app/core/personality_catalog.py",
-)
+MODEL_FILES: tuple[str, ...] = ()
 
-# Агентские пакеты и модули: модели туда нельзя.
-FORBIDDEN_PREFIXES = (
-    "terminal",
-    "app.ui",
-    "app.skills",
-    "app.memory",
-    "app.help_handler",
-)
-
-FORBIDDEN_CORE_MODULES = frozenset(
-    {
-        "chat_context",
-        "chat_pipeline",
-        "chatbot",
-        "character_handler",
-        "character_service",
-        "conference",
-        "conference_catalog",
-        "conference_roster",
-        "evolution_service",
-        "helper_model",
-        "model_availability",
-        "model_catalog",
-        "model_custom",
-        "model_engine",
-        "model_errors",
-        "model_files",
-        "model_registry",
-        "model_settings",
-        "model_stats",
-        "module_state",
-        "opencode_client",
-        "pending_state",
-        "session_commands",
-        "system_info",
-        "window_settings",
-    }
-)
+# Агент: модели туда нельзя. Общий слой (shared) модели разрешён.
+FORBIDDEN_PREFIXES = ("terminal",)
 
 
 def model_files() -> list[Path]:
@@ -111,20 +67,6 @@ def forbidden_target(module: str, names: tuple[str, ...]) -> str | None:
 
     for prefix in FORBIDDEN_PREFIXES:
         if module == prefix or module.startswith(prefix + "."):
-            return module
-
-    if module == "app.core":
-        bad = sorted(
-            name for name in names if name in FORBIDDEN_CORE_MODULES
-        )
-
-        if bad:
-            return "app.core." + ", app.core.".join(bad)
-
-    if module.startswith("app.core."):
-        tail = module.split(".", 2)[2].split(".")[0]
-
-        if tail in FORBIDDEN_CORE_MODULES:
             return module
 
     return None

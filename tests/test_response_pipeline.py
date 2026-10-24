@@ -4,11 +4,11 @@
 
 import pytest
 
-from app.core import chatbot, chat_pipeline
-from app.core.chat_pipeline import STAGES
+from terminal.core import chatbot, chat_pipeline
+from terminal.core.chat_pipeline import STAGES
 from giperion.identity_matrix import IDENTITY_MATRIX
 from giperion.language.intent_handler import find_intent_response
-from app.memory import memory, system_handler
+from terminal.memory import memory, system_handler
 from giperion import api
 
 

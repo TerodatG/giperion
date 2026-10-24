@@ -2132,5 +2132,41 @@
   `training.*`, `app.core.neural_*`.
 
 
+## 2026-10-25 — шаг 4: агент в terminal/, общий слой в shared/
+
+**Выполнено**
+
+- Переезд агента через `git mv`:
+  - `app/ui/` → `terminal/ui/`;
+  - `app/skills/` → `terminal/skills/`;
+  - `app/memory/` → `terminal/memory/`;
+  - `app/help_handler.py` → `terminal/core/help_handler.py`;
+  - оставшиеся `app/core/*` → `terminal/core/*`;
+  - `app/storage/` → `shared/storage/`.
+- Пакет `app/` удалён; `gui.py` и `main.py` остались тонкими входами и
+  импортируют `terminal`.
+- Импорты переписаны в 89 файлах: `app.core.*` → `terminal.core.*`,
+  `app.ui.*` → `terminal.ui.*` и так далее.
+- `tests/test_architecture.py` упрощён под новую структуру: модель —
+  `giperion/`, запрещён только импорт `terminal`; `shared` разрешён.
+- README: новая структура, команды обучения `python -m giperion.training.*`.
+- Новый `docs/architecture.md`: границы и направление зависимостей,
+  контракт `giperion.api`, роль Гипериона-секретаря, два scorecard'а
+  (модель и агент), правила безопасности при будущем доступе Терминала к
+  ПК, git-процесс и команда `git subtree split` для выноса модели.
+- Шаг 5 (`model_*` → `provider_*`) осознанно отложен: это переименование
+  функций и тестов, а не границы; зафиксировано в `docs/architecture.md`
+  как следующий отдельный шаг.
+
+**Проверено**
+
+- `python -m pytest -q` — **184 passed**.
+- `python -m compileall -q giperion terminal shared tests tools` — ok.
+- Дымовой прогон: `get_response("привет")` → «Привет! Рад тебя видеть.»;
+  `giperion.api.answer("привет")` → `ModelReply(source="intent", 1.0)`.
+- Поиск по репозиторию не находит импортов `app.*`.
+
+
+
 
 

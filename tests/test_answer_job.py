@@ -1,7 +1,7 @@
 # Giperion/tests/test_answer_job.py                                v001
 # Проверка передачи скрытой истории в фоновый расчёт ответа.
 
-from app.ui import answer_job
+from terminal.ui import answer_job
 
 
 def test_answer_job_passes_context(monkeypatch) -> None:

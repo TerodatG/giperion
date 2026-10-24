@@ -9,30 +9,30 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication
 
 from shared.action_log import add_action
-from app.core.conference_catalog import get_conference_members
-from app.core.model_registry import (
+from terminal.core.conference_catalog import get_conference_members
+from terminal.core.model_registry import (
     DEFAULT_MODEL_ID,
     get_active_model,
     get_current_model_id,
 )
-from app.core.module_state import set_modules
-from app.core.window_settings import (
+from terminal.core.module_state import set_modules
+from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
     DEFAULT_MODULE_STATES,
     DEFAULT_RESPONSE_SETTINGS,
     DEFAULT_STYLES,
     load_window_settings,
 )
-from app.ui.answer_mixin import AnswerMixin
-from app.ui.avatar_mixin import AvatarMixin
-from app.ui.chat_sessions_mixin import ChatSessionsMixin
-from app.ui.dashboard_mixin import DashboardMixin
-from app.ui.file_attachment_mixin import FileAttachmentMixin
-from app.ui.input_mixin import InputMixin
-from app.ui.model_controls_mixin import ModelControlsMixin
-from app.ui.panels_mixin import PanelsMixin
-from app.ui.settings_mixin import SettingsMixin
-from app.ui.theme import (
+from terminal.ui.answer_mixin import AnswerMixin
+from terminal.ui.avatar_mixin import AvatarMixin
+from terminal.ui.chat_sessions_mixin import ChatSessionsMixin
+from terminal.ui.dashboard_mixin import DashboardMixin
+from terminal.ui.file_attachment_mixin import FileAttachmentMixin
+from terminal.ui.input_mixin import InputMixin
+from terminal.ui.model_controls_mixin import ModelControlsMixin
+from terminal.ui.panels_mixin import PanelsMixin
+from terminal.ui.settings_mixin import SettingsMixin
+from terminal.ui.theme import (
     BOT_NAME,
     BOT_NICKNAME,
     DEFAULT_CHAT_FONT_FAMILY,
@@ -41,9 +41,9 @@ from app.ui.theme import (
     THINKING_STEP_MS,
     TYPING_STEP_MS,
 )
-from app.ui.transcript_mixin import TranscriptMixin
-from app.ui.window_chrome_mixin import WindowChromeMixin
-from app.ui.window_style import WINDOW_STYLE
+from terminal.ui.transcript_mixin import TranscriptMixin
+from terminal.ui.window_chrome_mixin import WindowChromeMixin
+from terminal.ui.window_style import WINDOW_STYLE
 from config import BASE_DIR
 
 WINDOW_FILE = BASE_DIR / "main_window.ui"

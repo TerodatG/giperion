@@ -4,7 +4,7 @@
 
 import pytest
 
-from app.skills.file_reader import (
+from terminal.skills.file_reader import (
     FileReadError,
     MAX_TEXT_CHARS,
     read_text_file,

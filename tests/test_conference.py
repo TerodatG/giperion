@@ -2,8 +2,8 @@
 # Проверки параллельного совета моделей.
 # Последнее изменение: три сенатора по репутации.
 
-from app.core import conference, conference_roster
-from app.core.opencode_client import OpenCodeError
+from terminal.core import conference, conference_roster
+from terminal.core.opencode_client import OpenCodeError
 
 
 def test_council_collects_all_replies(monkeypatch) -> None:

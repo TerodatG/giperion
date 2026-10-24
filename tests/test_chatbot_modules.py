@@ -2,8 +2,8 @@
 # Проверки связи модулей «Интернет» и «Помощь моделей» с чатботом.
 # Последнее изменение: заглушки ставятся в этапы chat_pipeline.
 
-from app.core import chatbot, chat_pipeline
-from app.core.opencode_client import OpenCodeError
+from terminal.core import chatbot, chat_pipeline
+from terminal.core.opencode_client import OpenCodeError
 
 
 def test_internet_disabled_is_honest(monkeypatch) -> None:

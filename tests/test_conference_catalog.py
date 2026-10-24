@@ -1,7 +1,7 @@
 # Giperion/tests/test_conference_catalog.py                        v001
 # Проверки трёх режимов конференции и выбранного режима.
 
-from app.core import conference_catalog
+from terminal.core import conference_catalog
 
 
 def test_three_modes_are_available() -> None:

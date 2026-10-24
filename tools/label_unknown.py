@@ -5,8 +5,8 @@
 from giperion.neural_engine import CONFIDENCE_THRESHOLD, _build_engine
 from giperion.language.intent_handler import load_intents
 from shared.text_tools import normalize_message
-from app.memory.memory import get_unknown_messages
-from app.storage.json_store import write_json
+from terminal.memory.memory import get_unknown_messages
+from shared.storage.json_store import write_json
 from config import DATA_DIR
 
 LABELS_FILE = DATA_DIR / "unknown_labels.json"

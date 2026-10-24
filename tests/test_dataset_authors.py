@@ -4,7 +4,7 @@
 
 import json
 
-from app.memory import memory
+from terminal.memory import memory
 from giperion.training import build_dataset
 
 

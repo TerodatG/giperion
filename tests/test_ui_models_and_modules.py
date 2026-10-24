@@ -1,9 +1,9 @@
 # Giperion/tests/test_ui_models_and_modules.py                     v003
 # Проверки названий модулей, умений моделей и конференции.
 
-from app.core.model_registry import get_model
-from app.ui.panels_mixin import MODULE_INFO
-from app.ui.value_text import model_skill_entries
+from terminal.core.model_registry import get_model
+from terminal.ui.panels_mixin import MODULE_INFO
+from terminal.ui.value_text import model_skill_entries
 
 
 def test_module_titles_and_empty_hints() -> None:

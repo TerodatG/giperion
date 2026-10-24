@@ -1,7 +1,7 @@
 # Giperion/tests/test_session_commands.py                          v001
 # Проверки общего разбора команд для консоли и окна.
 
-from app.core.session_commands import (
+from terminal.core.session_commands import (
     extract_system_command,
     is_confirmation_command,
     is_exit_command,
