@@ -19,7 +19,7 @@ from app.core.session_commands import (
     is_confirmation_command,
     is_exit_command,
 )
-from app.language.text_tools import (
+from shared.text_tools import (
     normalize_message,
 )
 from app.memory.memory import add_message

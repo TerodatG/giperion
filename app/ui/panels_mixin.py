@@ -27,7 +27,7 @@ from app.core.conference_roster import (
     MAX_CONFERENCE_MODELS,
     select_conference_models,
 )
-from app.core.identity_matrix import IDENTITY_MATRIX
+from giperion.identity_matrix import IDENTITY_MATRIX
 from app.core.model_registry import (
     get_current_model_id,
     get_model,

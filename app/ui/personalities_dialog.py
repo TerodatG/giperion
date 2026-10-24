@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.personality_catalog import (
+from giperion.personality_catalog import (
     get_selected_personality_id,
     load_personality_matrices,
     set_selected_personality_id,

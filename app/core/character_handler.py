@@ -3,7 +3,7 @@
 # Последнее изменение: добавлены прогресс-бар развития и разбивка опыта.
 
 from app.core.character_service import get_characteristics
-from app.language.vocabulary.phrases import SHOW_CHARACTERISTICS_COMMANDS
+from terminal.core.phrases import SHOW_CHARACTERISTICS_COMMANDS
 
 
 def make_progress_bar(percent: int, width: int = 20) -> str:

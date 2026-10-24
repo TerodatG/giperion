@@ -9,7 +9,7 @@ from app.core.character_handler import (
     get_characteristics_command_response,
 )
 from app.core.helper_model import ask_helper
-from app.core.identity_matrix import IDENTITY_MATRIX
+from giperion.identity_matrix import IDENTITY_MATRIX
 from app.core.model_errors import describe_model_error
 from app.core.module_state import is_module_enabled
 from app.core.opencode_client import OpenCodeError
@@ -18,9 +18,9 @@ from app.core.pending_state import (
     set_pending_clarification,
 )
 from app.help_handler import get_help_response
-from app.language.intent_handler import find_close_pattern
-from app.language.learning_handler import get_learning_response
-from app.language.vocabulary.phrases import (
+from giperion.language.intent_handler import find_close_pattern
+from giperion.language.learning_handler import get_learning_response
+from terminal.core.phrases import (
     CLEAN_LEARNED_MESSAGES_COMMANDS,
     CLEAR_VARIABLES_COMMANDS,
     SHOW_UNKNOWN_MESSAGES_COMMANDS,

@@ -10,7 +10,7 @@ from app.core.evolution_service import (
     get_system_type,
     get_total_experience,
 )
-from app.core.identity_matrix import IDENTITY_MATRIX
+from giperion.identity_matrix import IDENTITY_MATRIX
 from app.memory.memory import (
     get_messages_count,
     get_unknown_messages,

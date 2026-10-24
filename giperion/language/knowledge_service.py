@@ -2,11 +2,11 @@
 # Просмотр и изменение уже выученных категорий Giperion.
 # Последнее изменение: добавлены просмотр, изменение ответа и удаление знаний.
 
-from app.language.learning_service import (
+from giperion.language.learning_service import (
     load_intents_document,
     save_intents_document,
 )
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 
 
 def find_category(

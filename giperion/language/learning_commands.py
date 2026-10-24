@@ -6,19 +6,19 @@ import re
 from typing import Callable
 
 from shared.action_log import add_action
-from app.language.knowledge_service import (
+from giperion.language.knowledge_service import (
     get_category_details,
     validate_answer_change,
     validate_category_removal,
     validate_phrase_removal,
 )
-from app.language.learning_presenter import get_categories_response
-from app.language.learning_service import (
+from giperion.language.learning_presenter import get_categories_response
+from giperion.language.learning_service import (
     add_phrase_to_category,
     get_available_categories,
     validate_new_category,
 )
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 
 TEACH_PHRASE_PATTERN = re.compile(
     r"^научи фразе:\s*(.+?)\s*;\s*"

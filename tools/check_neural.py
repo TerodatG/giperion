@@ -3,7 +3,7 @@
 # Последнее изменение: первый вариант.
 
 from app.core.chatbot import get_response
-from app.core.neural_engine import _build_engine
+from giperion.neural_engine import _build_engine
 
 CASES = [
     "Привет!",

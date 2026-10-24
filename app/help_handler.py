@@ -3,8 +3,8 @@
 # Последнее изменение: справка собирается по разделам — её же показывает
 # окно «Справка» в интерфейсе.
 
-from app.core.identity_matrix import IDENTITY_MATRIX
-from app.language.vocabulary.phrases import HELP_COMMANDS
+from giperion.identity_matrix import IDENTITY_MATRIX
+from terminal.core.phrases import HELP_COMMANDS
 
 
 def get_skill_lines() -> list[str]:

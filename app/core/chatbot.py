@@ -8,7 +8,7 @@ from app.core.pending_state import (
     get_pending_clarification,
     set_pending_clarification,
 )
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 
 YES_ANSWERS = {
     "да",

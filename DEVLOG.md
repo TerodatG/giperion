@@ -2098,4 +2098,39 @@
 - `python -m compileall -q giperion app tests` — ok.
 
 
+## 2026-10-25 — шаг 3: модель переехала в giperion/
+
+**Выполнено**
+
+- Перенесено через `git mv` (история файлов сохраняется):
+  - `app/language/` → `giperion/language/` (намерения, обучение, знания);
+  - `training/` → `giperion/training/` (сборка датасета, токенизаторы,
+    обучение, диагностика);
+  - `app/core/neural_engine.py`, `neural_loader.py`, `identity_matrix.py`,
+    `personality_catalog.py` → `giperion/`.
+- Общий слой вынесен из модели и агента:
+  - `app/language/text_tools.py` → `shared/text_tools.py` (нормализация
+    нужна обоим);
+  - `app/language/vocabulary/phrases.py` → `terminal/core/phrases.py`
+    (это команды агента, а не словарь модели).
+- Импорты во всех 50 файлах переписаны: `app.language.*` →
+  `giperion.language.*`, `training.*` → `giperion.training.*`,
+  `app.core.neural_*` → `giperion.*`.
+- `giperion/api.py` теперь импортирует модель по новым путям; поведение
+  не менялось.
+- Команды в README: `python -m giperion.training.*`. Данные остались на
+  месте (`data/`, `models/`) — переезжал только код, поэтому `.gitignore`
+  и пути настроек трогать не пришлось.
+- Старые записи DEVLOG не переписывались: это история, а актуальные
+  команды — в README и в этой записи.
+
+**Проверено**
+
+- `python -m pytest -q` — **184 passed**.
+- `python -m compileall -q giperion app tests tools shared terminal` — ok.
+- Поиск по репозиторию не находит старых импортов `app.language`,
+  `training.*`, `app.core.neural_*`.
+
+
+
 

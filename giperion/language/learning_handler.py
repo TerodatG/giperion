@@ -2,10 +2,10 @@
 # Совместимый фасад команд обучения и текстов категорий.
 # Последнее изменение: реализация разделена на learning_commands и learning_presenter.
 
-from app.language.learning_commands import (
+from giperion.language.learning_commands import (
     get_learning_response,
 )
-from app.language.learning_presenter import (
+from giperion.language.learning_presenter import (
     CATEGORY_DESCRIPTIONS,
     get_categories_response,
     get_category_description,

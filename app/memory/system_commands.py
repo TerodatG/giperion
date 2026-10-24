@@ -10,7 +10,7 @@ from shared.action_log import (
 )
 from app.core.pending_state import set_pending_action
 from app.help_handler import get_help_response
-from app.language.vocabulary.phrases import (
+from terminal.core.phrases import (
     CLEAR_CONVERSATIONS_COMMANDS,
     CLEAR_UNKNOWN_MESSAGES_COMMANDS,
     CREATE_ARCHIVE_COMMANDS,

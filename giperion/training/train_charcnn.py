@@ -10,15 +10,15 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from config import MODELS_DIR
-from training.build_dataset import CLASSIFICATION_FILE
-from training.char_tokenizer import (
+from giperion.training.build_dataset import CLASSIFICATION_FILE
+from giperion.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
 )
-from training.model_charcnn import HybridTextClassifier
-from training.model_classifier import parameter_count
-from training.tokenizer import WordTokenizer, TOKENIZER_FILE
-from training.train_classifier import (
+from giperion.training.model_charcnn import HybridTextClassifier
+from giperion.training.model_classifier import parameter_count
+from giperion.training.tokenizer import WordTokenizer, TOKENIZER_FILE
+from giperion.training.train_classifier import (
     BATCH_SIZE,
     DEVICE,
     EPOCHS,

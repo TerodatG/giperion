@@ -5,7 +5,7 @@
 import json
 from difflib import get_close_matches
 
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from config import DATA_DIR
 
 INTENTS_FILE = DATA_DIR / "intents.json"

@@ -5,14 +5,14 @@ import json
 
 import torch
 
-from training.build_dataset import CLASSIFICATION_FILE
-from training.model_classifier import TextClassifier
-from training.tokenizer import (
+from giperion.training.build_dataset import CLASSIFICATION_FILE
+from giperion.training.model_classifier import TextClassifier
+from giperion.training.tokenizer import (
     WordTokenizer,
     TOKENIZER_FILE,
     tokenize_text,
 )
-from training.train_classifier import (
+from giperion.training.train_classifier import (
     CHECKPOINT_FILE,
     DEVICE,
     MAX_LEN,

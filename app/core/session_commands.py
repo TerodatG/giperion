@@ -2,8 +2,8 @@
 # Общий разбор команд сеанса для консоли и окна.
 # Последнее изменение: выход, системные команды и подтверждения вынесены из входов.
 
-from app.language.text_tools import normalize_message
-from app.language.vocabulary.phrases import (
+from shared.text_tools import normalize_message
+from terminal.core.phrases import (
     CANCEL_COMMANDS,
     CONFIRM_COMMANDS,
     EXIT_COMMANDS,

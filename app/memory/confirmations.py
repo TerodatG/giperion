@@ -7,13 +7,13 @@ from app.core.pending_state import (
     clear_pending_action,
     get_pending_action,
 )
-from app.language.knowledge_service import (
+from giperion.language.knowledge_service import (
     change_category_answer,
     remove_category,
     remove_phrase,
 )
-from app.language.learning_service import create_category
-from app.language.vocabulary.phrases import (
+from giperion.language.learning_service import create_category
+from terminal.core.phrases import (
     CANCEL_COMMANDS,
     CONFIRM_COMMANDS,
 )

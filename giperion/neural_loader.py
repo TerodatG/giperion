@@ -6,19 +6,19 @@ import json
 
 import torch
 
-from app.core.neural_engine import (
+from giperion.neural_engine import (
     CLASSIFIER_FILE,
     INTENTS_FILE,
     SEQ2SEQ_FILE,
     NeuralEngine,
 )
-from training.char_tokenizer import (
+from giperion.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
 )
-from training.model_charcnn import HybridTextClassifier
-from training.model_seq2seq import Seq2Seq
-from training.tokenizer import TOKENIZER_FILE, WordTokenizer
+from giperion.training.model_charcnn import HybridTextClassifier
+from giperion.training.model_seq2seq import Seq2Seq
+from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 
 def load_responses() -> dict[str, list[str]]:

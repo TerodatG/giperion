@@ -2,7 +2,7 @@
 # Обработка команд времени, даты и дня недели Giperion.
 # Последнее изменение: файл перемещён в пакет skills и обновлены импорты.
 
-from app.language.vocabulary.phrases import (
+from terminal.core.phrases import (
     DATE_PHRASES,
     DAY_PHRASES,
     TIME_PHRASES,

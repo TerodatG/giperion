@@ -10,10 +10,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 from config import MODELS_DIR
-from training.build_dataset import PAIRS_FILE
-from training.model_classifier import parameter_count
-from training.model_seq2seq import Seq2Seq
-from training.tokenizer import WordTokenizer, TOKENIZER_FILE
+from giperion.training.build_dataset import PAIRS_FILE
+from giperion.training.model_classifier import parameter_count
+from giperion.training.model_seq2seq import Seq2Seq
+from giperion.training.tokenizer import WordTokenizer, TOKENIZER_FILE
 
 CHECKPOINT_FILE = MODELS_DIR / "seq2seq.pt"
 

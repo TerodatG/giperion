@@ -4,7 +4,7 @@
 
 import re
 
-from app.language.vocabulary.phrases import PROFILE_QUESTIONS
+from terminal.core.phrases import PROFILE_QUESTIONS
 from app.memory.memory import (
     get_user_name,
     set_user_name,

@@ -7,10 +7,10 @@ import random
 import torch
 
 from config import MODELS_DIR
-from training.char_tokenizer import CharTokenizer
-from training.model_charcnn import HybridTextClassifier
-from training.model_seq2seq import Seq2Seq
-from training.tokenizer import WordTokenizer
+from giperion.training.char_tokenizer import CharTokenizer
+from giperion.training.model_charcnn import HybridTextClassifier
+from giperion.training.model_seq2seq import Seq2Seq
+from giperion.training.tokenizer import WordTokenizer
 
 CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
 SEQ2SEQ_FILE = MODELS_DIR / "seq2seq.pt"
@@ -187,7 +187,7 @@ class NeuralEngine:
 def _build_engine() -> NeuralEngine | None:
     """Собирает движок через загрузчик; при ошибке — None."""
 
-    from app.core.neural_loader import build_engine
+    from giperion.neural_loader import build_engine
 
     return build_engine()
 

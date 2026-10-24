@@ -4,8 +4,8 @@
 
 import math
 
-from app.core.identity_matrix import IDENTITY_MATRIX
-from app.language.learning_service import get_available_categories
+from giperion.identity_matrix import IDENTITY_MATRIX
+from giperion.language.learning_service import get_available_categories
 from app.memory.memory import (
     get_messages_count,
     get_unknown_messages,

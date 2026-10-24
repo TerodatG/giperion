@@ -5,7 +5,7 @@
 import json
 from pathlib import Path
 
-from app.language.learning_service import add_phrase_to_category
+from giperion.language.learning_service import add_phrase_to_category
 from app.memory.memory import remove_unknown_messages
 from config import DATA_DIR
 
@@ -80,11 +80,11 @@ def main() -> None:
     if added:
         print()
         print("Дальше — переобучение:")
-        print("python -m training.build_dataset")
-        print("python -m training.tokenizer")
-        print("python -m training.char_tokenizer")
-        print("python -m training.train_charcnn --full")
-        print("python -m training.train_seq2seq")
+        print("python -m giperion.training.build_dataset")
+        print("python -m giperion.training.tokenizer")
+        print("python -m giperion.training.char_tokenizer")
+        print("python -m giperion.training.train_charcnn --full")
+        print("python -m giperion.training.train_seq2seq")
 
 
 if __name__ == "__main__":

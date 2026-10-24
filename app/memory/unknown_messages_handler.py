@@ -2,7 +2,7 @@
 # Просмотр и очистка списка непонятых фраз Giperion.
 # Последнее изменение: файл перемещён в пакет memory и обновлены импорты.
 
-from app.language.intent_handler import find_intent_response
+from giperion.language.intent_handler import find_intent_response
 from app.memory.memory import (
     get_unknown_messages,
     remove_unknown_messages,

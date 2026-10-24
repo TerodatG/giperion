@@ -7,9 +7,9 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from config import MODELS_DIR
-from training.build_dataset import (
+from giperion.training.build_dataset import (
     CLASSIFICATION_FILE,
     PAIRS_FILE,
 )

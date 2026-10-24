@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.identity_matrix import IDENTITY_MATRIX
+from giperion.identity_matrix import IDENTITY_MATRIX
 from app.core.model_registry import DEFAULT_MODEL_ID, get_active_model
 from app.ui.dialogs_base import SkinDialog
 from app.ui.dialog_text import build_skills_html

@@ -26,7 +26,7 @@ from app.core.session_commands import (
     is_confirmation_command,
     is_exit_command,
 )
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from app.memory.memory import add_message
 from app.ui.answer_job import AnswerJob
 from app.ui.conference_job import ConferenceJob

@@ -93,11 +93,11 @@ python -m pytest -q
 Сборка датасета и обучение:
 
 ```powershell
-python -m training.build_dataset     # classification.json, pairs.json
-python -m training.tokenizer         # models/tokenizer.json
-python -m training.char_tokenizer    # models/char_tokenizer.json
-python -m training.train_charcnn --full   # models/hybrid.pt
-python -m training.train_seq2seq     # models/seq2seq.pt
+python -m giperion.training.build_dataset     # classification.json, pairs.json
+python -m giperion.training.tokenizer         # models/tokenizer.json
+python -m giperion.training.char_tokenizer    # models/char_tokenizer.json
+python -m giperion.training.train_charcnn --full   # models/hybrid.pt
+python -m giperion.training.train_seq2seq     # models/seq2seq.pt
 ```
 
 Цикл дообучения на непонятых фразах:
@@ -105,14 +105,14 @@ python -m training.train_seq2seq     # models/seq2seq.pt
 ```powershell
 python -m tools.label_unknown        # черновик data/unknown_labels.json
 python -m tools.apply_unknown        # проверенная разметка → intents.json
-python -m training.build_dataset
-python -m training.train_charcnn --full
-python -m training.train_seq2seq
+python -m giperion.training.build_dataset
+python -m giperion.training.train_charcnn --full
+python -m giperion.training.train_seq2seq
 ```
 
 `tools/check_neural.py` — быстрый дымовой тест моделей.
 Ответы внешних моделей в обучение не попадают: у сообщений есть поле
-`model`, и `training/build_dataset.py` отбрасывает чужие ответы.
+`model`, и `giperion/training/build_dataset.py` отбрасывает чужие ответы.
 
 ## Структура
 

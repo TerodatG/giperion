@@ -5,7 +5,7 @@
 import json
 import re
 
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from app.storage.json_store import write_json
 from config import DATA_DIR
 

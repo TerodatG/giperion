@@ -5,7 +5,7 @@
 import json
 from pathlib import Path
 
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from config import MODELS_DIR
 
 CHAR_TOKENIZER_FILE = MODELS_DIR / "char_tokenizer.json"
@@ -107,7 +107,7 @@ class CharTokenizer:
 def build_corpus_texts() -> list[str]:
     """Собирает все тексты корпуса: фразы и пары диалога."""
 
-    from training.build_dataset import (
+    from giperion.training.build_dataset import (
         CLASSIFICATION_FILE,
         PAIRS_FILE,
     )

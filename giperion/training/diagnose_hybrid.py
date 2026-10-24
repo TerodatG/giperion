@@ -5,15 +5,15 @@ import json
 
 import torch
 
-from training.build_dataset import CLASSIFICATION_FILE
-from training.char_tokenizer import CharTokenizer
-from training.model_charcnn import HybridTextClassifier
-from training.tokenizer import (
+from giperion.training.build_dataset import CLASSIFICATION_FILE
+from giperion.training.char_tokenizer import CharTokenizer
+from giperion.training.model_charcnn import HybridTextClassifier
+from giperion.training.tokenizer import (
     WordTokenizer,
     TOKENIZER_FILE,
     tokenize_text,
 )
-from training.train_classifier import (
+from giperion.training.train_classifier import (
     DEVICE,
     MAX_LEN,
     split_examples,
