@@ -2074,3 +2074,28 @@
 - `python -m compileall -q gui.py main.py app tests training tools` — ok.
 
 
+## 2026-10-25 — шаг 2: единая точка входа модели
+
+**Выполнено**
+
+- `giperion/api.py` v001 — единственная дверь в модель:
+  `match_intent`, `generate`, `answer` возвращают
+  `ModelReply(text, source, confidence)`. Внутри только намерения и
+  нейросеть: ни поиска, ни команд, ни состояния диалога.
+- `neural_engine`: появились `reply_with_confidence` и
+  `get_neural_reply` — уверенность классификатора больше не теряется по
+  дороге; `reply` и `get_neural_response` остались обёртками для старых
+  вызовов.
+- `chat_pipeline.intent_stage` и `neural_stage` зовут `giperion.api`, а не
+  модули модели напрямую. Поведение этапов не изменилось.
+- Тесты: новый `tests/test_model_api.py` (4 проверки) и обновлённые
+  заглушки в `test_response_pipeline` / `test_chatbot_modules` — теперь они
+  подменяют `match_intent` и `generate_answer`.
+
+**Проверено**
+
+- `python -m pytest -q` — **184 passed**.
+- `python -m compileall -q giperion app tests` — ok.
+
+
+

@@ -152,8 +152,11 @@ class NeuralEngine:
 
         return answer
 
-    def reply(self, message: str) -> str | None:
-        """Ответ нейросети или None — тогда работают правила."""
+    def reply_with_confidence(
+        self,
+        message: str,
+    ) -> tuple[str, float] | None:
+        """Ответ нейросети вместе с уверенностью или None."""
 
         label, confidence = self.classify(message)
 
@@ -169,9 +172,16 @@ class NeuralEngine:
             generated = self.generate(message)
 
             if generated:
-                return generated
+                return generated, confidence
 
-        return random.choice(responses)
+        return random.choice(responses), confidence
+
+    def reply(self, message: str) -> str | None:
+        """Ответ нейросети или None — тогда работают правила."""
+
+        result = self.reply_with_confidence(message)
+
+        return result[0] if result else None
 
 
 def _build_engine() -> NeuralEngine | None:
@@ -195,8 +205,10 @@ def reload_engine() -> None:
     _engine_checked = False
 
 
-def get_neural_response(message: str) -> str | None:
-    """Возвращает нейросетевой ответ или None, если модель молчит."""
+def get_neural_reply(
+    message: str,
+) -> tuple[str, float] | None:
+    """Возвращает ответ нейросети и уверенность или None."""
 
     global _engine, _engine_checked
 
@@ -207,4 +219,12 @@ def get_neural_response(message: str) -> str | None:
     if _engine is None:
         return None
 
-    return _engine.reply(message)
+    return _engine.reply_with_confidence(message)
+
+
+def get_neural_response(message: str) -> str | None:
+    """Возвращает нейросетевой ответ или None, если модель молчит."""
+
+    result = get_neural_reply(message)
+
+    return result[0] if result else None

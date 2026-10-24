@@ -12,17 +12,13 @@ from app.core.helper_model import ask_helper
 from app.core.identity_matrix import IDENTITY_MATRIX
 from app.core.model_errors import describe_model_error
 from app.core.module_state import is_module_enabled
-from app.core.neural_engine import get_neural_response
 from app.core.opencode_client import OpenCodeError
 from app.core.pending_state import (
     set_pending_action,
     set_pending_clarification,
 )
 from app.help_handler import get_help_response
-from app.language.intent_handler import (
-    find_close_pattern,
-    find_intent_response,
-)
+from app.language.intent_handler import find_close_pattern
 from app.language.learning_handler import get_learning_response
 from app.language.vocabulary.phrases import (
     CLEAN_LEARNED_MESSAGES_COMMANDS,
@@ -55,6 +51,8 @@ from app.skills.web_search import (
     format_search_results,
     search_web,
 )
+from giperion.api import generate as generate_answer
+from giperion.api import match_intent
 
 # Вопросы, на которые ядро отвечает собственным самоописанием.
 IDENTITY_PATTERNS = {
@@ -368,10 +366,10 @@ def profile_stage(context: ChatContext) -> StageResult:
 def intent_stage(context: ChatContext) -> StageResult:
     """Берёт точный ответ из intents.json."""
 
-    answer = find_intent_response(context.message)
+    reply = match_intent(context.message)
 
-    if answer:
-        return (answer, True)
+    if reply:
+        return (reply.text, True)
 
     return None
 
@@ -379,10 +377,10 @@ def intent_stage(context: ChatContext) -> StageResult:
 def neural_stage(context: ChatContext) -> StageResult:
     """Отвечает локальной нейросетью, если она уверена."""
 
-    answer = get_neural_response(context.message)
+    reply = generate_answer(context.message)
 
-    if answer:
-        return (answer, True)
+    if reply:
+        return (reply.text, True)
 
     return None
 

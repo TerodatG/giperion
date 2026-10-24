@@ -65,12 +65,12 @@ def test_helper_model_is_called_on_uncertainty(
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         lambda message: None,
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "find_intent_response",
+        "match_intent",
         lambda message: None,
     )
     monkeypatch.setattr(
@@ -101,12 +101,12 @@ def test_helper_model_error_is_shown(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         lambda message: None,
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "find_intent_response",
+        "match_intent",
         lambda message: None,
     )
     monkeypatch.setattr(
