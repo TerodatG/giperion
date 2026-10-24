@@ -2,8 +2,8 @@
 # Проверки связи модулей «Интернет» и «Помощь моделей» с чатботом.
 # Последнее изменение: заглушки ставятся в этапы chat_pipeline.
 
-from app.core import chatbot, chat_pipeline
-from app.core.opencode_client import OpenCodeError
+from terminal.core import chatbot, chat_pipeline
+from terminal.core.opencode_client import OpenCodeError
 
 
 def test_internet_disabled_is_honest(monkeypatch) -> None:
@@ -65,12 +65,12 @@ def test_helper_model_is_called_on_uncertainty(
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         lambda message: None,
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "find_intent_response",
+        "match_intent",
         lambda message: None,
     )
     monkeypatch.setattr(
@@ -101,12 +101,12 @@ def test_helper_model_error_is_shown(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         lambda message: None,
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "find_intent_response",
+        "match_intent",
         lambda message: None,
     )
     monkeypatch.setattr(

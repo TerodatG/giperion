@@ -62,7 +62,7 @@
 | Gemini 4 Argon Contributor | требует разрешить обучение на данных в настройках приватности |
 | LongCat 2.5 Preview Free | отсутствует в `/api/model` |
 
-Те же идентификаторы перечислены в `app/core/model_availability.py`
+Те же идентификаторы перечислены в `terminal/core/model_availability.py`
 (`REGION_BLOCKED_IDS` и `BROKEN_MODEL_IDS`), поэтому `load_models()` не
 покажет их, даже если каталог пересоберут заново.
 

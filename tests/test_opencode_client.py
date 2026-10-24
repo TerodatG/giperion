@@ -4,7 +4,7 @@
 
 import pytest
 
-from app.core.opencode_client import OpenCodeError, extract_answer
+from terminal.core.opencode_client import OpenCodeError, extract_answer
 
 
 def build_messages(*assistants: dict) -> dict:

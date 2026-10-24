@@ -2,7 +2,7 @@
 # Проверки понятных ошибок внешних моделей и локального запасного ответа.
 # Последнее изменение: лимит OpenCode распознаётся и переводится.
 
-from app.core.model_engine import describe_model_error
+from terminal.core.model_engine import describe_model_error
 
 
 def test_quota_error_is_translated() -> None:
@@ -33,8 +33,8 @@ def test_unknown_error_keeps_short_detail() -> None:
 def test_quota_error_stops_history(monkeypatch) -> None:
     """Ошибка лимита не считается ответом модели."""
 
-    from app.core import model_engine
-    from app.core.opencode_client import OpenCodeError
+    from terminal.core import model_engine
+    from terminal.core.opencode_client import OpenCodeError
 
     def broken_ask(model_id, text, provider_id, title):
         raise OpenCodeError(
@@ -81,8 +81,8 @@ def test_helper_limit_is_marked_on_core_response(
 ) -> None:
     """Ошибка модели-помощника помечает ответ ядра, а не тонет в тексте."""
 
-    from app.core import chat_pipeline
-    from app.core.opencode_client import OpenCodeError
+    from terminal.core import chat_pipeline
+    from terminal.core.opencode_client import OpenCodeError
 
     monkeypatch.setattr(
         chat_pipeline,
@@ -122,7 +122,7 @@ def test_helper_limit_is_marked_on_core_response(
 def test_local_model_flags_helper_error(monkeypatch) -> None:
     """Ответ локального ядра с ошибкой помощника идёт в системный лог."""
 
-    from app.core import chat_pipeline, model_engine
+    from terminal.core import chat_pipeline, model_engine
 
     monkeypatch.setattr(
         model_engine,

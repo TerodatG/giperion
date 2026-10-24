@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from app.language.learning_service import add_phrase_to_category
+from giperion.language.learning_service import add_phrase_to_category
 
 
 def main() -> None:

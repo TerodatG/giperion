@@ -3,8 +3,8 @@
 
 import pytest
 
-from app.core import chatbot, pending_state
-from app.memory import confirmations, memory, system_commands, system_handler
+from terminal.core import chatbot, pending_state
+from terminal.memory import confirmations, memory, system_commands, system_handler
 
 
 @pytest.fixture(autouse=True)

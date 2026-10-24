@@ -1,7 +1,7 @@
 # Giperion/tests/test_json_store.py                                v001
 # Проверки общего слоя хранения: чтение, атомарная запись, кириллица.
 
-from app.storage.json_store import read_json, read_json_object, write_json
+from shared.storage.json_store import read_json, read_json_object, write_json
 
 
 def test_missing_file_returns_default(tmp_path) -> None:

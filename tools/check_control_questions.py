@@ -13,7 +13,7 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from train_intent_model import load_training_examples
 
 

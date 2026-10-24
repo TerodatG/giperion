@@ -1,7 +1,7 @@
 # Giperion/tests/test_system_info.py                               v001
 # Проверки сведений о компьютере для закладки «Система».
 
-from app.core.system_info import format_bytes, get_system_info
+from terminal.core.system_info import format_bytes, get_system_info
 
 
 def test_format_bytes() -> None:

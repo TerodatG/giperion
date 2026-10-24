@@ -2049,3 +2049,124 @@
   (7 бесплатных + 20 Go), дублей `id` нет.
 - `python -m pytest -q` — **175 passed**.
 
+
+## 2026-10-25 — шаг 1: граница модели и агента
+
+**Выполнено**
+
+- `tests/test_architecture.py` — AST-тест границы: модули модели
+  (`app/language`, `training`, `neural_engine`, `neural_loader`,
+  `identity_matrix`, `personality_catalog`) не имеют права импортировать
+  агента (`app/ui`, `app/skills`, `app/memory`, агентские `app/core/*`).
+  Тест не зависит от переезда папок: после шага 3 он так же проверяет
+  `giperion/`.
+- Единственное нарушение убрано разворотом зависимости:
+  `learning_commands` больше не зовёт `pending_state` напрямую, а принимает
+  callback `pending`; `chat_pipeline.learning_stage` передаёт
+  `set_pending_action`. Модель сообщает о намерении, состояние диалога
+  хранит агент.
+- `app/core/action_log.py` → `shared/action_log.py`: журнал действий нужен
+  и модели (обучение), и агенту (окно), поэтому он общий, а не агентский.
+
+**Проверено**
+
+- `python -m pytest -q` — **180 passed**.
+- `python -m compileall -q gui.py main.py app tests training tools` — ok.
+
+
+## 2026-10-25 — шаг 2: единая точка входа модели
+
+**Выполнено**
+
+- `giperion/api.py` v001 — единственная дверь в модель:
+  `match_intent`, `generate`, `answer` возвращают
+  `ModelReply(text, source, confidence)`. Внутри только намерения и
+  нейросеть: ни поиска, ни команд, ни состояния диалога.
+- `neural_engine`: появились `reply_with_confidence` и
+  `get_neural_reply` — уверенность классификатора больше не теряется по
+  дороге; `reply` и `get_neural_response` остались обёртками для старых
+  вызовов.
+- `chat_pipeline.intent_stage` и `neural_stage` зовут `giperion.api`, а не
+  модули модели напрямую. Поведение этапов не изменилось.
+- Тесты: новый `tests/test_model_api.py` (4 проверки) и обновлённые
+  заглушки в `test_response_pipeline` / `test_chatbot_modules` — теперь они
+  подменяют `match_intent` и `generate_answer`.
+
+**Проверено**
+
+- `python -m pytest -q` — **184 passed**.
+- `python -m compileall -q giperion app tests` — ok.
+
+
+## 2026-10-25 — шаг 3: модель переехала в giperion/
+
+**Выполнено**
+
+- Перенесено через `git mv` (история файлов сохраняется):
+  - `app/language/` → `giperion/language/` (намерения, обучение, знания);
+  - `training/` → `giperion/training/` (сборка датасета, токенизаторы,
+    обучение, диагностика);
+  - `app/core/neural_engine.py`, `neural_loader.py`, `identity_matrix.py`,
+    `personality_catalog.py` → `giperion/`.
+- Общий слой вынесен из модели и агента:
+  - `app/language/text_tools.py` → `shared/text_tools.py` (нормализация
+    нужна обоим);
+  - `app/language/vocabulary/phrases.py` → `terminal/core/phrases.py`
+    (это команды агента, а не словарь модели).
+- Импорты во всех 50 файлах переписаны: `app.language.*` →
+  `giperion.language.*`, `training.*` → `giperion.training.*`,
+  `app.core.neural_*` → `giperion.*`.
+- `giperion/api.py` теперь импортирует модель по новым путям; поведение
+  не менялось.
+- Команды в README: `python -m giperion.training.*`. Данные остались на
+  месте (`data/`, `models/`) — переезжал только код, поэтому `.gitignore`
+  и пути настроек трогать не пришлось.
+- Старые записи DEVLOG не переписывались: это история, а актуальные
+  команды — в README и в этой записи.
+
+**Проверено**
+
+- `python -m pytest -q` — **184 passed**.
+- `python -m compileall -q giperion app tests tools shared terminal` — ok.
+- Поиск по репозиторию не находит старых импортов `app.language`,
+  `training.*`, `app.core.neural_*`.
+
+
+## 2026-10-25 — шаг 4: агент в terminal/, общий слой в shared/
+
+**Выполнено**
+
+- Переезд агента через `git mv`:
+  - `app/ui/` → `terminal/ui/`;
+  - `app/skills/` → `terminal/skills/`;
+  - `app/memory/` → `terminal/memory/`;
+  - `app/help_handler.py` → `terminal/core/help_handler.py`;
+  - оставшиеся `app/core/*` → `terminal/core/*`;
+  - `app/storage/` → `shared/storage/`.
+- Пакет `app/` удалён; `gui.py` и `main.py` остались тонкими входами и
+  импортируют `terminal`.
+- Импорты переписаны в 89 файлах: `app.core.*` → `terminal.core.*`,
+  `app.ui.*` → `terminal.ui.*` и так далее.
+- `tests/test_architecture.py` упрощён под новую структуру: модель —
+  `giperion/`, запрещён только импорт `terminal`; `shared` разрешён.
+- README: новая структура, команды обучения `python -m giperion.training.*`.
+- Новый `docs/architecture.md`: границы и направление зависимостей,
+  контракт `giperion.api`, роль Гипериона-секретаря, два scorecard'а
+  (модель и агент), правила безопасности при будущем доступе Терминала к
+  ПК, git-процесс и команда `git subtree split` для выноса модели.
+- Шаг 5 (`model_*` → `provider_*`) осознанно отложен: это переименование
+  функций и тестов, а не границы; зафиксировано в `docs/architecture.md`
+  как следующий отдельный шаг.
+
+**Проверено**
+
+- `python -m pytest -q` — **184 passed**.
+- `python -m compileall -q giperion terminal shared tests tools` — ok.
+- Дымовой прогон: `get_response("привет")` → «Привет! Рад тебя видеть.»;
+  `giperion.api.answer("привет")` → `ModelReply(source="intent", 1.0)`.
+- Поиск по репозиторию не находит импортов `app.*`.
+
+
+
+
+

@@ -4,7 +4,7 @@
 
 import pytest
 
-from app.skills.calculator import calculate_expression
+from terminal.skills.calculator import calculate_expression
 
 
 def test_calculate_addition() -> None:

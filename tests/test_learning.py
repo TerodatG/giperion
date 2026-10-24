@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from app.core import action_log
-from app.core.chatbot import get_response
-from app.language import (
+from shared import action_log
+from terminal.core.chatbot import get_response
+from giperion.language import (
     intent_handler,
     learning_service,
 )

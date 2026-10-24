@@ -8,21 +8,21 @@ from colorama import (
     just_fix_windows_console,
 )
 
-from app.core.action_log import add_action
-from app.core.character_handler import (
+from shared.action_log import add_action
+from terminal.core.character_handler import (
     get_characteristics_response,
 )
-from app.core.chatbot import get_response
-from app.core.pending_state import has_pending_action
-from app.core.session_commands import (
+from terminal.core.chatbot import get_response
+from terminal.core.pending_state import has_pending_action
+from terminal.core.session_commands import (
     extract_system_command,
     is_confirmation_command,
     is_exit_command,
 )
-from app.language.text_tools import (
+from shared.text_tools import (
     normalize_message,
 )
-from app.memory.memory import add_message
+from terminal.memory.memory import add_message
 
 
 BOT_NAME = "Гиперион"

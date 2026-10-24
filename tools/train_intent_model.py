@@ -22,7 +22,7 @@ from sklearn.svm import LinearSVC
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from app.language.text_tools import normalize_message
+from shared.text_tools import normalize_message
 from config import DATA_DIR
 
 

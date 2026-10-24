@@ -2,7 +2,7 @@
 # Проверки сохранения настроек окна, стилей и состояний модулей.
 # Последнее изменение: группы шрифта трёх сенаторов.
 
-from app.core.window_settings import (
+from terminal.core.window_settings import (
     DEFAULT_MODULE_STATES,
     DEFAULT_RESPONSE_SETTINGS,
     DEFAULT_STYLES,

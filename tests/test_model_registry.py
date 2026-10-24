@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from app.core import model_files, model_registry
+from terminal.core import model_files, model_registry
 
 
 @pytest.fixture

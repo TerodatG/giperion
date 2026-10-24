@@ -4,7 +4,7 @@
 
 import base64
 
-from app.skills.web_search import (
+from terminal.skills.web_search import (
     extract_search_query,
     format_search_results,
     parse_bing_results,

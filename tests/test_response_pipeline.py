@@ -4,11 +4,12 @@
 
 import pytest
 
-from app.core import chatbot, chat_pipeline
-from app.core.chat_pipeline import STAGES
-from app.core.identity_matrix import IDENTITY_MATRIX
-from app.language.intent_handler import find_intent_response
-from app.memory import memory, system_handler
+from terminal.core import chatbot, chat_pipeline
+from terminal.core.chat_pipeline import STAGES
+from giperion.identity_matrix import IDENTITY_MATRIX
+from giperion.language.intent_handler import find_intent_response
+from terminal.memory import memory, system_handler
+from giperion import api
 
 
 @pytest.fixture()
@@ -32,7 +33,7 @@ def isolated_chatbot(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         lambda text: None,
     )
     monkeypatch.setattr(chat_pipeline, "ask_helper", lambda text: None)
@@ -124,11 +125,11 @@ def test_identity_wins_over_neural(
     def fake_neural(text):
         calls.append(text)
 
-        return "нейросетевой ответ"
+        return api.ModelReply("нейросетевой ответ", "neural", 0.9)
 
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         fake_neural,
     )
 
@@ -151,11 +152,11 @@ def test_exact_intent_wins_over_neural(
     def fake_neural(text):
         calls.append(text)
 
-        return "нейросетевой ответ"
+        return api.ModelReply("нейросетевой ответ", "neural", 0.9)
 
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         fake_neural,
     )
 
@@ -178,7 +179,7 @@ def test_system_mode_does_not_call_neural(
 
     monkeypatch.setattr(
         chat_pipeline,
-        "get_neural_response",
+        "generate_answer",
         fake_neural,
     )
 

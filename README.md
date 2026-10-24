@@ -93,11 +93,11 @@ python -m pytest -q
 Сборка датасета и обучение:
 
 ```powershell
-python -m training.build_dataset     # classification.json, pairs.json
-python -m training.tokenizer         # models/tokenizer.json
-python -m training.char_tokenizer    # models/char_tokenizer.json
-python -m training.train_charcnn --full   # models/hybrid.pt
-python -m training.train_seq2seq     # models/seq2seq.pt
+python -m giperion.training.build_dataset     # classification.json, pairs.json
+python -m giperion.training.tokenizer         # models/tokenizer.json
+python -m giperion.training.char_tokenizer    # models/char_tokenizer.json
+python -m giperion.training.train_charcnn --full   # models/hybrid.pt
+python -m giperion.training.train_seq2seq     # models/seq2seq.pt
 ```
 
 Цикл дообучения на непонятых фразах:
@@ -105,48 +105,57 @@ python -m training.train_seq2seq     # models/seq2seq.pt
 ```powershell
 python -m tools.label_unknown        # черновик data/unknown_labels.json
 python -m tools.apply_unknown        # проверенная разметка → intents.json
-python -m training.build_dataset
-python -m training.train_charcnn --full
-python -m training.train_seq2seq
+python -m giperion.training.build_dataset
+python -m giperion.training.train_charcnn --full
+python -m giperion.training.train_seq2seq
 ```
 
 `tools/check_neural.py` — быстрый дымовой тест моделей.
 Ответы внешних моделей в обучение не попадают: у сообщений есть поле
-`model`, и `training/build_dataset.py` отбрасывает чужие ответы.
+`model`, и `giperion/training/build_dataset.py` отбрасывает чужие ответы.
 
 ## Структура
 
 ```
-app/
-  core/        маршрутизация ответов, модели, состояние диалога, эволюция
-  language/    намерения, обучение фразам, нормализация текста
-  memory/      история, профиль, архивы, системные подтверждения
+giperion/      модель: понимает реплику и отвечает
+  api.py       единственная точка входа: match_intent, generate, answer
+  language/    намерения, обучение фразам, знания
+  training/    датасет, токенизаторы, тренеры, диагностика
+  neural_engine.py, neural_loader.py   инференс и загрузка чекпоинтов
+  identity_matrix.py, personality_catalog.py   характер и личности
+terminal/      агент: интерфейс, память, навыки, оркестрация
+  core/        chat_pipeline, chatbot, провайдеры моделей, конференция
+  memory/      история, профиль, архивы, подтверждения
   skills/      калькулятор, время, чтение файлов, поиск в интернете
-  storage/     единое чтение и атомарная запись JSON
   ui/          окно и его слои: виджеты, диалоги, аватар, транскрипт, чаты
-gui.py         тонкий вход: собирает окно из app/ui
+shared/        общий слой: json_store, action_log, text_tools
+gui.py         тонкий вход: собирает окно из terminal/ui
 main.py        консольный вход
-training/      свои модели и тренеры
 tools/         разметка, миграции данных, генерация ассетов, оценка
-tests/         pytest
+tests/         pytest, включая test_architecture.py
 data/          данные и настройки
 models/        чекпоинты и токенизаторы
 ```
+
+Граница направленная: `terminal` может импортировать `giperion` и `shared`,
+`giperion` — только `shared`, а `giperion` не знает про `terminal` вовсе.
+Это проверяет `tests/test_architecture.py`. Подробнее о границе, метриках и
+плане выноса модели в отдельный репозиторий — `docs/architecture.md`.
 
 Крупные домены разделены на модули: каталог моделей
 (`model_catalog`/`model_settings`/`model_custom`/`model_stats`), системные
 команды (`system_commands`/`confirmations`), обучение
 (`learning_commands`/`learning_presenter`), поиск (`skills/search/`) и
 загрузка нейросети (`neural_loader`). Маршрутизация ответа собрана в
-`app/core/chat_pipeline.py` (`STAGES`), а `chatbot.py` остаётся тонким
+`terminal/core/chat_pipeline.py` (`STAGES`), а `chatbot.py` остаётся тонким
 оркестратором. Исторические имена
 `model_registry`, `system_handler`, `learning_handler` и `web_search`
 оставлены фасадами для совместимости импортов; `neural_engine` сохраняет
 класс движка, пороги уверенности и кэш моделей.
 
 Данные и настройки хранятся в JSON. Запись идёт через
-`app/storage/json_store.py`: сначала временный файл, затем атомарная замена,
-поэтому сбой посреди сохранения не портит прежние данные.
+`shared/storage/json_store.py`: сначала временный файл, затем атомарная
+замена, поэтому сбой посреди сохранения не портит прежние данные.
 
 ## Настройки
 

@@ -2,7 +2,7 @@
 # Автоматические тесты диалоговой логики Giperion.
 # Последнее изменение: самоописание при обращении по имени.
 
-from app.core.chatbot import get_response
+from terminal.core.chatbot import get_response
 
 
 def test_empty_message_returns_warning() -> None:
