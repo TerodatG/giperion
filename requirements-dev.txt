@@ -1,0 +1,6 @@
+# Giperion/requirements-dev.txt                                   v001
+# Зависимости для разработки и проверки проекта.
+
+-r requirements.txt
+
+pytest>=8,<10

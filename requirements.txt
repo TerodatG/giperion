@@ -1,0 +1,15 @@
+# Giperion/requirements.txt                                       v002
+# Базовые зависимости приложения и инструментов оценки.
+#
+# CUDA-сборку PyTorch ставьте отдельной командой под свою видеокарту,
+# например для RTX 5080 (Blackwell) и CUDA 12.8:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+# После этого обычный pip install -r requirements.txt увидит готовый torch.
+
+torch>=2.9,<3
+PySide6>=6.8,<7
+numpy>=2.0,<3
+colorama>=0.4.6,<1
+
+# Нужен только для офлайн-инструментов оценки и сравнения фраз в tools/.
+scikit-learn>=1.6,<2

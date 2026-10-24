@@ -1,0 +1,39 @@
+# Giperion/.gitignore                                             v001
+# Что не должно попадать в репозиторий при инициализации git.
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Веса моделей (восстанавливаются обучением) ---
+models/*.pt
+
+# --- Рабочие журналы и скриншоты ---
+logs/
+
+# --- Личные архивы памяти ---
+archive/
+
+# --- Пользовательские и изменяемые данные ---
+data/conversations.json
+data/conversations_before_model_tags.json
+data/unknown_messages.json
+data/unknown_labels.json
+data/user_profile.json
+data/model_stats.json
+data/model_settings.json
+data/conference_settings.json
+data/custom_models.json
+data/window_settings.json
+data/personality_settings.json
+data/dataset/
+data/chat_contexts/
+
+# --- Временные файлы атомарной записи ---
+*.tmp
+.intents_*.tmp
+.*.tmp
