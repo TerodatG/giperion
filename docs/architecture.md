@@ -88,7 +88,7 @@ if reply is None:
 - Перемещения файлов — только через `git mv`, чтобы работал
   `git log --follow`.
 - Один коммит = один шаг: тег `v0.9-baseline`, `v0.9.1-boundary`,
-  `v0.10-model-api`, `v0.11-model`, `v0.12-terminal`.
+  `v0.10-model-api`, `v0.11-model`, `v0.12-terminal`, `v0.13-split`.
 
 ## Как потом развести на два репозитория
 
