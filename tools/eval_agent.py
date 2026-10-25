@@ -5,6 +5,7 @@
 import argparse
 import json
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,8 @@ OUTPUT_DIR = DATA_DIR / "agent_eval"
 LATEST = OUTPUT_DIR / "latest.json"
 
 Check = Callable[[Path, str], tuple[bool, str]]
+Inspect = Callable[[Path, object], tuple[bool, str]]
+Prepare = Callable[[Path], object]
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,10 @@ class EvalTask:
     max_steps: int = 8
     slow: bool = False
     notes: str = ""
+    # Проверка по всему результату (шаги, ответ), а не только по тексту.
+    inspect: Inspect | None = None
+    # Контекст, который включается на время прогона (сеть, MCP-стаб).
+    prepare: Prepare | None = None
 
 
 def _text(path: Path) -> str:
@@ -133,6 +140,180 @@ def tests_passed() -> Check:
 
 def _setup_note(root: Path) -> None:
     (root / "eval_note.md").write_text("# Заметка\n", encoding="utf-8")
+
+
+MCP_STUB = '''
+import json
+import sys
+
+
+def send(message):
+    sys.stdout.write(json.dumps(message, ensure_ascii=False) + "\\n")
+    sys.stdout.flush()
+
+
+for line in sys.stdin:
+    line = line.strip()
+
+    if not line:
+        continue
+
+    message = json.loads(line)
+    method = message.get("method")
+    request_id = message.get("id")
+
+    if method == "initialize":
+        send({"jsonrpc": "2.0", "id": request_id, "result": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "stub", "version": "1"},
+        }})
+    elif method == "notifications/initialized":
+        continue
+    elif method == "tools/list":
+        send({"jsonrpc": "2.0", "id": request_id, "result": {"tools": [{
+            "name": "echo",
+            "description": "Вернуть текст обратно",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "текст"},
+                },
+                "required": ["text"],
+            },
+            "annotations": {"readOnlyHint": True},
+        }]}})
+    elif method == "tools/call":
+        params = message.get("params") or {}
+        arguments = params.get("arguments") or {}
+        text = str(arguments.get("text", ""))
+        send({"jsonrpc": "2.0", "id": request_id, "result": {
+            "content": [{"type": "text", "text": "эхо: " + text}],
+        }})
+'''
+
+
+def _web_prepare(word: str):
+    """Подменяет сеть на одну страницу с секретным словом."""
+
+    def prepare(folder: Path):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def context():
+            from terminal.core.agent import settings, web
+
+            old_enabled = settings.browser_enabled
+            old_get = web.HTTP_GET
+            old_public = web.is_public_host
+
+            settings.browser_enabled = lambda: True
+            web.HTTP_GET = lambda url: (
+                url,
+                "text/html; charset=utf-8",
+                (
+                    "<html><body><h1>Страница</h1>"
+                    f"<p>секретное слово: {word}</p></body></html>"
+                ).encode("utf-8"),
+            )
+            web.is_public_host = lambda host: True
+
+            try:
+                yield
+            finally:
+                settings.browser_enabled = old_enabled
+                web.HTTP_GET = old_get
+                web.is_public_host = old_public
+
+        return context()
+
+    return prepare
+
+
+def _mcp_prepare():
+    """Поднимает локальный MCP-стаб на время задачи."""
+
+    def prepare(folder: Path):
+        from contextlib import contextmanager
+        import sys
+
+        from terminal.core.agent import mcp, settings
+
+        server = folder / "mcp_stub_server.py"
+        server.write_text(MCP_STUB, encoding="utf-8")
+
+        config = folder / "mcp_stub.json"
+        config.write_text(
+            json.dumps(
+                {
+                    "servers": [
+                        {
+                            "name": "stub",
+                            "command": sys.executable,
+                            "args": [str(server)],
+                            "enabled": True,
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        @contextmanager
+        def context():
+            old_file = mcp.CONFIG_FILE
+            old_enabled = settings.mcp_enabled
+            mcp.CONFIG_FILE = config
+            settings.mcp_enabled = lambda: True
+            mcp.reload_mcp()
+
+            try:
+                yield
+            finally:
+                mcp.CONFIG_FILE = old_file
+                settings.mcp_enabled = old_enabled
+                mcp.reload_mcp()
+
+        return context()
+
+    return prepare
+
+
+def _plan_inspect(folder: Path, result) -> tuple[bool, str]:
+    """Проверяет, что модель составила план и нашла файл."""
+
+    plans = [step for step in result.steps if step.kind == "plan"]
+    items = plans[-1].detail.count("\n") + 1 if plans else 0
+    answer_ok = "context.py" in str(result.answer)
+
+    if items >= 3 and answer_ok:
+        return True, "план из трёх пунктов и context.py"
+
+    return (
+        False,
+        f"план: {items} пунктов, ответ: "
+        f"{'есть' if answer_ok else 'нет'} context.py",
+    )
+
+
+def _subagents_inspect(folder: Path, result) -> tuple[bool, str]:
+    """Проверяет шаг с двумя подагентами и оба файла в ответе."""
+
+    steps = [step for step in result.steps if step.kind == "subagent"]
+    parallel = any("Подагенты · 2" in step.title for step in steps)
+
+    answer = str(result.answer).casefold()
+    both = "providers.py" in answer and "budget.py" in answer
+
+    if parallel and both:
+        return True, "два подагента и оба файла"
+
+    return (
+        False,
+        f"подагенты: {'да' if parallel else 'нет'}, "
+        f"файлы: {'оба' if both else 'не все'}",
+    )
 
 
 TASKS = (
@@ -272,6 +453,67 @@ TASKS = (
         ),
         max_steps=5,
     ),
+    EvalTask(
+        "symbol-nativebrain",
+        "Символ через индекс",
+        "Где объявлен класс NativeBrain? Используй find_symbol и назови файл.",
+        answer_has("providers.py"),
+        max_steps=5,
+    ),
+    EvalTask(
+        "symbol-budget",
+        "Символ BudgetLimits",
+        "Найди класс BudgetLimits через find_symbol и назови файл.",
+        answer_has("budget.py"),
+        max_steps=5,
+    ),
+    EvalTask(
+        "plan-max-prompt",
+        "План и поиск",
+        "Составь план из трёх пунктов через update_plan, затем найди, "
+        "где задан MAX_PROMPT, и назови файл.",
+        answer_has("context.py"),
+        max_steps=7,
+        inspect=_plan_inspect,
+    ),
+    EvalTask(
+        "subagents-two-files",
+        "Два подагента",
+        "Через ask_subagent с tasks выполни два поиска: где объявлен "
+        "NativeBrain и где BudgetLimits. В ответе назови оба файла.",
+        answer_has("providers.py"),
+        max_steps=6,
+        inspect=_subagents_inspect,
+    ),
+    EvalTask(
+        "mcp-echo",
+        "MCP-инструмент",
+        "Вызови MCP-инструмент echo с текстом «проверка» и назови "
+        "ответ, который он вернул.",
+        lambda root, answer: (
+            "эхо" in str(answer).casefold()
+            and "проверка" in str(answer).casefold(),
+            "эхо названо"
+            if "эхо" in str(answer).casefold()
+            else "ответа эхо нет",
+        ),
+        max_steps=6,
+        prepare=_mcp_prepare(),
+    ),
+    EvalTask(
+        "web-fetch-word",
+        "Страница по URL",
+        "Прочитай страницу https://example.com/secret через fetch_url "
+        "и назови секретное слово с неё.",
+        lambda root, answer: (
+            "кипарис" in str(answer).casefold(),
+            "слово найдено"
+            if "кипарис" in str(answer).casefold()
+            else "слово не названо",
+        ),
+        max_steps=6,
+        prepare=_web_prepare("кипарис"),
+    ),
 )
 
 
@@ -347,18 +589,29 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
         before_tokens = int(getattr(brain, "total_tokens", 0) or 0)
         before_cost = float(getattr(brain, "cost", 0.0) or 0.0)
 
-        result = run_agent(
-            task.task,
-            brain,
-            folder,
-            max_steps=task.max_steps,
-            ground_first=True,
-            approve=lambda request: approvals.append(request) or True,
-            max_prompt_chars=context_limit_chars(),
+        context = (
+            task.prepare(folder)
+            if task.prepare is not None
+            else nullcontext()
         )
 
+        with context:
+            result = run_agent(
+                task.task,
+                brain,
+                folder,
+                max_steps=task.max_steps,
+                ground_first=True,
+                approve=lambda request: approvals.append(request) or True,
+                max_prompt_chars=context_limit_chars(),
+            )
+
         duration = time.monotonic() - started
-        ok, note = task.check(folder, result.answer)
+
+        if task.inspect is not None:
+            ok, note = task.inspect(folder, result)
+        else:
+            ok, note = task.check(folder, result.answer)
         tokens = int(getattr(brain, "total_tokens", 0) or 0) - before_tokens
         cost = float(getattr(brain, "cost", 0.0) or 0.0) - before_cost
 
@@ -697,14 +950,16 @@ def main() -> None:
 
             if args.max_steps:
                 current = EvalTask(
-                    task.id,
-                    task.title,
-                    task.task,
-                    task.check,
-                    task.setup,
-                    args.max_steps,
-                    task.slow,
-                    task.notes,
+                    id=task.id,
+                    title=task.title,
+                    task=task.task,
+                    check=task.check,
+                    setup=task.setup,
+                    max_steps=args.max_steps,
+                    slow=task.slow,
+                    notes=task.notes,
+                    inspect=task.inspect,
+                    prepare=task.prepare,
                 )
 
             try:

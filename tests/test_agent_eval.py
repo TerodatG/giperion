@@ -251,6 +251,168 @@ def test_run_task_in_stub_worktree(tmp_path, monkeypatch) -> None:
     assert result["context_chars"] > 0
 
 
+def test_web_prepare_patches_and_restores(tmp_path) -> None:
+    """Контекст веб-задачи подменяет сеть и возвращает всё назад."""
+
+    from terminal.core.agent import settings, web
+
+    old_get = web.HTTP_GET
+    old_enabled = settings.browser_enabled
+
+    with eval_agent._web_prepare("кипарис")(tmp_path):
+        assert settings.browser_enabled() is True
+
+        _url, content_type, body = web.HTTP_GET(
+            "https://example.com/secret"
+        )
+
+        assert "text/html" in content_type
+        assert "кипарис" in body.decode("utf-8")
+        assert web.is_public_host("example.com") is True
+
+    assert web.HTTP_GET is old_get
+    assert settings.browser_enabled is old_enabled
+
+
+def test_mcp_prepare_exposes_echo(tmp_path) -> None:
+    """Контекст MCP-задачи поднимает стаб и убирает его после."""
+
+    from terminal.core.agent import mcp, settings
+
+    old_file = mcp.CONFIG_FILE
+
+    with eval_agent._mcp_prepare()(tmp_path):
+        assert settings.mcp_enabled() is True
+
+        specs = {spec.name for spec in mcp.mcp_tools()[0]}
+
+        assert "mcp_stub_echo" in specs
+
+        server = mcp.load_servers()[0]
+
+        with mcp.McpClient(server, timeout=10) as client:
+            result = client.call_tool("echo", {"text": "тест"})
+
+        assert result.ok
+        assert result.text == "эхо: тест"
+
+    assert mcp.CONFIG_FILE is old_file
+
+
+def test_plan_and_subagent_inspectors() -> None:
+    """Проверки смотрят на шаги, а не только на ответ."""
+
+    from types import SimpleNamespace
+
+    from terminal.core.agent.protocol import AgentStep
+
+    plan_result = SimpleNamespace(
+        steps=[
+            AgentStep(
+                1,
+                "plan",
+                "План · 3 пунктов",
+                "1. [ ] раз\n2. [ ] два\n3. [ ] три",
+            )
+        ],
+        answer="MAX_PROMPT в context.py",
+    )
+
+    ok, note = eval_agent._plan_inspect(None, plan_result)
+    assert ok
+    assert "context.py" in note
+
+    two_items = SimpleNamespace(
+        steps=[
+            AgentStep(1, "plan", "План · 2 пунктов", "1. [ ] раз\n2. [ ] два")
+        ],
+        answer="context.py",
+    )
+
+    ok, _note = eval_agent._plan_inspect(None, two_items)
+    assert not ok
+
+    subagents = SimpleNamespace(
+        steps=[
+            AgentStep(
+                1,
+                "subagent",
+                "Подагенты · 2",
+                "Задача: a\nРезультат: x",
+            )
+        ],
+        answer="providers.py и budget.py",
+    )
+
+    ok, note = eval_agent._subagents_inspect(None, subagents)
+    assert ok
+    assert "оба" in note
+
+    subagents.answer = "только providers.py"
+    ok, _note = eval_agent._subagents_inspect(None, subagents)
+    assert not ok
+
+
+def test_run_task_uses_prepare_and_inspect(tmp_path, monkeypatch) -> None:
+    """run_task включает контекст и проверяет по результату."""
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / "flag.txt").write_text("нет", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_agent,
+        "create_worktree",
+        lambda base, name: (worktree, "agent/stub"),
+    )
+    monkeypatch.setattr(
+        eval_agent,
+        "remove_worktree",
+        lambda *args, **kwargs: "ок",
+    )
+
+    seen: dict = {}
+
+    def prepare(folder):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def context():
+            seen["inside"] = True
+
+            try:
+                yield
+            finally:
+                seen["after"] = True
+
+        return context()
+
+    def inspect(folder, result):
+        return (
+            bool(seen.get("inside")),
+            "контекст был включён" if seen.get("inside") else "нет контекста",
+        )
+
+    task = eval_agent.EvalTask(
+        "with-context",
+        "Контекст",
+        "скажи",
+        eval_agent.answer_has("готово"),
+        max_steps=2,
+        inspect=inspect,
+        prepare=prepare,
+    )
+
+    brain = ScriptedBrain(
+        [AgentDecision(action="answer", text="готово")]
+    )
+
+    result = eval_agent.run_task(task, brain, tmp_path)
+
+    assert result["ok"] is True
+    assert seen.get("after") is True
+
+
 def test_report_roundtrip(tmp_path, monkeypatch) -> None:
     """Отчёт сохраняется и читается как предыдущий."""
 
