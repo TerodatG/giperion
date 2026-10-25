@@ -49,6 +49,16 @@ class ApprovalRequest:
     kind: str
     title: str
     detail: str
+    path: str = ""
+    new_text: str | None = None
+
+
+@dataclass(frozen=True)
+class ApprovalResult:
+    """Ответ пользователя: разрешение и, возможно, правка текста."""
+
+    approved: bool
+    text: str | None = None
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,11 @@ import threading
 from pathlib import Path
 
 from terminal.core.agent.loop import run_agent
-from terminal.core.agent.protocol import AgentStep, ApprovalRequest
+from terminal.core.agent.protocol import (
+    AgentStep,
+    ApprovalRequest,
+    ApprovalResult,
+)
 
 
 class AgentJob:
@@ -37,6 +41,7 @@ class AgentJob:
         self._stop = threading.Event()
         self._approval = threading.Event()
         self._approved = False
+        self._approval_text: str | None = None
 
         self._thread = threading.Thread(
             target=self._run,
@@ -53,27 +58,33 @@ class AgentJob:
     def request_approval(
         self,
         request: ApprovalRequest,
-    ) -> bool:
+    ) -> ApprovalResult:
         """Ждёт решения пользователя, не блокируя интерфейс."""
 
         self.pending = request
         self._approved = False
+        self._approval_text = None
         self._approval.clear()
 
         while not self._approval.wait(0.2):
             if self._stop.is_set():
                 self.pending = None
 
-                return False
+                return ApprovalResult(False)
 
         self.pending = None
 
-        return self._approved
+        return ApprovalResult(self._approved, self._approval_text)
 
-    def resolve_approval(self, approved: bool) -> None:
-        """Передаёт решение кнопки «Одобрить» или «Отклонить»."""
+    def resolve_approval(
+        self,
+        approved: bool,
+        text: str | None = None,
+    ) -> None:
+        """Передаёт решение кнопки и, если нужно, правку текста."""
 
         self._approved = bool(approved)
+        self._approval_text = text
         self._approval.set()
 
     def _on_step(self, step: AgentStep) -> None:

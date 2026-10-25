@@ -72,6 +72,7 @@ class AgentDialog(SkinDialog):
 
         self.job: AgentJob | None = None
         self._shown = 0
+        self._editing = False
         self._parent = parent
         self.worktree_path: Path | None = None
         self.worktree_branch = ""
@@ -158,6 +159,11 @@ class AgentDialog(SkinDialog):
         self.approval_detail.setReadOnly(True)
         self.approval_detail.setFixedHeight(200)
 
+        self.edit_area = QPlainTextEdit(self.approval_frame)
+        self.edit_area.setObjectName("agentTask")
+        self.edit_area.setFixedHeight(200)
+        self.edit_area.setVisible(False)
+
         approval_buttons = QHBoxLayout()
         approval_buttons.setSpacing(8)
 
@@ -168,6 +174,14 @@ class AgentDialog(SkinDialog):
         self.approve_button.setObjectName("workshopAction")
         self.approve_button.clicked.connect(self._approve)
 
+        self.edit_button = QPushButton(
+            "Править",
+            self.approval_frame,
+        )
+        self.edit_button.setObjectName("workshopAction")
+        self.edit_button.setEnabled(False)
+        self.edit_button.clicked.connect(self._toggle_edit)
+
         self.reject_button = QPushButton(
             "Отклонить",
             self.approval_frame,
@@ -176,11 +190,13 @@ class AgentDialog(SkinDialog):
         self.reject_button.clicked.connect(self._reject)
 
         approval_buttons.addWidget(self.approve_button)
+        approval_buttons.addWidget(self.edit_button)
         approval_buttons.addWidget(self.reject_button)
         approval_buttons.addStretch(1)
 
         approval_layout.addWidget(self.approval_title)
         approval_layout.addWidget(self.approval_detail)
+        approval_layout.addWidget(self.edit_area)
         approval_layout.addLayout(approval_buttons)
 
         self.trace = QPlainTextEdit(self)
@@ -243,6 +259,7 @@ class AgentDialog(SkinDialog):
         self.trace.clear()
         self._shown = 0
         self.approval_frame.setVisible(False)
+        self._reset_edit()
         self.job = AgentJob(
             task,
             brain,
@@ -282,14 +299,47 @@ class AgentDialog(SkinDialog):
             f"agent-{time.time_ns()}",
         )
 
+    def _reset_edit(self) -> None:
+        """Возвращает панель подтверждения к просмотру диффа."""
+
+        self._editing = False
+        self.edit_button.setText("Править")
+        self.edit_button.setEnabled(False)
+        self.edit_area.setVisible(False)
+        self.approval_detail.setVisible(True)
+
+    def _toggle_edit(self) -> None:
+        """Переключает дифф и редактируемый текст."""
+
+        if self.job is None or self.job.pending is None:
+            return
+
+        self._editing = not self._editing
+        self.approval_detail.setVisible(not self._editing)
+        self.edit_area.setVisible(self._editing)
+        self.edit_button.setText(
+            "К диффу" if self._editing else "Править"
+        )
+
     def _approve(self) -> None:
-        """Подтверждает запись или запуск тестов."""
+        """Подтверждает действие, отправляя правку, если она есть."""
 
         if self.job is None:
             return
 
-        self.job.resolve_approval(True)
+        pending = self.job.pending
+        text = None
+
+        if (
+            self._editing
+            and pending is not None
+            and pending.new_text is not None
+        ):
+            text = self.edit_area.toPlainText()
+
+        self.job.resolve_approval(True, text)
         self.approval_frame.setVisible(False)
+        self._reset_edit()
         self.status_label.setText("Одобрено, продолжаю…")
 
     def _reject(self) -> None:
@@ -300,6 +350,7 @@ class AgentDialog(SkinDialog):
 
         self.job.resolve_approval(False)
         self.approval_frame.setVisible(False)
+        self._reset_edit()
         self.status_label.setText("Действие отклонено.")
 
     def _poll(self) -> None:
@@ -329,9 +380,13 @@ class AgentDialog(SkinDialog):
         if pending is not None and not self.approval_frame.isVisible():
             self.approval_title.setText(pending.title.upper())
             self.approval_detail.setPlainText(pending.detail)
+            self.edit_area.setPlainText(pending.new_text or "")
+            self._reset_edit()
+            self.edit_button.setEnabled(pending.new_text is not None)
             self.approval_frame.setVisible(True)
         elif pending is None and self.approval_frame.isVisible():
             self.approval_frame.setVisible(False)
+            self._reset_edit()
 
         if not job.done:
             self.status_label.setText(
@@ -342,6 +397,7 @@ class AgentDialog(SkinDialog):
 
         self._timer.stop()
         self.approval_frame.setVisible(False)
+        self._reset_edit()
         self.run_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 

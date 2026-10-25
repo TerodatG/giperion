@@ -395,6 +395,43 @@ def test_schemas_require_arguments() -> None:
     assert extra is not None and not extra.ok
 
 
+def test_approval_can_edit_text(tmp_path) -> None:
+    """Пользователь может применить свой текст вместо патча агента."""
+
+    from terminal.core.agent.protocol import ApprovalResult
+
+    target = tmp_path / "a.txt"
+    target.write_text("старое", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool(
+                "apply_patch",
+                path="a.txt",
+                old="старое",
+                new="новое",
+            ),
+            _answer("применено"),
+        ]
+    )
+
+    result = run_agent(
+        "замени",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=lambda request: ApprovalResult(
+            True,
+            "исправлено пользователем\n",
+        ),
+    )
+
+    assert result.answer == "применено"
+    assert target.read_text(encoding="utf-8") == (
+        "исправлено пользователем\n"
+    )
+
+
 def test_parse_decision_accepts_fenced_json() -> None:
     """JSON в ```-блоке тоже разбирается."""
 

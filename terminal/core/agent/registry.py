@@ -218,6 +218,43 @@ def validate_call(call: ToolCall) -> ToolResult | None:
     return None
 
 
+def approval_payload(
+    root: Path,
+    call: ToolCall,
+) -> tuple[str, str | None]:
+    """Возвращает путь и итоговый текст для редактирования."""
+
+    try:
+        if call.tool == "write_file":
+            target, _old, _diff = tools.prepare_write(
+                root,
+                _string_arg(call, "path"),
+                _string_arg(call, "content"),
+            )
+
+            return (
+                target.relative_to(Path(root).resolve()).as_posix(),
+                _string_arg(call, "content"),
+            )
+
+        if call.tool == "apply_patch":
+            target, new_text, _diff = tools.prepare_patch(
+                root,
+                _string_arg(call, "path"),
+                _string_arg(call, "old"),
+                _string_arg(call, "new"),
+            )
+
+            return (
+                target.relative_to(Path(root).resolve()).as_posix(),
+                new_text,
+            )
+    except (ToolError, ValueError, OSError):
+        return "", None
+
+    return "", None
+
+
 def needs_approval(call: ToolCall) -> bool:
     """Требует ли вызов согласия пользователя."""
 

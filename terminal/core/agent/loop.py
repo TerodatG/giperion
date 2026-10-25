@@ -17,6 +17,7 @@ from terminal.core.agent.protocol import (
     AgentResult,
     AgentStep,
     ApprovalRequest,
+    ApprovalResult,
     ToolCall,
     ToolResult,
 )
@@ -346,13 +347,26 @@ def run_agent(
 
                     continue
 
+                payload_path, payload_text = (
+                    registry.approval_payload(root, call)
+                )
+
                 request = ApprovalRequest(
                     kind=call.tool,
                     title=_approval_title(call),
                     detail=preview.text,
+                    path=payload_path,
+                    new_text=payload_text,
                 )
 
-                approved = bool(approve and approve(request))
+                answer = approve(request) if approve else None
+
+                if isinstance(answer, ApprovalResult):
+                    approved = bool(answer.approved)
+                    edited = answer.text
+                else:
+                    approved = bool(answer)
+                    edited = None
 
                 emit(
                     AgentStep(
@@ -381,6 +395,19 @@ def run_agent(
                     )
 
                     continue
+
+                if (
+                    edited is not None
+                    and payload_path
+                    and call.tool in ("write_file", "apply_patch")
+                ):
+                    call = ToolCall(
+                        tool="write_file",
+                        args={
+                            "path": payload_path,
+                            "content": edited,
+                        },
+                    )
 
             result = registry.execute(root, call)
 
