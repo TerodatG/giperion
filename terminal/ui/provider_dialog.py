@@ -95,8 +95,8 @@ class ProviderDialog(SkinDialog):
         )
         self.plugins_check.setChecked(plugins_enabled())
         self.plugins_check.setToolTip(
-            "Плагины из data/agent_tools — это Python-код. "
-            "Он выполняется с правами Терминала, включай осознанно."
+            "Плагины из data/agent_tools выполняются в отдельном процессе "
+            "с таймаутом, но с правами Терминала. Включай осознанно."
         )
         form.addRow("Плагины", self.plugins_check)
 

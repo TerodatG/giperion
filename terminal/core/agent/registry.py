@@ -11,6 +11,7 @@ from pathlib import Path
 from config import DATA_DIR
 from terminal.core.agent import git_tools, tools
 from terminal.core.agent.commands import CommandError, validate_command
+from terminal.core.agent.plugin_runner import run_plugin_process
 from terminal.core.agent.protocol import (
     ToolCall,
     ToolResult,
@@ -142,23 +143,26 @@ TOOL_SPECS = (
     ),
 )
 
-def _parse_plugin(tool: object, path: Path) -> tuple[ToolSpec, object]:
-    """Проверяет описание плагина и возвращает спецификацию и обработчик."""
+def _parse_manifest(
+    document: object,
+    path: Path,
+) -> tuple[ToolSpec, Path, str]:
+    """Проверяет JSON-манифест, не исполняя код плагина."""
 
-    if not isinstance(tool, dict):
-        raise ValueError("TOOL должен быть словарём.")
+    if not isinstance(document, dict):
+        raise ValueError("Манифест должен быть объектом.")
 
-    name = str(tool.get("name") or "").strip()
+    name = str(document.get("name") or "").strip()
 
     if not PLUGIN_NAME.fullmatch(name):
         raise ValueError(f"Недопустимое имя плагина: {name}")
 
-    description = str(tool.get("description") or "").strip()
+    description = str(document.get("description") or "").strip()
 
     if not description:
         raise ValueError("У плагина нет описания.")
 
-    args = tool.get("args") or {}
+    args = document.get("args") or {}
 
     if not isinstance(args, dict) or not all(
         isinstance(key, str) and isinstance(value, str)
@@ -166,22 +170,35 @@ def _parse_plugin(tool: object, path: Path) -> tuple[ToolSpec, object]:
     ):
         raise ValueError("args плагина должен быть словарём строк.")
 
-    required = tool.get("required") or ()
+    required = document.get("required") or ()
 
     if not isinstance(required, (list, tuple)) or not all(
         isinstance(item, str) and item in args for item in required
     ):
         raise ValueError("required должен ссылаться на args.")
 
-    risk = str(tool.get("risk") or "read")
+    risk = str(document.get("risk") or "read")
 
     if risk not in ("read", "write", "exec"):
         raise ValueError("risk должен быть read, write или exec.")
 
-    handler = tool.get("handler")
+    module = str(document.get("module") or "").strip()
 
-    if not callable(handler):
-        raise ValueError("У плагина нет handler.")
+    if not module.endswith(".py"):
+        raise ValueError("module должен указывать на .py.")
+
+    module_path = (path.parent / module).resolve()
+
+    if module_path.parent != path.parent.resolve():
+        raise ValueError("Модуль плагина должен лежать рядом.")
+
+    if not module_path.is_file():
+        raise ValueError(f"Нет модуля плагина: {module}")
+
+    handler = str(document.get("handler") or "handler").strip()
+
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", handler):
+        raise ValueError("Недопустимое имя обработчика.")
 
     return (
         ToolSpec(
@@ -191,12 +208,13 @@ def _parse_plugin(tool: object, path: Path) -> tuple[ToolSpec, object]:
             risk=risk,
             required=tuple(required),
         ),
+        module_path,
         handler,
     )
 
 
 def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
-    """Загружает плагины, если они явно разрешены в настройках."""
+    """Читает манифесты плагинов, если они разрешены в настройках."""
 
     global _plugin_cache
 
@@ -205,7 +223,7 @@ def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
             return _plugin_cache
 
         specs: list[ToolSpec] = []
-        handlers: dict[str, object] = {}
+        plugins: dict[str, tuple[Path, str]] = {}
 
         try:
             from terminal.core.agent import settings
@@ -217,40 +235,28 @@ def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
         if enabled and PLUGIN_DIR.is_dir():
             builtin = {spec.name for spec in TOOL_SPECS}
 
-            for path in sorted(PLUGIN_DIR.glob("*.py")):
+            for path in sorted(PLUGIN_DIR.glob("*.json")):
                 if path.name.startswith("_"):
                     continue
 
                 try:
-                    module_name = f"agent_plugin_{path.stem}"
-
-                    module_spec = importlib.util.spec_from_file_location(
-                        module_name,
+                    document = json.loads(
+                        path.read_text(encoding="utf-8")
+                    )
+                    spec, module_path, handler = _parse_manifest(
+                        document,
                         path,
                     )
-
-                    if module_spec is None or module_spec.loader is None:
-                        continue
-
-                    module = importlib.util.module_from_spec(
-                        module_spec
-                    )
-                    module_spec.loader.exec_module(module)
-
-                    spec, handler = _parse_plugin(
-                        getattr(module, "TOOL", None),
-                        path,
-                    )
-                except Exception:  # noqa: BLE001 — битый плагин пропускаем
+                except (OSError, ValueError, json.JSONDecodeError):
                     continue
 
-                if spec.name in builtin or spec.name in handlers:
+                if spec.name in builtin or spec.name in plugins:
                     continue
 
                 specs.append(spec)
-                handlers[spec.name] = handler
+                plugins[spec.name] = (module_path, handler)
 
-        _plugin_cache = (tuple(specs), handlers)
+        _plugin_cache = (tuple(specs), plugins)
 
         return _plugin_cache
 
@@ -527,17 +533,16 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
         return invalid
 
     try:
-        plugin_handler = _plugin_handler(call.tool)
+        plugin_entry = _plugin_handler(call.tool)
 
-        if plugin_handler is not None:
-            result = plugin_handler(root, call.args)
+        if plugin_entry is not None:
+            module_path, handler_name = plugin_entry
 
-            if isinstance(result, ToolResult):
-                return result
-
-            return ToolResult(
-                False,
-                "Плагин вернул не ToolResult.",
+            return run_plugin_process(
+                module_path,
+                root,
+                call.args,
+                handler_name,
             )
 
         if call.tool == "list_dir":

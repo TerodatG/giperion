@@ -28,7 +28,10 @@ from PySide6.QtWidgets import (
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
-from terminal.core.agent.diff_marks import changed_lines
+from terminal.core.agent.diff_marks import (
+    LineSpan,
+    diff_marks as build_marks,
+)
 from terminal.core.agent.providers import NativeBrain
 from terminal.core.agent.settings import provider_from_settings
 from terminal.core.agent.worktrees import (
@@ -470,17 +473,20 @@ class AgentDialog(SkinDialog):
 
         self._highlight_timer.start()
 
-    def _mark_lines(
+    def _selections(
         self,
         view: QPlainTextEdit,
-        indexes: set[int],
+        lines: frozenset[int],
+        spans: tuple[LineSpan, ...],
         color: str,
-    ) -> None:
-        """Красит указанные строки в редакторе."""
+    ) -> list:
+        """Собирает подсветку строк и слов одного редактора."""
 
         selections = []
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor(color))
 
-        for index in sorted(indexes):
+        for index in sorted(lines):
             block = view.document().findBlockByNumber(index)
 
             if not block.isValid():
@@ -491,28 +497,61 @@ class AgentDialog(SkinDialog):
 
             selection = QTextEdit.ExtraSelection()
             selection.cursor = cursor
-
-            fmt = QTextCharFormat()
-            fmt.setBackground(QColor(color))
             selection.format = fmt
 
             selections.append(selection)
 
-        view.setExtraSelections(selections)
+        for span in spans:
+            block = view.document().findBlockByNumber(span.line)
+
+            if not block.isValid():
+                continue
+
+            cursor = QTextCursor(block)
+            start = block.position() + span.start
+            end = block.position() + span.end
+
+            if end <= start:
+                continue
+
+            cursor.setPosition(start)
+            cursor.setPosition(end, QTextCursor.KeepAnchor)
+
+            selection = QTextEdit.ExtraSelection()
+            selection.cursor = cursor
+            selection.format = fmt
+
+            selections.append(selection)
+
+        return selections
 
     def _refresh_highlights(self) -> None:
-        """Подсвечивает изменённые строки слева и справа."""
+        """Подсвечивает изменённые строки и слова с обеих сторон."""
 
         if self.job is None or self.job.pending is None:
             return
 
-        old_changed, new_changed = changed_lines(
+        marks = build_marks(
             self.old_view.toPlainText(),
             self.edit_area.toPlainText(),
         )
 
-        self._mark_lines(self.old_view, old_changed, "#4a1f1a")
-        self._mark_lines(self.edit_area, new_changed, "#123d1f")
+        self.old_view.setExtraSelections(
+            self._selections(
+                self.old_view,
+                marks.old_lines,
+                marks.old_spans,
+                "#4a1f1a",
+            )
+        )
+        self.edit_area.setExtraSelections(
+            self._selections(
+                self.edit_area,
+                marks.new_lines,
+                marks.new_spans,
+                "#123d1f",
+            )
+        )
 
     def _reset_edit(self) -> None:
         """Возвращает панель подтверждения к просмотру диффа."""
