@@ -4891,6 +4891,14 @@ un_tests и write_file).
   - `dialog.py` — окно и действия;
   - `pets_dialog.py` остался тонким фасадом.
   Файл окна: **672 → 280 строк**, самая длинная функция — 91 строка.
+- **Окно «Производительность» разгружено**:
+  - `performance_charts.py` — `SparkChart`, `CoreBars`, `VolumeBars`,
+    `MetricCard` и их палитра/помощники;
+  - `performance_dialog.py` — 932 → **453 строки**, только сборка окна.
+- **Настройки разгружены**:
+  - `view_settings.py` — панель «Вид» (шрифт, роли, цвета, ответ ИИ);
+  - `settings_about.py` — страница «О нас»;
+  - `settings_dialog.py` — 892 → **193 строки**, только вкладки и применение.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
@@ -4926,7 +4934,7 @@ un_tests и write_file).
 - `python -m pytest` — **551 passed за 31,4 с**.
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
-- `python -m tools.check_structure` — файлов >600 строк: 13,
+- `python -m tools.check_structure` — файлов >600 строк: 11,
   функций >150: 14, функций C>20: 17 (было 16/16/20).
 
 **Ограничения**
