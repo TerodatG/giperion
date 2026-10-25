@@ -1200,7 +1200,7 @@ def test_pet_nickname_can_be_changed_in_dialog(
     from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
     from terminal.core import pets
-    from terminal.ui import pets_dialog
+    from terminal.ui.pets import dialog as pets_dialog_module
 
     monkeypatch.setattr(
         pets,
@@ -1208,8 +1208,8 @@ def test_pet_nickname_can_be_changed_in_dialog(
         tmp_path / "pets.json",
     )
     monkeypatch.setattr(
-        pets_dialog,
-        "_ask_nickname",
+        pets_dialog_module,
+        "ask_nickname",
         lambda parent, pet: "Бублик",
     )
 
