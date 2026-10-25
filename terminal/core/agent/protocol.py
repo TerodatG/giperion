@@ -13,6 +13,7 @@ class ToolSpec:
     description: str
     args: dict[str, str]
     risk: str = "read"
+    required: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,7 @@ class AgentDecision:
     action: str
     text: str = ""
     call: ToolCall | None = None
+    calls: tuple[ToolCall, ...] = ()
 
 
 @dataclass

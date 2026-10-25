@@ -23,6 +23,8 @@ SYSTEM_PROMPT = (
     '{"action": "tool", "tool": "read_file", "args": {"path": "README.md"}}\n'
     '{"action": "tool", "tool": "apply_patch", "args": {"path": "a.py", '
     '"old": "старый текст", "new": "новый текст"}}\n'
+    '{"action": "tools", "calls": [{"tool": "read_file", "args": '
+    '{"path": "a.py"}}, {"tool": "read_file", "args": {"path": "b.py"}}]}\n'
     '{"action": "answer", "text": "короткий ответ по-русски"}\n\n'
     "Правила:\n"
     "- не выдумывай содержимое файлов: сначала прочитай или найди;\n"
@@ -136,8 +138,35 @@ def parse_decision(raw: str) -> AgentDecision:
 
         return AgentDecision(action="answer", text=answer.strip())
 
+    if action == "tools":
+        raw_calls = data.get("calls")
+
+        if not isinstance(raw_calls, list) or not raw_calls:
+            raise DecisionError("в tools нужен непустой список calls")
+
+        calls = []
+
+        for item in raw_calls[:3]:
+            if not isinstance(item, dict):
+                raise DecisionError("каждый вызов должен быть объектом")
+
+            name = item.get("tool")
+            args = item.get("args", {})
+
+            if not isinstance(name, str) or not name.strip():
+                raise DecisionError("у вызова нет инструмента")
+
+            if not isinstance(args, dict):
+                raise DecisionError("args должен быть объектом")
+
+            calls.append(
+                ToolCall(tool=name.strip(), args=args)
+            )
+
+        return AgentDecision(action="tools", calls=tuple(calls))
+
     if action != "tool":
-        raise DecisionError("action должен быть tool или answer")
+        raise DecisionError("action должен быть tool, tools или answer")
 
     tool = data.get("tool")
 

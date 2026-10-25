@@ -283,94 +283,117 @@ def run_agent(
 
             return AgentResult(answer=decision.text, steps=steps)
 
-        call = decision.call
+        calls = list(decision.calls)
 
-        if call is None:
+        if decision.call is not None:
+            calls.append(decision.call)
+
+        if not calls:
             continue
 
-        if call.tool == "ask_subagent":
-            result = _run_subagent(
-                call,
-                brain,
-                root,
-                depth,
-                allow_subagent,
-                should_stop,
-            )
+        for call in calls:
+            invalid = registry.validate_call(call)
 
-            emit(
-                AgentStep(
-                    index,
-                    "subagent",
-                    "Подагент",
-                    result.text[:500],
-                )
-            )
-
-            history.append((call, result))
-
-            continue
-
-        if registry.needs_approval(call):
-            preview = registry.preview(root, call)
-
-            if not preview.ok:
+            if invalid is not None:
                 emit(
                     AgentStep(
                         index,
                         "error",
-                        "Действие невозможно",
-                        preview.text[:300],
+                        "Неверные аргументы",
+                        invalid.text[:300],
                     )
                 )
-                history.append((call, preview))
+                history.append((call, invalid))
 
                 continue
 
-            request = ApprovalRequest(
-                kind=call.tool,
-                title=_approval_title(call),
-                detail=preview.text,
-            )
+            if call.tool == "ask_subagent":
+                result = _run_subagent(
+                    call,
+                    brain,
+                    root,
+                    depth,
+                    allow_subagent,
+                    should_stop,
+                )
 
-            approved = bool(approve and approve(request))
+                emit(
+                    AgentStep(
+                        index,
+                        "subagent",
+                        "Подагент",
+                        result.text[:500],
+                    )
+                )
+
+                history.append((call, result))
+
+                continue
+
+            if registry.needs_approval(call):
+                preview = registry.preview(root, call)
+
+                if not preview.ok:
+                    emit(
+                        AgentStep(
+                            index,
+                            "error",
+                            "Действие невозможно",
+                            preview.text[:300],
+                        )
+                    )
+                    history.append((call, preview))
+
+                    continue
+
+                request = ApprovalRequest(
+                    kind=call.tool,
+                    title=_approval_title(call),
+                    detail=preview.text,
+                )
+
+                approved = bool(approve and approve(request))
+
+                emit(
+                    AgentStep(
+                        index,
+                        "approval",
+                        (
+                            "Одобрено · "
+                            if approved
+                            else "Отклонено · "
+                        )
+                        + _approval_title(call),
+                        preview.text[:300],
+                    )
+                )
+
+                if not approved:
+                    history.append(
+                        (
+                            call,
+                            ToolResult(
+                                False,
+                                "Пользователь отклонил действие. "
+                                "Предложи другой путь или ответь.",
+                            ),
+                        )
+                    )
+
+                    continue
+
+            result = registry.execute(root, call)
 
             emit(
                 AgentStep(
                     index,
-                    "approval",
-                    ("Одобрено · " if approved else "Отклонено · ")
-                    + _approval_title(call),
-                    preview.text[:300],
+                    "tool",
+                    _call_title(call),
+                    _call_detail(result),
                 )
             )
 
-            if not approved:
-                history.append(
-                    (
-                        call,
-                        ToolResult(
-                            False,
-                            "Пользователь отклонил действие. "
-                            "Предложи другой путь или ответь.",
-                        ),
-                    )
-                )
-
-                continue
-
-        result = registry.execute(root, call)
-
-        emit(
-            AgentStep(
-                index,
-                "tool",
-                _call_title(call),
-                _call_detail(result),
-            )
-        )
-
-        history.append((call, result))
+            history.append((call, result))
 
     return AgentResult(
         steps=steps,

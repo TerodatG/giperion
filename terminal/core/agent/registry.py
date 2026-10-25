@@ -22,6 +22,7 @@ TOOL_SPECS = (
         name="read_file",
         description="Прочитать текстовый файл проекта.",
         args={"path": "путь к файлу относительно корня проекта"},
+        required=("path",),
     ),
     ToolSpec(
         name="search_text",
@@ -30,6 +31,7 @@ TOOL_SPECS = (
             "query": "искомая строка, минимум 2 символа",
             "path": "где искать, по умолчанию весь проект",
         },
+        required=("query",),
     ),
     ToolSpec(
         name="apply_patch",
@@ -43,6 +45,7 @@ TOOL_SPECS = (
             "new": "чем заменить (пустая строка — удалить)",
         },
         risk="write",
+        required=("path", "old", "new"),
     ),
     ToolSpec(
         name="write_file",
@@ -55,6 +58,7 @@ TOOL_SPECS = (
             "content": "полный новый текст файла",
         },
         risk="write",
+        required=("path", "content"),
     ),
     ToolSpec(
         name="run_tests",
@@ -91,6 +95,7 @@ TOOL_SPECS = (
             "message": "сообщение коммита",
         },
         risk="write",
+        required=("path", "message"),
     ),
     ToolSpec(
         name="git_restore",
@@ -100,6 +105,7 @@ TOOL_SPECS = (
         ),
         args={"path": "путь к файлу"},
         risk="write",
+        required=("path",),
     ),
     ToolSpec(
         name="run_command",
@@ -109,6 +115,7 @@ TOOL_SPECS = (
         ),
         args={"command": "команда одной строкой"},
         risk="exec",
+        required=("command",),
     ),
     ToolSpec(
         name="ask_subagent",
@@ -118,6 +125,7 @@ TOOL_SPECS = (
         ),
         args={"task": "короткая подзадача для подагента"},
         risk="read",
+        required=("task",),
     ),
 )
 
@@ -128,6 +136,86 @@ def get_spec(name: str) -> ToolSpec | None:
     """Возвращает описание инструмента по имени."""
 
     return _TOOLS.get(name)
+
+
+def tool_schemas() -> list[dict]:
+    """Отдаёт схемы инструментов в формате function calling."""
+
+    schemas = []
+
+    for spec in TOOL_SPECS:
+        properties = {
+            name: {
+                "type": "string",
+                "description": description,
+            }
+            for name, description in spec.args.items()
+        }
+
+        schemas.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": {
+                        "type": "object",
+                        "properties": properties,
+                        "required": list(spec.required),
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        )
+
+    return schemas
+
+
+def validate_call(call: ToolCall) -> ToolResult | None:
+    """Проверяет аргументы вызова по схеме инструмента."""
+
+    spec = get_spec(call.tool)
+
+    if spec is None:
+        return ToolResult(False, f"Неизвестный инструмент: {call.tool}")
+
+    extra = set(call.args) - set(spec.args)
+
+    if extra:
+        return ToolResult(
+            False,
+            "Лишние аргументы: " + ", ".join(sorted(extra)),
+        )
+
+    for name in spec.required:
+        if name not in call.args:
+            return ToolResult(
+                False,
+                f"Не хватает аргумента «{name}».",
+            )
+
+        value = call.args[name]
+
+        if not isinstance(value, str):
+            return ToolResult(
+                False,
+                f"Аргумент «{name}» должен быть строкой.",
+            )
+
+        if not value.strip() and name != "new":
+            return ToolResult(
+                False,
+                f"Аргумент «{name}» не может быть пустым.",
+            )
+
+    for name, value in call.args.items():
+        if name in spec.args and not isinstance(value, str):
+            return ToolResult(
+                False,
+                f"Аргумент «{name}» должен быть строкой.",
+            )
+
+    return None
 
 
 def needs_approval(call: ToolCall) -> bool:
@@ -239,18 +327,10 @@ def _string_arg(call: ToolCall, name: str, default: str = "") -> str:
 def execute(root: Path, call: ToolCall) -> ToolResult:
     """Выполняет вызов инструмента с проверкой аргументов."""
 
-    spec = get_spec(call.tool)
+    invalid = validate_call(call)
 
-    if spec is None:
-        return ToolResult(False, f"Неизвестный инструмент: {call.tool}")
-
-    extra = set(call.args) - set(spec.args)
-
-    if extra:
-        return ToolResult(
-            False,
-            "Лишние аргументы: " + ", ".join(sorted(extra)),
-        )
+    if invalid is not None:
+        return invalid
 
     try:
         if call.tool == "list_dir":

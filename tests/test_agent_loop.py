@@ -319,6 +319,82 @@ def test_subagent_answers_within_parent_task(tmp_path) -> None:
     assert "внутри: альфа" in result.steps[0].detail
 
 
+def test_multiple_tools_in_one_step(tmp_path) -> None:
+    """Модель может запросить несколько чтений за шаг."""
+
+    (tmp_path / "a.txt").write_text("альфа", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("бета", encoding="utf-8")
+
+    calls = {
+        "action": "tools",
+        "calls": [
+            {"tool": "read_file", "args": {"path": "a.txt"}},
+            {"tool": "read_file", "args": {"path": "b.txt"}},
+        ],
+    }
+
+    brain = ScriptedBrain(
+        [
+            json.dumps(calls, ensure_ascii=False),
+            _answer("прочитал оба"),
+        ]
+    )
+
+    result = run_agent(
+        "прочитай оба файла",
+        brain,
+        tmp_path,
+        ground_first=False,
+    )
+
+    tool_steps = [
+        step for step in result.steps if step.kind == "tool"
+    ]
+
+    assert len(tool_steps) == 2
+    assert result.answer == "прочитал оба"
+
+
+def test_parse_decision_accepts_tools_list() -> None:
+    """Формат tools с несколькими вызовами разбирается."""
+
+    decision = parse_decision(
+        '{"action": "tools", "calls": ['
+        '{"tool": "read_file", "args": {"path": "a"}},'
+        '{"tool": "read_file", "args": {"path": "b"}}]}'
+    )
+
+    assert decision.action == "tools"
+    assert len(decision.calls) == 2
+
+
+def test_schemas_require_arguments() -> None:
+    """Схемы несут обязательные поля, а валидатор их проверяет."""
+
+    schemas = {
+        schema["function"]["name"]: schema
+        for schema in registry.tool_schemas()
+    }
+
+    read_schema = schemas["read_file"]["function"]["parameters"]
+
+    assert read_schema["required"] == ["path"]
+    assert "path" in read_schema["properties"]
+
+    missing = registry.validate_call(
+        registry.ToolCall(tool="read_file", args={})
+    )
+    extra = registry.validate_call(
+        registry.ToolCall(
+            tool="read_file",
+            args={"path": "a.txt", "line": "1"},
+        )
+    )
+
+    assert missing is not None and not missing.ok
+    assert extra is not None and not extra.ok
+
+
 def test_parse_decision_accepts_fenced_json() -> None:
     """JSON в ```-блоке тоже разбирается."""
 
