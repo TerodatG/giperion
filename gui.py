@@ -108,7 +108,7 @@ class GiperionWindow(
             else BOT_NICKNAME
         )
 
-        # Питомец, закреплённый за терминалом, важнее активной модели:
+        # Дрон, закреплённый за терминалом, важнее активной модели:
         # он отвечает локальным ядром от своего имени.
         self.attached_pet = get_active_pet()
 
@@ -255,7 +255,7 @@ class GiperionWindow(
         if self.attached_pet is not None:
             pet = self.attached_pet
             self.append_system(
-                f"За терминалом закреплён питомец «{pet['name']}». "
+                f"За терминалом закреплён дрон «{pet['name']}». "
                 "Теперь он отвечает в чате."
             )
             self.append_bot(

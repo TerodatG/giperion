@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/pets_dialog.py                                v003
-# Окно «Питомцы»: список питомцев и карточка с успехами обучения.
-# Последнее изменение: ровные строки списка без наезда выделения.
+# Giperion/terminal/ui/pets_dialog.py                                v007
+# Окно «Дроны»: список дронов, карточка и смена клички.
+# Последнее изменение: удаление своего дрона.
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
@@ -26,26 +26,32 @@ from terminal.core.pets import (
     add_custom_pet,
     get_active_pet_id,
     load_pets,
+    remove_custom_pet,
     set_active_pet_id,
+    set_pet_nickname,
 )
-from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.dialogs_base import (
+    ConfirmDialog,
+    SkinDialog,
+    show_tool_window,
+)
 
 
 def _ask_new_pet(parent) -> dict | None:
-    """Спрашивает имя и вид нового питомца."""
+    """Спрашивает имя и вид нового дрона."""
 
     dialog = SkinDialog(
         parent,
-        "Новый питомец",
+        "Новый дрон",
         min_width=560,
         min_height=390,
     )
 
-    title = QLabel("НОВЫЙ ПИТОМЕЦ", dialog)
+    title = QLabel("НОВЫЙ ДРОН", dialog)
     title.setObjectName("dialogTitle")
 
     hint = QLabel(
-        "Питомец получает базовый шаблон личности. Полноценная "
+        "Дрон получает базовый шаблон личности. Полноценная "
         "модель для него не нужна: общение идёт через терминал.",
         dialog,
     )
@@ -54,7 +60,7 @@ def _ask_new_pet(parent) -> dict | None:
 
     name_input = QLineEdit(dialog)
     name_input.setObjectName("petInput")
-    name_input.setPlaceholderText("Имя питомца")
+    name_input.setPlaceholderText("Имя дрона")
     name_input.setMaxLength(40)
 
     species_input = QComboBox(dialog)
@@ -108,8 +114,76 @@ def _ask_new_pet(parent) -> dict | None:
     )
 
 
+def _ask_nickname(parent, pet: dict) -> str | None:
+    """Спрашивает новую кличку дрона."""
+
+    dialog = SkinDialog(
+        parent,
+        "Кличка дрона",
+        min_width=540,
+        min_height=260,
+    )
+
+    title = QLabel("КЛИЧКА ДРОНА", dialog)
+    title.setObjectName("dialogTitle")
+
+    hint = QLabel(
+        f"Как звать дрона «{pet['name']}»? Кличка видна в списке "
+        "дронов, в чате и в подсказке поля ввода. Вид и успехи "
+        "обучения не меняются.",
+        dialog,
+    )
+    hint.setObjectName("dialogHint")
+    hint.setWordWrap(True)
+
+    nickname_input = QLineEdit(dialog)
+    nickname_input.setObjectName("petInput")
+    nickname_input.setMaxLength(40)
+    nickname_input.setText(pet.get("nickname") or pet["name"])
+    nickname_input.selectAll()
+
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
+        dialog,
+    )
+    buttons.button(QDialogButtonBox.Ok).setText("Сохранить")
+    buttons.button(QDialogButtonBox.Cancel).setText("Отмена")
+
+    def update_ok() -> None:
+        """Не разрешает сохранить пустую кличку."""
+
+        buttons.button(QDialogButtonBox.Ok).setEnabled(
+            bool(nickname_input.text().strip())
+        )
+
+    def accept_if_valid() -> None:
+        """Сохраняет кличку по Enter, если она не пустая."""
+
+        if nickname_input.text().strip():
+            dialog.accept()
+
+    nickname_input.textChanged.connect(update_ok)
+    nickname_input.returnPressed.connect(accept_if_valid)
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+
+    dialog.body_layout.addWidget(title)
+    dialog.body_layout.addWidget(hint)
+    dialog.body_layout.addWidget(nickname_input)
+    dialog.body_layout.addStretch(1)
+    dialog.body_layout.addWidget(buttons)
+
+    update_ok()
+    nickname_input.setFocus()
+
+    if dialog.exec() != QDialog.Accepted:
+        return None
+
+    return nickname_input.text().strip()
+
+
 def show_pets_dialog(parent, on_change=None) -> None:
-    """Открывает список питомцев и карточку выбранного питомца."""
+    """Открывает список дронов и карточку выбранного дрона."""
 
     pets = load_pets()
 
@@ -121,21 +195,20 @@ def show_pets_dialog(parent, on_change=None) -> None:
 
     dialog = SkinDialog(
         parent,
-        "Питомцы",
+        "Дроны",
         min_width=980,
         min_height=720,
     )
 
     layout = dialog.body_layout
 
-    title = QLabel("ПИТОМЦЫ", dialog)
+    title = QLabel("ДРОНЫ", dialog)
     title.setObjectName("dialogTitle")
 
     subtitle = QLabel(
-        "Маленькие обитатели терминала по принципу тамагочи. "
-        "Слева — список, справа — карточка с характером и успехами "
-        "обучения. Закрепи питомца за терминалом и общайся с ним "
-        "через чат.",
+        "Дроны терминала по принципу тамагочи. Слева — список, "
+        "справа — карточка с характером и успехами обучения. "
+        "Закрепи дрона за терминалом и общайся с ним через чат.",
         dialog,
     )
     subtitle.setObjectName("dialogHint")
@@ -144,11 +217,11 @@ def show_pets_dialog(parent, on_change=None) -> None:
     body = QHBoxLayout()
     body.setSpacing(12)
 
-    # --- Слева: список питомцев ---
+    # --- Слева: список дронов ---
     left = QVBoxLayout()
     left.setSpacing(6)
 
-    left_caption = QLabel("СПИСОК ПИТОМЦЕВ", dialog)
+    left_caption = QLabel("СПИСОК ДРОНОВ", dialog)
     left_caption.setObjectName("infoCaption")
 
     left_frame = QWidget(dialog)
@@ -168,11 +241,11 @@ def show_pets_dialog(parent, on_change=None) -> None:
     left.addWidget(left_caption)
     left.addWidget(left_frame, 1)
 
-    # --- Справа: карточка питомца ---
+    # --- Справа: карточка дрона ---
     right = QVBoxLayout()
     right.setSpacing(6)
 
-    right_caption = QLabel("КАРТОЧКА ПИТОМЦА", dialog)
+    right_caption = QLabel("КАРТОЧКА ДРОНА", dialog)
     right_caption.setObjectName("infoCaption")
 
     right_frame = QWidget(dialog)
@@ -198,12 +271,21 @@ def show_pets_dialog(parent, on_change=None) -> None:
     name_label.setObjectName("modelName")
     name_label.setWordWrap(True)
 
-    type_label = QLabel(card)
-    type_label.setObjectName("modelProvider")
-
     nickname_label = QLabel(card)
     nickname_label.setObjectName("modelNickname")
     nickname_label.setWordWrap(True)
+
+    rename_button = QPushButton("✎ Переименовать", card)
+    rename_button.setObjectName("aiParamsButton")
+    rename_button.setCursor(Qt.ArrowCursor)
+    rename_button.setFocusPolicy(Qt.NoFocus)
+    rename_button.setToolTip("Изменить кличку дрона")
+
+    nickname_row = QHBoxLayout()
+    nickname_row.setContentsMargins(0, 0, 0, 0)
+    nickname_row.setSpacing(8)
+    nickname_row.addWidget(nickname_label, 1)
+    nickname_row.addWidget(rename_button, 0, Qt.AlignRight)
 
     identity = QHBoxLayout()
     identity.setSpacing(12)
@@ -275,8 +357,7 @@ def show_pets_dialog(parent, on_change=None) -> None:
     status_label.setWordWrap(True)
 
     card_layout.addWidget(name_label)
-    card_layout.addWidget(type_label)
-    card_layout.addWidget(nickname_label)
+    card_layout.addLayout(nickname_row)
     card_layout.addWidget(traits_caption)
     card_layout.addLayout(identity)
     card_layout.addWidget(description_label)
@@ -297,11 +378,18 @@ def show_pets_dialog(parent, on_change=None) -> None:
     body.addLayout(right, 2)
 
     # --- Нижняя строка ---
-    create_button = QPushButton("＋ Создать питомца", dialog)
+    create_button = QPushButton("＋ Создать дрона", dialog)
     create_button.setObjectName("activateButton")
     create_button.setCursor(Qt.ArrowCursor)
     create_button.setMinimumHeight(38)
     create_button.setMinimumWidth(190)
+
+    delete_button = QPushButton("− Удалить дрона", dialog)
+    delete_button.setObjectName("activateButton")
+    delete_button.setCursor(Qt.ArrowCursor)
+    delete_button.setMinimumHeight(38)
+    delete_button.setMinimumWidth(190)
+    delete_button.setEnabled(False)
 
     attach_button = QPushButton("Закрепить за терминалом", dialog)
     attach_button.setObjectName("activateButton")
@@ -316,6 +404,7 @@ def show_pets_dialog(parent, on_change=None) -> None:
     buttons_row = QHBoxLayout()
     buttons_row.setSpacing(8)
     buttons_row.addWidget(create_button)
+    buttons_row.addWidget(delete_button)
     buttons_row.addStretch(1)
     buttons_row.addWidget(attach_button)
     buttons_row.addWidget(close_box)
@@ -326,7 +415,7 @@ def show_pets_dialog(parent, on_change=None) -> None:
     }
 
     def selected_pet() -> dict | None:
-        """Питомец, выбранный в списке."""
+        """Дрон, выбранный в списке."""
 
         item = view.currentItem()
 
@@ -388,14 +477,17 @@ def show_pets_dialog(parent, on_change=None) -> None:
             traits_layout.addWidget(row)
 
     def show_card() -> None:
-        """Заполняет карточку выбранного питомца."""
+        """Заполняет карточку выбранного дрона."""
 
         pet = selected_pet()
         attach_button.setEnabled(pet is not None)
+        rename_button.setEnabled(pet is not None)
+        delete_button.setEnabled(
+            pet is not None and bool(pet.get("custom"))
+        )
 
         if pet is None:
-            name_label.setText("Выбери питомца")
-            type_label.setText("")
+            name_label.setText("Выбери дрона")
             nickname_label.setText("")
             description_label.setText("")
             speech_label.setText("")
@@ -418,16 +510,14 @@ def show_pets_dialog(parent, on_change=None) -> None:
         )
         learned = int(progress.get("learned_phrases", 0) or 0)
 
+        nickname = pet.get("nickname") or ""
+
         name_label.setText(pet["name"])
-        type_label.setText(
-            pet.get("species_title")
-            or SPECIES_TITLES.get(
-                pet.get("species", "custom"),
-                SPECIES_TITLES["custom"],
-            )
-        )
         nickname_label.setText(
-            f"КЛИЧКА: {pet.get('nickname') or pet['name']}"
+            f"КЛИЧКА: {nickname}" if nickname else "КЛИЧКА: не задана"
+        )
+        nickname_label.setStyleSheet(
+            "" if nickname else "color: #6f7d72;"
         )
         description_label.setText(
             pet.get("description")
@@ -465,7 +555,7 @@ def show_pets_dialog(parent, on_change=None) -> None:
         )
 
     def refresh_list(keep_id: str | None = None) -> None:
-        """Перерисовывает список, сохраняя выбранного питомца."""
+        """Перерисовывает список, сохраняя выбранного дрона."""
 
         state["pets"] = load_pets()
         state["active"] = get_active_pet_id()
@@ -482,9 +572,15 @@ def show_pets_dialog(parent, on_change=None) -> None:
             level = int(
                 (pet.get("progress") or {}).get("level", 1) or 1
             )
+            species_title = pet.get("species_title") or SPECIES_TITLES.get(
+                pet.get("species", "custom"),
+                SPECIES_TITLES["custom"],
+            )
+
             item = QListWidgetItem(
-                f"{pet.get('symbol') or '🐾'}  {pet['name']}\n"
-                f"{pet.get('species_title') or SPECIES_TITLES['custom']}"
+                f"{pet.get('symbol') or '🛠️'}  "
+                f"{pet.get('nickname') or pet['name']}\n"
+                f"{species_title}"
                 f" · ур. {level} · {status}",
                 view,
             )
@@ -507,7 +603,7 @@ def show_pets_dialog(parent, on_change=None) -> None:
         view.blockSignals(False)
 
     def toggle_attach() -> None:
-        """Закрепляет выбранного питомца или освобождает его."""
+        """Закрепляет выбранного дрона или освобождает его."""
 
         pet = selected_pet()
 
@@ -526,7 +622,7 @@ def show_pets_dialog(parent, on_change=None) -> None:
         show_card()
 
     def create_pet() -> None:
-        """Создаёт своего питомца."""
+        """Создаёт своего дрона."""
 
         pet = _ask_new_pet(dialog)
 
@@ -536,11 +632,64 @@ def show_pets_dialog(parent, on_change=None) -> None:
         refresh_list(keep_id=pet["id"])
         show_card()
 
+    def rename_pet() -> None:
+        """Меняет кличку выбранного дрона."""
+
+        pet = selected_pet()
+
+        if pet is None:
+            return
+
+        nickname = _ask_nickname(dialog, pet)
+
+        if nickname is None:
+            return
+
+        if set_pet_nickname(pet["id"], nickname) is None:
+            return
+
+        if on_change is not None:
+            on_change()
+
+        refresh_list(keep_id=pet["id"])
+        show_card()
+
+    def delete_pet() -> None:
+        """Удаляет своего дрона из списка."""
+
+        pet = selected_pet()
+
+        if pet is None or not pet.get("custom"):
+            return
+
+        confirm = ConfirmDialog(
+            dialog,
+            "Удалить дрона",
+            f"Удалить дрона "
+            f"«{pet.get('nickname') or pet['name']}»? "
+            "Его успехи обучения тоже исчезнут.",
+            "Удалить",
+        )
+
+        if confirm.exec() != QDialog.Accepted:
+            return
+
+        if not remove_custom_pet(pet["id"]):
+            return
+
+        if on_change is not None:
+            on_change()
+
+        refresh_list()
+        show_card()
+
     view.currentItemChanged.connect(
         lambda current, previous: show_card()
     )
     attach_button.clicked.connect(toggle_attach)
     create_button.clicked.connect(create_pet)
+    rename_button.clicked.connect(rename_pet)
+    delete_button.clicked.connect(delete_pet)
 
     refresh_list()
     show_card()

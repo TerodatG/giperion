@@ -1,6 +1,6 @@
-# Giperion/terminal/core/pets.py                                     v002
-# Питомцы терминала: лёгкие личности поверх локального ядра.
-# Последнее изменение: прогресс обучения и нейтральные описания.
+# Giperion/terminal/core/pets.py                                     v005
+# Дроны терминала: лёгкие личности поверх локального ядра.
+# Последнее изменение: удаление своего дрона.
 
 import copy
 from datetime import date
@@ -17,10 +17,10 @@ DEFAULT_PROGRESS = {
     "level": 1,
 }
 
-# Базовый шаблон личности, который копирует каждый питомец.
+# Базовый шаблон личности, который копирует каждый дрон.
 BASE_TEMPLATE = {
     "base_model": "giperion",
-    "role": "Маленький питомец терминала",
+    "role": "Дрон терминала",
     "traits": {
         "Любознательность": 5,
         "Эмпатия": 4,
@@ -29,62 +29,65 @@ BASE_TEMPLATE = {
     },
     "speech": (
         "Короткие дружелюбные фразы, простые эмоции и лёгкий "
-        "характер питомца."
+        "характер дрона."
     ),
 }
 
 SPECIES_TITLES = {
-    "puppy": "Робо-щенок",
-    "cat": "Робо-кошка",
-    "custom": "Свой питомец",
+    "spider": "Кибер паук",
+    "vacuum": "Робот пылесос",
+    "custom": "Свой дрон",
 }
 
 DEFAULT_PETS = (
     {
-        "id": "robot-puppy",
-        "name": "Робо-щенок",
-        "nickname": "Робо-щенок",
-        "species": "puppy",
-        "symbol": "🐕",
+        "id": "cyber-spider",
+        "name": "Кибер паук",
+        "nickname": "",
+        "species": "spider",
+        "symbol": "🕷️",
         "description": (
-            "Весёлый робо-щенок с антенной на голове. Любит команды, "
-            "короткие прогулки по терминалу и новые слова."
+            "Паук-дрон на восьми тонких лапах: быстро бегает по столу, "
+            "любит схемы, провода и новые слова."
         ),
         "greeting": (
-            "Гав! Я Робо-щенок. Живу в терминале и готов учиться "
-            "разговаривать вместе с тобой."
+            "Привет. Я Кибер паук — дрон терминала. Запускаю лапы "
+            "и готов учиться разговаривать."
         ),
         "self_description": (
-            "Я Робо-щенок — маленький питомец терминала. "
-            "Слушаю команды и учусь разговаривать."
+            "Я Кибер паук — дрон терминала. Бегаю по столу, "
+            "слежу за порядком и учусь новым фразам."
         ),
         "custom": False,
     },
     {
-        "id": "robot-cat",
-        "name": "Робо-кошка",
-        "nickname": "Робо-кошка",
-        "species": "cat",
-        "symbol": "🐈",
+        "id": "robot-vacuum",
+        "name": "Робот пылесос",
+        "nickname": "",
+        "species": "vacuum",
+        "symbol": "🤖",
         "description": (
-            "Спокойная робо-кошка с мягким характером. Наблюдает, "
-            "иногда мурлычет и запоминает новые фразы."
+            "Круглый робот-пылесос с мягким характером: ездит по "
+            "периметру, собирает пыль и запоминает новые фразы."
         ),
         "greeting": (
-            "Мяу. Я Робо-кошка. Устроюсь рядом и буду слушать, "
-            "а потом отвечу."
+            "Писк. Я Робот пылесос — дрон терминала. Протру дорожку "
+            "и послушаю, о чём поговорим."
         ),
         "self_description": (
-            "Я Робо-кошка — маленький питомец терминала. Люблю "
-            "наблюдать и учиться новым фразам."
+            "Я Робот пылесос — дрон терминала. Люблю чистоту, "
+            "спокойные разговоры и учусь новым фразам."
         ),
         "custom": False,
     },
 )
 
+# Старые базовые питомцы: после перехода на дронов их заменяют новые.
+LEGACY_PET_IDS = frozenset({"robot-puppy", "robot-cat"})
+
 
 def _default_pets() -> list[dict]:
-    """Возвращает копии двух базовых питомцев."""
+    """Возвращает копии двух базовых дронов."""
 
     pets = []
 
@@ -92,6 +95,7 @@ def _default_pets() -> list[dict]:
         pet = copy.deepcopy(record)
         pet.update(
             {
+                "species_title": SPECIES_TITLES[record["species"]],
                 "role": BASE_TEMPLATE["role"],
                 "base_model": BASE_TEMPLATE["base_model"],
                 "traits": dict(BASE_TEMPLATE["traits"]),
@@ -106,7 +110,7 @@ def _default_pets() -> list[dict]:
 
 
 def _clean_progress(value: object) -> dict:
-    """Проверяет успехи обучения питомца."""
+    """Проверяет успехи обучения дрона."""
 
     progress = dict(DEFAULT_PROGRESS)
 
@@ -126,13 +130,13 @@ def _clean_progress(value: object) -> dict:
 
 
 def pet_level(experience: int) -> int:
-    """Уровень питомца по накопленному опыту."""
+    """Уровень дрона по накопленному опыту."""
 
     return max(1, 1 + max(0, int(experience)) // 100)
 
 
 def _clean_pet(value: object) -> dict | None:
-    """Проверяет запись питомца и дополняет её полями шаблона."""
+    """Проверяет запись дрона и дополняет её полями шаблона."""
 
     if not isinstance(value, dict):
         return None
@@ -155,8 +159,8 @@ def _clean_pet(value: object) -> dict | None:
         "id": pet_id[:60],
         "name": name.strip()[:40],
         "nickname": str(
-            value.get("nickname") or name
-        ).strip()[:40] or name.strip()[:40],
+            value.get("nickname") or ""
+        ).strip()[:40],
         "species": species,
         "species_title": SPECIES_TITLES[species],
         "symbol": str(value.get("symbol") or "🐾")[:8],
@@ -191,7 +195,7 @@ def _clean_pet(value: object) -> dict | None:
 
     if not pet["self_description"]:
         pet["self_description"] = (
-            f"Я {pet['name']} — маленький питомец терминала. "
+            f"Я {pet['name']} — дрон терминала. "
             "Учусь разговаривать и исследовать мир."
         )
 
@@ -199,7 +203,7 @@ def _clean_pet(value: object) -> dict | None:
 
 
 def load_pets() -> list[dict]:
-    """Читает питомцев, всегда оставляя двух базовых."""
+    """Читает дронов, всегда оставляя двух базовых."""
 
     document = read_json_object(PETS_FILE)
     raw = document.get("pets", [])
@@ -214,8 +218,12 @@ def load_pets() -> list[dict]:
             if pet is None:
                 continue
 
+            # Старые питомцы больше не показываются: их заменили дроны.
+            if pet["id"] in LEGACY_PET_IDS:
+                continue
+
             if pet["id"] in known:
-                # Базовые питомцы остаются на месте, но сохраняют
+                # Базовые дроны остаются на месте, но сохраняют
                 # накопленный прогресс обучения.
                 for index, existing in enumerate(pets):
                     if existing["id"] == pet["id"]:
@@ -233,7 +241,7 @@ def load_pets() -> list[dict]:
 
 
 def get_pet(pet_id: str) -> dict | None:
-    """Возвращает питомца по идентификатору."""
+    """Возвращает дрона по идентификатору."""
 
     for pet in load_pets():
         if pet["id"] == pet_id:
@@ -243,7 +251,7 @@ def get_pet(pet_id: str) -> dict | None:
 
 
 def get_active_pet_id() -> str:
-    """Идентификатор питомца, закреплённого за терминалом."""
+    """Идентификатор дрона, закреплённого за терминалом."""
 
     document = read_json_object(PETS_FILE)
     pet_id = document.get("active_pet_id")
@@ -255,7 +263,7 @@ def get_active_pet_id() -> str:
 
 
 def get_active_pet() -> dict | None:
-    """Питомец, закреплённый за терминалом, или None."""
+    """Дрон, закреплённый за терминалом, или None."""
 
     pet_id = get_active_pet_id()
 
@@ -263,7 +271,7 @@ def get_active_pet() -> dict | None:
 
 
 def _write_pets(pets: list[dict], active_id: str) -> None:
-    """Сохраняет питомцев и закрепление без служебных полей."""
+    """Сохраняет дронов и закрепление без служебных полей."""
 
     document = {
         "active_pet_id": active_id or "",
@@ -276,17 +284,71 @@ def _write_pets(pets: list[dict], active_id: str) -> None:
             for pet in pets
         ],
         "_meta": {
-            "version": "v002",
+            "version": "v004",
             "description": (
-                "Питомцы терминала: лёгкие личности и успехи обучения."
+                "Дроны терминала: лёгкие личности, клички и успехи "
+                "обучения."
             ),
         },
     }
     write_json(PETS_FILE, document)
 
 
+def set_pet_nickname(pet_id: str, nickname: str) -> dict | None:
+    """Меняет кличку дрона, не трогая вид и успехи обучения."""
+
+    pets = load_pets()
+    updated = None
+
+    for pet in pets:
+        if pet["id"] != pet_id:
+            continue
+
+        clean = str(nickname or "").strip()[:40]
+
+        pet["nickname"] = clean
+        updated = pet
+
+        break
+
+    if updated is None:
+        return None
+
+    _write_pets(pets, get_active_pet_id())
+
+    return updated
+
+
+def remove_custom_pet(pet_id: str) -> bool:
+    """Удаляет своего дрона; базовых удалить нельзя."""
+
+    pets = load_pets()
+    kept = []
+    removed = False
+
+    for pet in pets:
+        if pet["id"] == pet_id and pet.get("custom"):
+            removed = True
+
+            continue
+
+        kept.append(pet)
+
+    if not removed:
+        return False
+
+    active = get_active_pet_id()
+
+    if active == pet_id:
+        active = ""
+
+    _write_pets(kept, active)
+
+    return True
+
+
 def set_active_pet_id(pet_id: str) -> bool:
-    """Закрепляет питомца за терминалом или открепляет его."""
+    """Закрепляет дрона за терминалом или открепляет его."""
 
     if pet_id and get_pet(pet_id) is None:
         return False
@@ -297,7 +359,7 @@ def set_active_pet_id(pet_id: str) -> bool:
 
 
 def record_pet_activity(pet_id: str, learned: int = 0) -> dict | None:
-    """Учитывает разговор с питомцем и, возможно, новую фразу."""
+    """Учитывает разговор с дроном и, возможно, новую фразу."""
 
     pets = load_pets()
     updated = None
@@ -332,7 +394,7 @@ def add_custom_pet(
     species: str = "custom",
     description: str = "",
 ) -> dict | None:
-    """Создаёт своего питомца на основе базового шаблона личности."""
+    """Создаёт своего дрона на основе базового шаблона личности."""
 
     clean_name = name.strip()
 
@@ -356,14 +418,14 @@ def add_custom_pet(
         "species": species,
         "species_title": SPECIES_TITLES[species],
         "symbol": {
-            "puppy": "🐕",
-            "cat": "🐈",
-            "custom": "🐾",
+            "spider": "🕷️",
+            "vacuum": "🤖",
+            "custom": "🛠️",
         }[species],
         "description": (
             description.strip()[:600]
             or (
-                "Свой питомец терминала. Наследует базовый шаблон "
+                "Свой дрон терминала. Наследует базовый шаблон "
                 "личности и учится общению через чат."
             )
         ),
@@ -372,7 +434,7 @@ def add_custom_pet(
             "Буду жить в терминале и учиться разговаривать."
         ),
         "self_description": (
-            f"Я {clean_name[:40]} — маленький питомец терминала. "
+            f"Я {clean_name[:40]} — дрон терминала. "
             "Учусь разговаривать и исследовать мир."
         ),
         "custom": True,

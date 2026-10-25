@@ -1,6 +1,6 @@
 # Giperion/terminal/core/chatbot.py                                v039
 # Координация ответов Гипериона на сообщения пользователя.
-# Последнее изменение: необязательная личность питомца.
+# Последнее изменение: необязательная личность дрона.
 
 from terminal.core.chat_pipeline import ChatContext, STAGES
 from terminal.core.pending_state import (

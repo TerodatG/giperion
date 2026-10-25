@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/pets_mixin.py                                 v002
-# Питомец терминала: закрепление, личность и локальный ответ.
-# Последнее изменение: без упоминания внутреннего ядра в сообщениях.
+# Giperion/terminal/ui/pets_mixin.py                                 v004
+# Дрон терминала: закрепление, личность и локальный ответ.
+# Последнее изменение: питомцы переименованы в дронов (внутри — pets).
 
 from terminal.core.model_registry import get_active_model
 from terminal.core.pets import get_active_pet, set_active_pet_id
@@ -9,10 +9,10 @@ from terminal.ui.theme import BOT_NAME, BOT_NICKNAME
 
 
 class PetsMixin:
-    """Методы окна для питомцев терминала."""
+    """Методы окна для дронов терминала."""
 
     def open_pets_dialog(self) -> None:
-        """Открывает окно с карточками питомцев."""
+        """Открывает окно с карточками дронов."""
 
         show_pets_dialog(
             self.window,
@@ -20,7 +20,7 @@ class PetsMixin:
         )
 
     def _apply_pet_identity(self, pet: dict | None) -> None:
-        """Переключает имя отвечающего на питомца или обратно."""
+        """Переключает имя отвечающего на дрона или обратно."""
 
         self.attached_pet = pet
 
@@ -39,17 +39,27 @@ class PetsMixin:
         self.update_input_placeholder()
 
     def _pets_changed(self) -> None:
-        """Применяет новое закрепление питомца после окна."""
+        """Применяет новое закрепление дрона после окна."""
 
         previous = getattr(self, "attached_pet", None)
         pet = get_active_pet()
 
         self._apply_pet_identity(pet)
 
+        same_pet = (
+            previous is not None
+            and pet is not None
+            and previous.get("id") == pet.get("id")
+        )
+
+        if same_pet:
+            # Поменялась только кличка: имя уже обновлено, объявлять нечего.
+            return
+
         if pet is None:
             if previous is not None:
                 self.append_system(
-                    "Питомец откреплён. В чате снова отвечает "
+                    "Дрон откреплён. В чате снова отвечает "
                     "активная модель."
                 )
 
@@ -57,7 +67,7 @@ class PetsMixin:
 
         self._turn_off_conference()
         self.append_system(
-            f"Питомец «{pet['name']}» закреплён за терминалом. "
+            f"Дрон «{pet['name']}» закреплён за терминалом. "
             "Теперь он отвечает в чате."
         )
 
@@ -70,7 +80,7 @@ class PetsMixin:
             )
 
     def detach_pet(self, announce: bool = True) -> None:
-        """Открепляет питомца и возвращает активную модель."""
+        """Открепляет дрона и возвращает активную модель."""
 
         if not getattr(self, "attached_pet", None):
             return
@@ -80,6 +90,6 @@ class PetsMixin:
 
         if announce:
             self.append_system(
-                "Питомец откреплён. В чате снова отвечает "
+                "Дрон откреплён. В чате снова отвечает "
                 "активная модель."
             )

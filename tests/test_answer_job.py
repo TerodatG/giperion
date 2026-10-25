@@ -1,6 +1,6 @@
-# Giperion/tests/test_answer_job.py                                v002
+# Giperion/tests/test_answer_job.py                                v003
 # Проверка передачи скрытой истории в фоновый расчёт ответа.
-# Последнее изменение: локальный ответ питомца с личностью.
+# Последнее изменение: локальный ответ дрона с личностью.
 
 from terminal.ui import answer_job
 
@@ -31,7 +31,7 @@ def test_answer_job_passes_context(monkeypatch) -> None:
 
 
 def test_pet_answer_uses_local_core(monkeypatch) -> None:
-    """Питомец отвечает локальным ядром со своей личностью."""
+    """Дрон отвечает локальным ядром со своей личностью."""
 
     captured = {}
 
@@ -39,7 +39,7 @@ def test_pet_answer_uses_local_core(monkeypatch) -> None:
         captured["text"] = text
         captured["persona"] = persona
 
-        return ("ответ питомца", True)
+        return ("ответ дрона", True)
 
     monkeypatch.setattr(
         answer_job,
@@ -47,7 +47,7 @@ def test_pet_answer_uses_local_core(monkeypatch) -> None:
         fake_response,
     )
 
-    persona = {"name": "Робо-щенок"}
+    persona = {"name": "Кибер паук"}
 
     job = answer_job.AnswerJob(
         "привет",
@@ -57,7 +57,7 @@ def test_pet_answer_uses_local_core(monkeypatch) -> None:
     job._thread.join(timeout=2)
 
     assert job.done
-    assert job.answer == "ответ питомца"
+    assert job.answer == "ответ дрона"
     assert job.save_to_history is True
     assert captured == {
         "text": "привет",

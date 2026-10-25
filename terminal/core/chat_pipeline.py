@@ -1,6 +1,6 @@
 # Giperion/terminal/core/chat_pipeline.py                           v003
 # Этапы ответа Гипериона: от самоописания до честного «не понял».
-# Последнее изменение: личность питомца в ответе «кто ты».
+# Последнее изменение: личность дрона в ответе «кто ты».
 
 from dataclasses import dataclass
 from typing import Callable

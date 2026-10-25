@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/widgets.py                                   v009
+# Giperion/terminal/ui/widgets.py                                   v010
 # Самодостаточные виджеты: кнопки, светодиоды, шкалы и рамки.
-# Последнее изменение: «плюс» вложения и пустой слот модуля.
+# Последнее изменение: пиктограмма дрона вместо лапы.
 
 import math
 
@@ -89,8 +89,8 @@ class SideIconButton(QPushButton):
                 center_x,
                 center_y,
             )
-        elif self.icon_name == "pet":
-            self._paint_pet(painter, center_x, center_y)
+        elif self.icon_name == "drone":
+            self._paint_drone(painter, center_x, center_y)
         elif self.icon_name == "performance":
             self._paint_performance(
                 painter,
@@ -269,29 +269,54 @@ class SideIconButton(QPushButton):
         painter.drawEllipse(QPointF(center_x, center_y), 2.6, 2.6)
 
     @staticmethod
-    def _paint_pet(painter, center_x: float, center_y: float) -> None:
-        """Рисует отпечаток лапы — питомец терминала."""
+    def _paint_drone(painter, center_x: float, center_y: float) -> None:
+        """Рисует квадрокоптер — дрон терминала."""
 
-        painter.drawEllipse(
-            QPointF(center_x, center_y + 3.5),
-            6.5,
-            5.0,
-        )
-
+        # Лучи и винты по четырём углам.
         for offset_x, offset_y in (
-            (-7.0, -5.0),
-            (-2.5, -9.0),
-            (2.5, -9.0),
-            (7.0, -5.0),
+            (-8.0, -6.5),
+            (8.0, -6.5),
+            (-8.0, 6.5),
+            (8.0, 6.5),
         ):
+            painter.drawLine(
+                QPointF(
+                    center_x + offset_x * 0.34,
+                    center_y + offset_y * 0.36,
+                ),
+                QPointF(center_x + offset_x, center_y + offset_y),
+            )
             painter.drawEllipse(
                 QPointF(
                     center_x + offset_x,
                     center_y + offset_y,
                 ),
-                2.2,
-                2.6,
+                3.1,
+                3.1,
             )
+
+        # Корпус.
+        painter.drawRoundedRect(
+            QRectF(
+                center_x - 4.2,
+                center_y - 3.2,
+                8.4,
+                6.4,
+            ),
+            2.2,
+            2.2,
+        )
+
+        # Антенна с сигнальным огоньком.
+        painter.drawLine(
+            QPointF(center_x, center_y - 3.2),
+            QPointF(center_x, center_y - 6.6),
+        )
+        painter.drawEllipse(
+            QPointF(center_x, center_y - 7.8),
+            1.1,
+            1.1,
+        )
 
 
     @staticmethod

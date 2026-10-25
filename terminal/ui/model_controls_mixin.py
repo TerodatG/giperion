@@ -1,8 +1,6 @@
-# Giperion/terminal/ui/model_controls_mixin.py                      v007
+# Giperion/terminal/ui/model_controls_mixin.py                      v008
 # Выбор модели и личностной матрицы, подсказка поля ввода.
-# Последнее изменение: активация модели открепляет питомца.
-
-from PySide6.QtCore import QTimer
+# Последнее изменение: без подписи модели на планке заголовка.
 
 from shared.action_log import add_action
 from terminal.core.model_registry import (
@@ -75,16 +73,6 @@ class ModelControlsMixin:
             "для будущего режима. Влияние на ответы пока не подключено."
         )
 
-        if hasattr(self, "title_status"):
-            self.title_status.setText(
-                f"матрица: {matrix['name']}"
-            )
-
-            QTimer.singleShot(
-                2500,
-                self._restore_title_status,
-            )
-
     def _personality_module_unavailable(self) -> None:
         """Сообщает, что модуль личности ещё не подключён."""
 
@@ -127,21 +115,13 @@ class ModelControlsMixin:
 
         if pet_off:
             self.append_system(
-                "Питомец откреплён: теперь в чате отвечает "
+                "Дрон откреплён: теперь в чате отвечает "
                 f"«{model['name']}»."
             )
 
         # Активный терминал очищается: в нём остаётся только
         # системное сообщение о загруженной модели.
         self._update_chat_context()
-
-        if hasattr(self, "title_status"):
-            self.title_status.setText(f"модель: {model['name']}")
-
-            QTimer.singleShot(
-                2500,
-                self._restore_title_status,
-            )
 
     def _turn_off_conference(self) -> bool:
         """Выключает сенат, чтобы отвечала выбранная модель."""
