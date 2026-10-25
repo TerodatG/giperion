@@ -149,6 +149,158 @@ def _retry_after(error: urllib.error.HTTPError) -> float | None:
     return min(seconds, 60.0)
 
 
+def _merge_name(current: str, piece: str) -> str:
+    """Собирает имя инструмента из кусков потока."""
+
+    if not piece:
+        return current
+
+    if not current:
+        return piece
+
+    if piece == current or current.endswith(piece):
+        return current
+
+    if piece.startswith(current):
+        return piece
+
+    return current + piece
+
+
+def _stream_json(
+    url: str,
+    api_key: str,
+    payload: dict,
+    timeout: int,
+    on_delta: Callable[[str], None],
+) -> dict:
+    """Читает SSE-поток и собирает из него обычный ответ провайдера."""
+
+    body = dict(payload)
+    body["stream"] = True
+    body["stream_options"] = {"include_usage": True}
+
+    data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+
+    request = urllib.request.Request(
+        url,
+        data=data,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + api_key,
+            "Accept": "text/event-stream",
+        },
+    )
+
+    content: list[str] = []
+    calls: dict[int, dict[str, str]] = {}
+    usage: dict | None = None
+
+    try:
+        with urllib.request.urlopen(
+            request,
+            timeout=timeout,
+        ) as response:
+            for raw in response:
+                line = raw.decode("utf-8", "replace").strip()
+
+                if not line.startswith("data:"):
+                    continue
+
+                chunk = line[5:].strip()
+
+                if chunk == "[DONE]":
+                    break
+
+                try:
+                    event = json.loads(chunk)
+                except json.JSONDecodeError:
+                    continue
+
+                if isinstance(event, dict):
+                    found_usage = event.get("usage")
+
+                    if isinstance(found_usage, dict):
+                        usage = found_usage
+
+                for choice in event.get("choices") or []:
+                    delta = choice.get("delta") or {}
+                    piece = delta.get("content")
+
+                    if isinstance(piece, str) and piece:
+                        content.append(piece)
+                        on_delta(piece)
+
+                    for item in delta.get("tool_calls") or []:
+                        index = item.get("index")
+
+                        if not isinstance(index, int):
+                            index = len(calls)
+
+                        slot = calls.setdefault(
+                            index,
+                            {"id": "", "name": "", "arguments": ""},
+                        )
+
+                        if item.get("id"):
+                            slot["id"] = str(item["id"])
+
+                        function = item.get("function") or {}
+
+                        slot["name"] = _merge_name(
+                            slot["name"],
+                            function.get("name") or "",
+                        )
+
+                        arguments = function.get("arguments")
+
+                        if isinstance(arguments, str):
+                            slot["arguments"] += arguments
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", "replace")[:300]
+
+        raise ProviderError(
+            _http_message(url, error.code, detail)
+        ) from error
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise ProviderError(_offline_message(url, error)) from error
+
+    message: dict = {
+        "role": "assistant",
+        "content": "".join(content),
+    }
+
+    tool_calls = []
+
+    for index in sorted(calls):
+        slot = calls[index]
+
+        if not slot["name"]:
+            continue
+
+        tool_calls.append(
+            {
+                "type": "function",
+                "id": slot["id"] or f"call_{index}",
+                "function": {
+                    "name": slot["name"],
+                    "arguments": slot["arguments"] or "{}",
+                },
+            }
+        )
+
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+
+    reply: dict = {"choices": [{"message": message}]}
+
+    if usage is not None:
+        reply["usage"] = usage
+
+    return reply
+
+
 def _post_json(
     url: str,
     api_key: str,
@@ -214,6 +366,8 @@ class OpenAICompatibleProvider:
         backoff: float = 0.5,
         max_backoff: float = 8.0,
         sleep: Callable[[float], None] | None = None,
+        stream: bool = False,
+        stream_transport: Callable[..., dict] | None = None,
     ) -> None:
         self.base_url = str(base_url).rstrip("/")
         self.api_key = str(api_key)
@@ -223,7 +377,9 @@ class OpenAICompatibleProvider:
         self.backoff = max(0.0, float(backoff))
         self.max_backoff = max(self.backoff, float(max_backoff))
         self.retry_count = 0
+        self.stream = bool(stream)
         self._post = transport or _post_json
+        self._stream = stream_transport or _stream_json
         self._sleep = sleep or time.sleep
 
     def _wait(self, attempt: int, retry_after: float | None) -> float:
@@ -261,8 +417,15 @@ class OpenAICompatibleProvider:
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
+        on_delta: Callable[[str], None] | None = None,
     ) -> ProviderReply:
-        """Отправляет сообщения и возвращает текст и tool calls."""
+        """Отправляет сообщения и возвращает текст и tool calls.
+
+        Если включён поток и передан `on_delta`, текст приходит кусками по
+        мере генерации. При сбое до первого куска запрос повторяется
+        обычным способом; после — поток не дублируется, а ошибка уходит
+        наружу.
+        """
 
         if not self.base_url:
             raise ProviderError("Не задан base_url провайдера.")
@@ -276,7 +439,34 @@ class OpenAICompatibleProvider:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-        data = self._send(payload)
+        data = None
+
+        if self.stream and on_delta is not None:
+            received = {"chars": 0}
+
+            def delta(piece: str) -> None:
+                received["chars"] += len(piece)
+                on_delta(piece)
+
+            try:
+                data = self._stream(
+                    self.base_url + "/chat/completions",
+                    self.api_key,
+                    payload,
+                    self.timeout,
+                    delta,
+                )
+            except ProviderError as error:
+                if received["chars"]:
+                    raise ProviderError(
+                        "Поток ответа прервался после начала: "
+                        f"{error}"
+                    ) from error
+
+                data = None
+
+        if data is None:
+            data = self._send(payload)
 
         choices = data.get("choices")
 
@@ -341,6 +531,7 @@ class NativeBrain:
         self.completion_tokens = 0
         self.calls = 0
         self.cost = 0.0
+        self.on_delta = None
 
     @property
     def total_tokens(self) -> int:
@@ -373,6 +564,7 @@ class NativeBrain:
         reply = self.provider.complete(
             [{"role": "user", "content": prompt}],
             tool_schemas(),
+            on_delta=self.on_delta,
         )
 
         self._account(reply)
@@ -405,6 +597,7 @@ class NativeBrain:
         reply = self.provider.complete(
             [{"role": "user", "content": prompt}],
             None,
+            on_delta=self.on_delta,
         )
 
         self._account(reply)

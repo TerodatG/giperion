@@ -33,6 +33,8 @@ from terminal.core.agent.settings import (
     save_settings,
     set_plugins_enabled,
     set_request_timeout,
+    set_stream_enabled,
+    stream_enabled,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
@@ -163,6 +165,17 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Плагины", self.plugins_check)
 
+        self.stream_check = QCheckBox(
+            "Показывать ответ по мере генерации",
+            self,
+        )
+        self.stream_check.setChecked(stream_enabled())
+        self.stream_check.setToolTip(
+            "Поток SSE: текст появляется в статусе сразу. Если сервер не "
+            "умеет поток, агент молча вернётся к обычному запросу."
+        )
+        form.addRow("Поток", self.stream_check)
+
         self.status_label = QLabel("Готово к настройке.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -267,6 +280,7 @@ class ProviderDialog(SkinDialog):
         set_request_timeout(self.timeout_input.value())
 
         set_plugins_enabled(self.plugins_check.isChecked())
+        set_stream_enabled(self.stream_check.isChecked())
         reload_plugins()
 
         if all(values.values()):

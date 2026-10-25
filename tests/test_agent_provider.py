@@ -480,3 +480,143 @@ def test_retry_after_header_is_read() -> None:
     assert _retry_after(_http_error("3")) == 3.0
     assert _retry_after(_http_error("900")) == 60.0
     assert _retry_after(_http_error("скоро")) is None
+
+
+def _stream_reply(text: str) -> dict:
+    return {
+        "choices": [{"message": {"content": text}}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2},
+    }
+
+
+def test_streaming_gives_text_piece_by_piece() -> None:
+    """Куски потока доходят до подписчика, ответ собирается целиком."""
+
+    seen: list[str] = []
+
+    def stream_transport(url, key, payload, timeout, on_delta):
+        on_delta("При")
+        on_delta("вет")
+        return _stream_reply("Привет")
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        stream=True,
+        stream_transport=stream_transport,
+    )
+
+    reply = provider.complete(
+        [{"role": "user", "content": "привет"}],
+        on_delta=seen.append,
+    )
+
+    assert seen == ["При", "вет"]
+    assert reply.text == "Привет"
+    assert reply.usage["completion_tokens"] == 2
+
+
+def test_stream_falls_back_when_server_has_no_stream() -> None:
+    """Если поток не поддержан, запрос повторяется обычным путём."""
+
+    ordinary: list[int] = []
+
+    def stream_transport(url, key, payload, timeout, on_delta):
+        raise ProviderError("Адрес или модель не найдены")
+
+    def transport(url, key, payload, timeout):
+        ordinary.append(1)
+
+        return _stream_reply("обычный ответ")
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+        stream=True,
+        stream_transport=stream_transport,
+    )
+
+    reply = provider.complete(
+        [{"role": "user", "content": "привет"}],
+        on_delta=lambda piece: None,
+    )
+
+    assert ordinary == [1]
+    assert reply.text == "обычный ответ"
+
+
+def test_stream_failure_after_start_is_not_repeated() -> None:
+    """Обрыв посреди потока не дублирует уже показанный текст."""
+
+    ordinary: list[int] = []
+
+    def stream_transport(url, key, payload, timeout, on_delta):
+        on_delta("начало")
+        raise ProviderError("соединение закрыто")
+
+    def transport(url, key, payload, timeout):
+        ordinary.append(1)
+
+        return _stream_reply("целиком")
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+        stream=True,
+        stream_transport=stream_transport,
+    )
+
+    with pytest.raises(ProviderError) as error:
+        provider.complete(
+            [{"role": "user", "content": "привет"}],
+            on_delta=lambda piece: None,
+        )
+
+    assert "прервался" in str(error.value)
+    assert ordinary == []
+
+
+def test_native_brain_receives_stream_pieces() -> None:
+    """Мозг отдаёт куски текста в подписчика и считает токены."""
+
+    seen: list[str] = []
+
+    def stream_transport(url, key, payload, timeout, on_delta):
+        on_delta("гото")
+        on_delta("во")
+        return _stream_reply("готово")
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        stream=True,
+        stream_transport=stream_transport,
+    )
+
+    brain = NativeBrain(provider)
+    brain.on_delta = seen.append
+
+    decision = brain.decide("задача")
+
+    assert decision.action == "answer"
+    assert decision.text == "готово"
+    assert seen == ["гото", "во"]
+    assert brain.total_tokens == 12
+
+
+def test_tool_call_names_are_merged_from_deltas() -> None:
+    """Имя инструмента собирается из частей потока без дублей."""
+
+    from terminal.core.agent.providers import _merge_name
+
+    assert _merge_name("", "read_file") == "read_file"
+    assert _merge_name("read_file", "read_file") == "read_file"
+    assert _merge_name("read_file", "file") == "read_file"
+    assert _merge_name("read_", "file") == "read_file"
+    assert _merge_name("read", "read_file") == "read_file"

@@ -73,6 +73,7 @@ STEP_MARKS = {
     "subagent": "↳",
     "secret": "▤",
     "budget": "Σ",
+    "security": "⚠",
 }
 
 REMEMBER_TITLES = {
@@ -900,10 +901,12 @@ class AgentDialog(SkinDialog):
 
         if not job.done:
             spend = job.live_tokens
+            tail = job.partial.replace("\n", " ").strip()
 
             self.status_label.setText(
                 f"Работаю… шаг {len(job.steps)} из {MAX_STEPS}"
                 + (f" · {spend // 1000}k токенов" if spend else "")
+                + (f" · «{tail[-70:]}»" if tail else "")
                 + "."
             )
 

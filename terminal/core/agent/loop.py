@@ -16,6 +16,7 @@ from terminal.core.agent.context import (
     is_within_budget,
     parse_decision,
 )
+from terminal.core.agent.guard import find_instructions, mark_untrusted
 from terminal.core.agent.protocol import (
     AgentDecision,
     AgentResult,
@@ -307,6 +308,25 @@ def run_agent(
                     "Секреты скрыты",
                     f"скрыто фрагментов: {clean.hidden} · "
                     f"{call.tool}",
+                )
+            )
+
+        # Инструкции внутри файлов — это данные, а не команды. Не
+        # выбрасываем текст, но помечаем и предупреждаем в трейсе.
+        flags = find_instructions(result.text)
+
+        if flags:
+            result = ToolResult(
+                result.ok,
+                mark_untrusted(result.text, flags),
+            )
+
+            emit(
+                AgentStep(
+                    position,
+                    "security",
+                    "Похоже на внедрение инструкций",
+                    f"{call.tool}: " + ", ".join(flags[:5]),
                 )
             )
 

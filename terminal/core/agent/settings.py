@@ -109,6 +109,7 @@ def provider_from_settings():
         values["api_key"],
         values["model"],
         timeout=request_timeout(),
+        stream=stream_enabled(),
     )
 
 
@@ -131,6 +132,22 @@ def set_plugins_enabled(enabled: bool) -> None:
 
     document = read_json_object(SETTINGS_FILE)
     document["plugins_enabled"] = bool(enabled)
+    write_json(SETTINGS_FILE, document)
+
+
+def stream_enabled() -> bool:
+    """Показывать ли ответ модели по мере генерации (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("stream_enabled") is True
+
+
+def set_stream_enabled(enabled: bool) -> None:
+    """Включает или выключает потоковый ответ."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["stream_enabled"] = bool(enabled)
     write_json(SETTINGS_FILE, document)
 
 

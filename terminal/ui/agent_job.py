@@ -49,6 +49,7 @@ class AgentJob:
         self.context_chars = 0
         self.tokens = 0
         self.cost = 0.0
+        self.partial = ""
         self._budget = budget
 
         self._task = task
@@ -66,6 +67,10 @@ class AgentJob:
         self._approved = False
         self._approval_text: str | None = None
         self._started = time.monotonic()
+
+        # Поток ответа: мозг с tool calls умеет отдавать куски текста.
+        if hasattr(self._brain, "on_delta"):
+            self._brain.on_delta = self._on_delta
 
         self.task_id = task_id or task_store.new_task_id()
         self._persist = persist
@@ -170,6 +175,7 @@ class AgentJob:
     def _on_step(self, step: AgentStep) -> None:
         """Складывает шаг в общий список для окна."""
 
+        self.partial = ""
         self.steps.append(step)
 
         if self._persist:
@@ -186,6 +192,11 @@ class AgentJob:
                 history
             )
             task_store.save_state(self._state)
+
+    def _on_delta(self, piece: str) -> None:
+        """Копит кусок потокового ответа, чтобы окно показало хвост."""
+
+        self.partial = (self.partial + piece)[-200:]
 
     def _run(self) -> None:
         """Запускает цикл агента и запоминает итог."""

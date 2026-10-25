@@ -166,3 +166,33 @@ def test_plugins_are_off_by_default(tmp_path, monkeypatch) -> None:
 
     settings.set_plugins_enabled(False)
     assert settings.plugins_enabled() is False
+
+
+def test_stream_and_timeout_settings(tmp_path, monkeypatch) -> None:
+    """Поток и таймаут сохраняются и читаются."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+
+    assert settings.stream_enabled() is False
+    assert settings.request_timeout() == settings.DEFAULT_TIMEOUT
+
+    settings.set_stream_enabled(True)
+    settings.set_request_timeout(45)
+
+    assert settings.stream_enabled() is True
+    assert settings.request_timeout() == 45
+
+    # Выход за границы подрезается, мусор не ломает чтение.
+    settings.set_request_timeout(5000)
+    assert settings.request_timeout() == 900
+
+    (tmp_path / "agent_settings.json").write_text(
+        '{"request_timeout": "долго"}',
+        encoding="utf-8",
+    )
+
+    assert settings.request_timeout() == settings.DEFAULT_TIMEOUT
