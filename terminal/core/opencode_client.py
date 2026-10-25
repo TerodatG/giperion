@@ -1,6 +1,7 @@
-# Giperion/app/core/opencode_client.py                              v001
+# Giperion/terminal/core/opencode_client.py                         v002
 # Канал связи с локальным сервисом OpenCode: бесплатные внешние модели.
 # Пароль берётся из service.json, адрес — из `opencode-cli service status`.
+# Последнее изменение: opencode-cli запускается без окна консоли.
 
 import base64
 import json
@@ -12,6 +13,7 @@ import urllib.request
 from pathlib import Path
 
 from config import BASE_DIR
+from shared.process_tools import hidden_process_options
 
 # Сколько ждём обычные запросы и ответ модели.
 REQUEST_TIMEOUT = 20
@@ -109,6 +111,7 @@ def _discover_url() -> str:
             errors="replace",
             timeout=15,
             check=False,
+            **hidden_process_options(),
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise OpenCodeError(

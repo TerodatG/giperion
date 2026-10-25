@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/pets_mixin.py                                 v001
+# Giperion/terminal/ui/pets_mixin.py                                 v002
 # Питомец терминала: закрепление, личность и локальный ответ.
-# Последнее изменение: карточки питомцев и режим локального общения.
+# Последнее изменение: без упоминания внутреннего ядра в сообщениях.
 
 from terminal.core.model_registry import get_active_model
 from terminal.core.pets import get_active_pet, set_active_pet_id
@@ -58,7 +58,7 @@ class PetsMixin:
         self._turn_off_conference()
         self.append_system(
             f"Питомец «{pet['name']}» закреплён за терминалом. "
-            "Отвечает локальное ядро Гипериона."
+            "Теперь он отвечает в чате."
         )
 
         if previous is None or previous.get("id") != pet["id"]:

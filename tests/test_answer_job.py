@@ -1,5 +1,6 @@
-# Giperion/tests/test_answer_job.py                                v001
+# Giperion/tests/test_answer_job.py                                v002
 # Проверка передачи скрытой истории в фоновый расчёт ответа.
+# Последнее изменение: локальный ответ питомца с личностью.
 
 from terminal.ui import answer_job
 

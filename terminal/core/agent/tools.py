@@ -1,0 +1,371 @@
+# Giperion/terminal/core/agent/tools.py                             v001
+# Read-only инструменты агента: список, чтение и поиск по проекту.
+# Последнее изменение: первый вариант — только чтение, без записи.
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+from terminal.core.agent.protocol import ToolResult
+
+MAX_LIST_ENTRIES = 200
+MAX_READ_CHARS = 20000
+MAX_READ_BYTES = 1_000_000
+MAX_SEARCH_HITS = 40
+MAX_SEARCH_FILE_BYTES = 512_000
+MAX_SEARCH_FILES = 3000
+
+TEXT_SUFFIXES = {
+    ".py", ".md", ".json", ".jsonc", ".ui", ".txt", ".toml", ".cfg",
+    ".ini", ".ps1", ".bat", ".cmd", ".yml", ".yaml", ".html", ".css",
+    ".js", ".ts", ".csv",
+}
+
+SKIP_DIRS = {
+    ".git", "__pycache__", ".venv", "venv", "env", "node_modules",
+    ".pytest_cache", "logs", "archive", "models", ".mypy_cache",
+}
+
+DENIED_NAMES = {
+    ".env", "service.json", "auth.json", "credentials.json",
+    "id_rsa", "id_ed25519",
+}
+
+DENIED_SUFFIXES = (".pem", ".key", ".pfx", ".p12")
+
+DENIED_RELATIVE = {
+    "data/conversations.json",
+    "data/conversations_before_model_tags.json",
+    "data/user_profile.json",
+}
+
+DENIED_PREFIXES = (
+    "archive",
+    "logs",
+    "data/chat_contexts",
+)
+
+
+class ToolError(RuntimeError):
+    """Инструмент отказал: путь, аргумент или лимит."""
+
+
+def _root(root: Path) -> Path:
+    """Возвращает разрешённый корень проекта."""
+
+    return Path(root).resolve()
+
+
+def safe_path(root: Path, raw: str) -> Path:
+    """Проверяет путь: только внутри проекта и без секретов."""
+
+    base = _root(root)
+    text = str(raw or ".").strip()
+
+    if not text:
+        text = "."
+
+    candidate = Path(text)
+
+    if not candidate.is_absolute():
+        candidate = base / candidate
+
+    resolved = candidate.resolve()
+
+    try:
+        relative = resolved.relative_to(base)
+    except ValueError as error:
+        raise ToolError(
+            "Путь вне рабочей папки проекта запрещён."
+        ) from error
+
+    parts = relative.as_posix()
+
+    if ".git" in relative.parts:
+        raise ToolError("Служебная папка .git агенту недоступна.")
+
+    if relative.name in DENIED_NAMES:
+        raise ToolError("Этот файл закрыт для агента.")
+
+    if relative.suffix.lower() in DENIED_SUFFIXES:
+        raise ToolError("Файлы ключей закрыты для агента.")
+
+    if parts in DENIED_RELATIVE:
+        raise ToolError("Личные данные пользователя закрыты.")
+
+    if any(
+        parts == prefix or parts.startswith(prefix + "/")
+        for prefix in DENIED_PREFIXES
+    ):
+        raise ToolError("Архивы, журналы и контексты чатов закрыты.")
+
+    return resolved
+
+
+def list_dir(root: Path, path: str = ".") -> ToolResult:
+    """Показывает содержимое папки проекта."""
+
+    try:
+        folder = safe_path(root, path)
+    except ToolError as error:
+        return ToolResult(False, str(error))
+
+    if not folder.exists():
+        return ToolResult(False, f"Папка не найдена: {path}")
+
+    if not folder.is_dir():
+        return ToolResult(False, f"Это не папка: {path}")
+
+    base = _root(root)
+    entries = []
+
+    for item in sorted(
+        folder.iterdir(),
+        key=lambda entry: (not entry.is_dir(), entry.name.lower()),
+    ):
+        try:
+            safe_path(root, str(item))
+        except ToolError:
+            continue
+
+        relative = item.relative_to(base).as_posix()
+
+        if item.is_dir():
+            entries.append(f"{relative}/")
+        else:
+            entries.append(relative)
+
+        if len(entries) >= MAX_LIST_ENTRIES:
+            entries.append("… список обрезан")
+            break
+
+    if not entries:
+        return ToolResult(True, "Папка пуста.")
+
+    return ToolResult(True, "\n".join(entries))
+
+
+def read_file(root: Path, path: str) -> ToolResult:
+    """Читает текстовый файл проекта с ограничениями."""
+
+    try:
+        file_path = safe_path(root, path)
+    except ToolError as error:
+        return ToolResult(False, str(error))
+
+    if not file_path.exists():
+        return ToolResult(False, f"Файл не найден: {path}")
+
+    if not file_path.is_file():
+        return ToolResult(False, f"Это не файл: {path}")
+
+    try:
+        size = file_path.stat().st_size
+    except OSError as error:
+        return ToolResult(False, f"Не удалось прочитать: {error}")
+
+    if size > MAX_READ_BYTES:
+        return ToolResult(
+            False,
+            f"Файл больше {MAX_READ_BYTES} байт — читай частями.",
+        )
+
+    try:
+        data = file_path.read_bytes()
+    except OSError as error:
+        return ToolResult(False, f"Не удалось прочитать: {error}")
+
+    if b"\x00" in data[:4096]:
+        return ToolResult(False, "Это двоичный файл, читать не буду.")
+
+    text = data.decode("utf-8", "replace")
+    lines = text.count("\n") + 1
+
+    if len(text) > MAX_READ_CHARS:
+        text = text[:MAX_READ_CHARS]
+        text += "\n… файл обрезан по лимиту."
+
+    header = f"{path} · {lines} строк\n"
+
+    return ToolResult(True, header + text)
+
+
+def _iter_text_files(base: Path):
+    """Перебирает текстовые файлы проекта для поиска без ripgrep."""
+
+    seen = 0
+
+    for folder, dirnames, filenames in os.walk(base):
+        dirnames[:] = [
+            name
+            for name in dirnames
+            if name not in SKIP_DIRS
+        ]
+
+        for name in filenames:
+            path = Path(folder) / name
+
+            if path.suffix.lower() not in TEXT_SUFFIXES:
+                continue
+
+            try:
+                safe_path(base, str(path))
+            except ToolError:
+                continue
+
+            try:
+                if path.stat().st_size > MAX_SEARCH_FILE_BYTES:
+                    continue
+            except OSError:
+                continue
+
+            seen += 1
+
+            if seen > MAX_SEARCH_FILES:
+                return
+
+            yield path
+
+
+def _search_with_python(
+    base: Path,
+    query: str,
+    folder: Path,
+) -> list[str]:
+    """Ищет подстроку в текстовых файлах без внешних программ."""
+
+    needle = query.lower()
+    hits = []
+    paths = [folder] if folder.is_file() else _iter_text_files(base)
+
+    for path in paths:
+        try:
+            relative = path.relative_to(base)
+
+            if (
+                folder.is_dir()
+                and folder != base
+                and folder not in path.parents
+            ):
+                continue
+
+            if path.suffix.lower() not in TEXT_SUFFIXES:
+                continue
+
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
+
+        for number, line in enumerate(text.splitlines(), start=1):
+            if needle not in line.lower():
+                continue
+
+            hits.append(
+                f"{relative.as_posix()}:{number}: {line.strip()[:200]}"
+            )
+
+            if len(hits) >= MAX_SEARCH_HITS:
+                return hits
+
+    return hits
+
+
+def _search_with_rg(
+    base: Path,
+    query: str,
+    folder: Path,
+) -> list[str] | None:
+    """Пробует ripgrep; None означает «rg недоступен»."""
+
+    if shutil.which("rg") is None:
+        return None
+
+    try:
+        result = subprocess.run(
+            [
+                "rg",
+                "-n",
+                "--no-heading",
+                "--color",
+                "never",
+                "-i",
+                "-m",
+                "3",
+                "--",
+                query,
+                str(folder),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    hits = []
+
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+
+        parts = line.split(":", 2)
+
+        if len(parts) != 3:
+            continue
+
+        raw_path, number, text = parts
+
+        try:
+            relative = Path(raw_path).resolve().relative_to(base)
+        except ValueError:
+            continue
+
+        hits.append(
+            f"{relative.as_posix()}:{number}: {text.strip()[:200]}"
+        )
+
+        if len(hits) >= MAX_SEARCH_HITS:
+            break
+
+    return hits
+
+
+def search_text(
+    root: Path,
+    query: str,
+    path: str = ".",
+) -> ToolResult:
+    """Ищет строку по файлам проекта и возвращает совпадения."""
+
+    text = str(query or "").strip()
+
+    if len(text) < 2:
+        return ToolResult(False, "Запрос слишком короткий (минимум 2 символа).")
+
+    try:
+        folder = safe_path(root, path)
+    except ToolError as error:
+        return ToolResult(False, str(error))
+
+    if not folder.exists():
+        return ToolResult(False, f"Папка не найдена: {path}")
+
+    base = _root(root)
+
+    hits = _search_with_rg(base, text, folder) if folder.is_dir() else None
+
+    if hits is None:
+        hits = _search_with_python(
+            base,
+            text,
+            folder if folder.is_dir() else folder.parent,
+        )
+
+    if not hits:
+        return ToolResult(True, "Совпадений нет.")
+
+    return ToolResult(True, "\n".join(hits))

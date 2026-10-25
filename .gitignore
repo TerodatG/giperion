@@ -1,4 +1,4 @@
-# Giperion/.gitignore                                             v001
+# Giperion/.gitignore                                             v002
 # Что не должно попадать в репозиторий при инициализации git.
 
 # --- Python ---
@@ -32,6 +32,10 @@ data/window_settings.json
 data/personality_settings.json
 data/dataset/
 data/chat_contexts/
+
+# --- Обновления: скачанные патчи, резервные копии и установленная версия ---
+updates/
+data/update_state.json
 
 # --- Временные файлы атомарной записи ---
 *.tmp

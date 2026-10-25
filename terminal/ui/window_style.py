@@ -1,7 +1,7 @@
-# Giperion/terminal/ui/window_style.py                             v024
+# Giperion/terminal/ui/window_style.py                             v027
 # Футуристическая шкура окна в духе «Кода доступа рай»: тёмный металл
 # с заклёпками и зелёный терминальный лог.
-# Последнее изменение: две плиты в правой колонке.
+# Последнее изменение: зелёные поля питомца и экран успехов обучения.
 
 from config import BASE_DIR
 
@@ -302,6 +302,118 @@ QLabel#systemCaption {
     letter-spacing: 1px;
 }
 
+QWidget#performanceCard {
+    background-color: rgba(5, 16, 10, 150);
+    border: 1px solid #23421f;
+    border-radius: 5px;
+}
+
+QLabel#perfTitle {
+    background: transparent;
+    color: #d09a6a;
+    font-family: "Bahnschrift SemiBold", "Segoe UI";
+    font-size: 8pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+QLabel#perfValue {
+    background: transparent;
+    font-family: "Bahnschrift SemiBold", "Segoe UI";
+    font-size: 13pt;
+    font-weight: bold;
+}
+
+QLabel#perfDetail {
+    background: transparent;
+    color: #9fbfa5;
+    font-size: 8pt;
+}
+
+QLabel#perfFooter {
+    background: transparent;
+    color: #7f9a84;
+    font-size: 8pt;
+}
+
+QPushButton#perfPauseButton {
+    border-image: none;
+    background-color: #1b1512;
+    border: 1px solid #3d2f26;
+    border-radius: 3px;
+    color: #d8b48e;
+    font-weight: bold;
+    padding: 4px 16px;
+}
+
+QPushButton#perfPauseButton:hover {
+    background-color: #2a1f18;
+    border: 1px solid #7a5a3c;
+    color: #ffe2d2;
+}
+
+QPushButton#perfPauseButton:checked {
+    background-color: #123d1f;
+    border: 1px solid #7cf58f;
+    color: #eaffea;
+}
+
+QTextBrowser#updateLog {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+    color: #b8f0b0;
+    font-family: "Consolas", "Courier New", "Lucida Console", monospace;
+    font-size: 9pt;
+    padding: 10px;
+    selection-background-color: #1d5a2a;
+    selection-color: #eaffea;
+}
+
+QLabel#updateVersion {
+    background: transparent;
+    color: #8ee08a;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 8pt;
+}
+
+QLabel#updateStatus {
+    background: transparent;
+    color: #9fbfa5;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 8pt;
+}
+
+QPushButton#updateAction {
+    border-image: none;
+    background-color: #10281a;
+    border: 1px solid #23421f;
+    border-radius: 3px;
+    color: #b8f0b0;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    padding: 5px 12px;
+}
+
+QPushButton#updateAction:hover {
+    background-color: #123d1f;
+    border: 1px solid #5ce07a;
+    color: #eaffea;
+}
+
+QPushButton#updateAction:pressed {
+    background-color: #1d5a2a;
+    border: 1px solid #7cf58f;
+}
+
+QPushButton#updateAction:disabled {
+    background-color: #141210;
+    border: 1px solid #2a2119;
+    color: #6b5f52;
+}
+
 QLabel#panelCaption {
     background: transparent;
     color: #d09a6a;
@@ -359,6 +471,30 @@ QPlainTextEdit#systemLog {
     padding: 3px 8px;
     color: #ffc857;
     font-size: 8pt;
+}
+
+QPlainTextEdit#agentTask {
+    background-color: #04100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: #d6ffd0;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+}
+
+QPlainTextEdit#agentTrace {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+    padding: 8px;
+    color: #b8f0b0;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
 }
 
 QPlainTextEdit#messageInput {
@@ -708,6 +844,44 @@ QLabel#petName {
 QLabel#petType {
     color: #b98a5c;
     font-size: 9pt;
+}
+
+QLineEdit#petInput,
+QPlainTextEdit#petInput,
+QComboBox#petCombo {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+    color: #b8f0b0;
+    padding: 5px 7px;
+    selection-background-color: #1d5a2a;
+}
+
+QWidget#petTrainingScreen {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+}
+
+QLabel#petTrainingLine {
+    background: transparent;
+    color: #b8f0b0;
+    font-size: 9pt;
+}
+
+QProgressBar#petTrainingBar {
+    background-color: #04100a;
+    border: 1px solid #23421f;
+    border-radius: 3px;
+}
+
+QProgressBar#petTrainingBar::chunk {
+    background-color: #7cf58f;
+    border-radius: 2px;
 }
 
 QLabel#petDescription {

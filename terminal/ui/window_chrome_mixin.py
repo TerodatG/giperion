@@ -1,6 +1,6 @@
-# Giperion/app/ui/window_chrome_mixin.py                            v004
+# Giperion/terminal/ui/window_chrome_mixin.py                       v005
 # Безрамочное окно: каркас, планка заголовка, перетаскивание и ресайз.
-# Последнее изменение: окно закрытия в общей металлической шкуре.
+# Последнее изменение: вопрос закрытия на зелёном экране в плите.
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor

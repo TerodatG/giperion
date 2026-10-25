@@ -1,6 +1,6 @@
-# Giperion/app/ui/model_controls_mixin.py                           v006
+# Giperion/terminal/ui/model_controls_mixin.py                      v007
 # Выбор модели и личностной матрицы, подсказка поля ввода.
-# Последнее изменение: ник модели в чате и подсказке ввода.
+# Последнее изменение: активация модели открепляет питомца.
 
 from PySide6.QtCore import QTimer
 
@@ -11,6 +11,7 @@ from terminal.core.model_registry import (
     load_conference_ids,
 )
 from terminal.core.module_state import set_module
+from terminal.ui.agent_dialog import show_agent_dialog
 from terminal.ui.conference_dialog import show_conference_dialog
 from terminal.ui.models_dialog import show_models_dialog
 from terminal.ui.personalities_dialog import show_personalities_dialog
@@ -43,6 +44,11 @@ class ModelControlsMixin:
         """Открывает «Мастерскую» — сборку моделей и умений."""
 
         show_workshop_dialog(self.window, self)
+
+    def open_agent_dialog(self) -> None:
+        """Открывает read-only агента с лентой шагов."""
+
+        show_agent_dialog(self.window)
 
     def open_personalities_dialog(self) -> None:
         """Открывает каталог личностных матриц."""

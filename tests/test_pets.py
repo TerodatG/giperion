@@ -97,3 +97,37 @@ def test_pet_persona_answers_identity(
 
     assert "Робо-кошка" in answer
     assert save is True
+
+
+def test_pet_activity_updates_progress(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Разговоры и новые фразы попадают в успехи обучения."""
+
+    monkeypatch.setattr(
+        pets,
+        "PETS_FILE",
+        tmp_path / "pets.json",
+    )
+
+    pets.set_active_pet_id("robot-puppy")
+    updated = pets.record_pet_activity(
+        "robot-puppy",
+        learned=1,
+    )
+
+    assert updated is not None
+    assert updated["progress"]["conversations"] == 1
+    assert updated["progress"]["learned_phrases"] == 1
+    assert updated["progress"]["experience"] == 10
+    assert updated["progress"]["level"] == 1
+
+    for _ in range(9):
+        pets.record_pet_activity("robot-puppy")
+
+    saved = pets.get_pet("robot-puppy")
+
+    assert saved["progress"]["conversations"] == 10
+    assert saved["progress"]["experience"] == 100
+    assert saved["progress"]["level"] == 2

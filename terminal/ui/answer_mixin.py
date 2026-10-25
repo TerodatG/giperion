@@ -1,6 +1,6 @@
-# Giperion/app/ui/answer_mixin.py                                   v006
+# Giperion/terminal/ui/answer_mixin.py                              v007
 # Ввод сообщения, фоновая обработка ответа и показ результата.
-# Последнее изменение: сенаторские группы шрифта и лимит трёх моделей.
+# Последнее изменение: питомец отвечает локальным ядром.
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication

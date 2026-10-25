@@ -1,6 +1,6 @@
-# Giperion/gui.py                                                v037
+# Giperion/gui.py                                                v039
 # Оконный ИИ-собеседник Гиперион на PySide6.
-# Последнее изменение: правая колонка из двух плит.
+# Последнее изменение: кнопка «Производительность» в плите «Система».
 
 import sys
 
@@ -32,8 +32,10 @@ from terminal.ui.file_attachment_mixin import FileAttachmentMixin
 from terminal.ui.input_mixin import InputMixin
 from terminal.ui.model_controls_mixin import ModelControlsMixin
 from terminal.ui.panels_mixin import PanelsMixin
+from terminal.ui.performance_mixin import PerformanceMixin
 from terminal.ui.pets_mixin import PetsMixin
 from terminal.ui.settings_mixin import SettingsMixin
+from terminal.ui.update_mixin import UpdateMixin
 from terminal.ui.theme import (
     BOT_NAME,
     BOT_NICKNAME,
@@ -62,6 +64,8 @@ class GiperionWindow(
     ModelControlsMixin,
     PetsMixin,
     SettingsMixin,
+    PerformanceMixin,
+    UpdateMixin,
     InputMixin,
     AnswerMixin,
 ):
@@ -252,7 +256,7 @@ class GiperionWindow(
             pet = self.attached_pet
             self.append_system(
                 f"За терминалом закреплён питомец «{pet['name']}». "
-                "Отвечает локальное ядро Гипериона."
+                "Теперь он отвечает в чате."
             )
             self.append_bot(
                 pet["greeting"],

@@ -1,6 +1,6 @@
-# Giperion/app/ui/widgets.py                                       v005
-# Самостоятельные виджеты окна: пиктограммы, светодиоды, модули, скрепка.
-# Последнее изменение: пиктограмма сената — человек за трибуной.
+# Giperion/terminal/ui/widgets.py                                   v007
+# Самодостаточные виджеты: кнопки, светодиоды, шкалы и рамки.
+# Последнее изменение: пиктограмма столбиков для «Производительности».
 
 import math
 
@@ -90,6 +90,14 @@ class SideIconButton(QPushButton):
             )
         elif self.icon_name == "pet":
             self._paint_pet(painter, center_x, center_y)
+        elif self.icon_name == "performance":
+            self._paint_performance(
+                painter,
+                center_x,
+                center_y,
+            )
+        elif self.icon_name == "update":
+            self._paint_update(painter, center_x, center_y)
         else:
             self._paint_skills(painter, center_x, center_y)
 
@@ -283,6 +291,70 @@ class SideIconButton(QPushButton):
                 2.2,
                 2.6,
             )
+
+
+    @staticmethod
+    def _paint_performance(
+        painter,
+        center_x: float,
+        center_y: float,
+    ) -> None:
+        """Рисует столбики нагрузки — значок производительности."""
+
+        painter.drawLine(
+            QPointF(center_x - 11, center_y + 9),
+            QPointF(center_x + 11, center_y + 9),
+        )
+
+        for offset_x, height in ((-10.0, 7.0), (-3.5, 12.0), (3.0, 17.0)):
+            painter.drawRoundedRect(
+                QRectF(
+                    center_x + offset_x,
+                    center_y + 9 - height,
+                    5.0,
+                    height,
+                ),
+                1.6,
+                1.6,
+            )
+
+
+    @staticmethod
+    def _paint_update(
+        painter,
+        center_x: float,
+        center_y: float,
+    ) -> None:
+        """Рисует круговую стрелку — значок обновления."""
+
+        radius = 9.0
+        start_angle = 55
+        span_angle = 265
+
+        painter.drawArc(
+            QRectF(
+                center_x - radius,
+                center_y - radius,
+                radius * 2,
+                radius * 2,
+            ),
+            start_angle * 16,
+            span_angle * 16,
+        )
+
+        # Наконечник на конце дуги: стрелка идёт по часовой.
+        end_angle = math.radians(start_angle + span_angle)
+        tip_x = center_x + radius * math.cos(end_angle)
+        tip_y = center_y - radius * math.sin(end_angle)
+
+        painter.drawLine(
+            QPointF(tip_x, tip_y),
+            QPointF(tip_x - 6.0, tip_y + 0.8),
+        )
+        painter.drawLine(
+            QPointF(tip_x, tip_y),
+            QPointF(tip_x + 0.8, tip_y + 6.0),
+        )
 
 
 class StatusLed(QWidget):

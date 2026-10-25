@@ -1,6 +1,6 @@
-# Giperion/terminal/core/pets.py                                     v001
-# Питомцы терминала: лёгкие личности поверх локального ядра Гипериона.
-# Последнее изменение: два базовых питомца и создание своих.
+# Giperion/terminal/core/pets.py                                     v002
+# Питомцы терминала: лёгкие личности поверх локального ядра.
+# Последнее изменение: прогресс обучения и нейтральные описания.
 
 import copy
 from datetime import date
@@ -9,6 +9,13 @@ from config import DATA_DIR
 from shared.storage.json_store import read_json_object, write_json
 
 PETS_FILE = DATA_DIR / "pets.json"
+
+DEFAULT_PROGRESS = {
+    "conversations": 0,
+    "learned_phrases": 0,
+    "experience": 0,
+    "level": 1,
+}
 
 # Базовый шаблон личности, который копирует каждый питомец.
 BASE_TEMPLATE = {
@@ -48,8 +55,8 @@ DEFAULT_PETS = (
             "разговаривать вместе с тобой."
         ),
         "self_description": (
-            "Я Робо-щенок — маленький питомец терминала. Живу рядом "
-            "с Гиперионом, слушаю команды и учусь разговаривать."
+            "Я Робо-щенок — маленький питомец терминала. "
+            "Слушаю команды и учусь разговаривать."
         ),
         "custom": False,
     },
@@ -69,7 +76,7 @@ DEFAULT_PETS = (
         ),
         "self_description": (
             "Я Робо-кошка — маленький питомец терминала. Люблю "
-            "наблюдать, слушать Гипериона и учиться новым фразам."
+            "наблюдать и учиться новым фразам."
         ),
         "custom": False,
     },
@@ -89,12 +96,39 @@ def _default_pets() -> list[dict]:
                 "base_model": BASE_TEMPLATE["base_model"],
                 "traits": dict(BASE_TEMPLATE["traits"]),
                 "speech": BASE_TEMPLATE["speech"],
+                "progress": dict(DEFAULT_PROGRESS),
                 "created": "2026-10-25",
             }
         )
         pets.append(pet)
 
     return pets
+
+
+def _clean_progress(value: object) -> dict:
+    """Проверяет успехи обучения питомца."""
+
+    progress = dict(DEFAULT_PROGRESS)
+
+    if isinstance(value, dict):
+        for key in DEFAULT_PROGRESS:
+            raw = value.get(key)
+
+            if isinstance(raw, int) and not isinstance(raw, bool):
+                progress[key] = max(0, min(1_000_000, raw))
+
+    progress["level"] = max(
+        1,
+        1 + int(progress["experience"]) // 100,
+    )
+
+    return progress
+
+
+def pet_level(experience: int) -> int:
+    """Уровень питомца по накопленному опыту."""
+
+    return max(1, 1 + max(0, int(experience)) // 100)
 
 
 def _clean_pet(value: object) -> dict | None:
@@ -147,6 +181,7 @@ def _clean_pet(value: object) -> dict | None:
         "speech": str(
             value.get("speech") or BASE_TEMPLATE["speech"]
         ),
+        "progress": _clean_progress(value.get("progress")),
     }
 
     if not pet["greeting"]:
@@ -157,7 +192,7 @@ def _clean_pet(value: object) -> dict | None:
     if not pet["self_description"]:
         pet["self_description"] = (
             f"Я {pet['name']} — маленький питомец терминала. "
-            "Живу рядом с Гиперионом и учусь разговаривать."
+            "Учусь разговаривать и исследовать мир."
         )
 
     return pet
@@ -176,7 +211,19 @@ def load_pets() -> list[dict]:
         for record in raw:
             pet = _clean_pet(record)
 
-            if pet is None or pet["id"] in known:
+            if pet is None:
+                continue
+
+            if pet["id"] in known:
+                # Базовые питомцы остаются на месте, но сохраняют
+                # накопленный прогресс обучения.
+                for index, existing in enumerate(pets):
+                    if existing["id"] == pet["id"]:
+                        pet["custom"] = False
+                        pets[index] = pet
+
+                        break
+
                 continue
 
             pets.append(pet)
@@ -215,35 +262,69 @@ def get_active_pet() -> dict | None:
     return get_pet(pet_id) if pet_id else None
 
 
+def _write_pets(pets: list[dict], active_id: str) -> None:
+    """Сохраняет питомцев и закрепление без служебных полей."""
+
+    document = {
+        "active_pet_id": active_id or "",
+        "pets": [
+            {
+                key: value
+                for key, value in pet.items()
+                if key != "species_title"
+            }
+            for pet in pets
+        ],
+        "_meta": {
+            "version": "v002",
+            "description": (
+                "Питомцы терминала: лёгкие личности и успехи обучения."
+            ),
+        },
+    }
+    write_json(PETS_FILE, document)
+
+
 def set_active_pet_id(pet_id: str) -> bool:
     """Закрепляет питомца за терминалом или открепляет его."""
 
     if pet_id and get_pet(pet_id) is None:
         return False
 
-    document = read_json_object(PETS_FILE)
-    document["active_pet_id"] = pet_id or ""
-    document["pets"] = [
-        {
-            key: value
-            for key, value in pet.items()
-            if key != "species_title"
-        }
-        for pet in load_pets()
-    ]
-    document.setdefault("_meta", {})
-    document["_meta"].update(
-        {
-            "version": "v001",
-            "description": (
-                "Питомцы терминала: лёгкие личности поверх локального "
-                "ядра Гипериона."
-            ),
-        }
-    )
-    write_json(PETS_FILE, document)
+    _write_pets(load_pets(), pet_id or "")
 
     return True
+
+
+def record_pet_activity(pet_id: str, learned: int = 0) -> dict | None:
+    """Учитывает разговор с питомцем и, возможно, новую фразу."""
+
+    pets = load_pets()
+    updated = None
+
+    for pet in pets:
+        if pet["id"] != pet_id:
+            continue
+
+        progress = _clean_progress(pet.get("progress"))
+        progress["conversations"] += 1
+        progress["experience"] += 10
+
+        if learned:
+            progress["learned_phrases"] += max(0, int(learned))
+
+        progress["level"] = pet_level(progress["experience"])
+        pet["progress"] = progress
+        updated = pet
+
+        break
+
+    if updated is None:
+        return None
+
+    _write_pets(pets, get_active_pet_id())
+
+    return updated
 
 
 def add_custom_pet(
@@ -283,7 +364,7 @@ def add_custom_pet(
             description.strip()[:600]
             or (
                 "Свой питомец терминала. Наследует базовый шаблон "
-                "личности Гипериона и учится общению через чат."
+                "личности и учится общению через чат."
             )
         ),
         "greeting": (
@@ -292,7 +373,7 @@ def add_custom_pet(
         ),
         "self_description": (
             f"Я {clean_name[:40]} — маленький питомец терминала. "
-            "Живу рядом с Гиперионом и учусь разговаривать."
+            "Учусь разговаривать и исследовать мир."
         ),
         "custom": True,
         "created": date.today().isoformat(),
@@ -300,30 +381,10 @@ def add_custom_pet(
         "base_model": BASE_TEMPLATE["base_model"],
         "traits": dict(BASE_TEMPLATE["traits"]),
         "speech": BASE_TEMPLATE["speech"],
+        "progress": dict(DEFAULT_PROGRESS),
     }
 
-    document = read_json_object(PETS_FILE)
-    stored = [
-        {
-            key: value
-            for key, value in item.items()
-            if key != "species_title"
-        }
-        for item in existing
-    ]
-    stored.append(pet)
-    document["pets"] = stored
-    document["active_pet_id"] = document.get("active_pet_id", "")
-    document.setdefault("_meta", {})
-    document["_meta"].update(
-        {
-            "version": "v001",
-            "description": (
-                "Питомцы терминала: лёгкие личности поверх локального "
-                "ядра Гипериона."
-            ),
-        }
-    )
-    write_json(PETS_FILE, document)
+    existing.append(pet)
+    _write_pets(existing, get_active_pet_id())
 
     return pet

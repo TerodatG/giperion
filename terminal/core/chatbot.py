@@ -1,6 +1,6 @@
-# Giperion/app/core/chatbot.py                                  v038
+# Giperion/terminal/core/chatbot.py                                v039
 # Координация ответов Гипериона на сообщения пользователя.
-# Последнее изменение: get_response собран из именованных этапов chat_pipeline.
+# Последнее изменение: необязательная личность питомца.
 
 from terminal.core.chat_pipeline import ChatContext, STAGES
 from terminal.core.pending_state import (

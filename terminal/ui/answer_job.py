@@ -1,6 +1,6 @@
-# Giperion/app/ui/answer_job.py                                    v003
+# Giperion/terminal/ui/answer_job.py                                v004
 # Фоновый расчёт ответа активной модели для окна.
-# Последнее изменение: ошибка внешней модели приходит отдельным признаком.
+# Последнее изменение: локальный режим питомца со своей личностью.
 
 import threading
 
@@ -10,6 +10,7 @@ from terminal.core.model_registry import (
     DEFAULT_MODEL_ID,
     get_current_model_id,
 )
+from terminal.core.pets import record_pet_activity
 from terminal.skills.web_search import INTERNET_ANSWER_PREFIX
 
 
@@ -72,6 +73,28 @@ class AnswerJob:
                     getattr(result, "external_error", "")
                 )
                 self.role = "bot"
+
+                if (
+                    self.persona is not None
+                    and self.persona.get("id")
+                    and not self.model_error
+                ):
+                    lowered = user_message.lower()
+                    learned = int(
+                        any(
+                            word in lowered
+                            for word in (
+                                "выучи",
+                                "запомни",
+                                "научи",
+                                "новое слово",
+                            )
+                        )
+                    )
+                    record_pet_activity(
+                        str(self.persona["id"]),
+                        learned,
+                    )
 
                 return
 

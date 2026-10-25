@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/panels_mixin.py                              v014
+# Giperion/terminal/ui/panels_mixin.py                              v016
 # Панели окна: подписи, модули, рост ядра, две плиты справа и голос.
-# Последнее изменение: плита чатов выровнена по низу зелёного экрана.
+# Последнее изменение: кнопка «Производительность» в плите «Система».
 
 import random
 
@@ -525,6 +525,16 @@ class PanelsMixin:
             "Настройки",
             container,
         )
+        self.update_button = SideIconButton(
+            "update",
+            "Обновление",
+            container,
+        )
+        self.performance_button = SideIconButton(
+            "performance",
+            "Производительность",
+            container,
+        )
         self.pet_button = SideIconButton(
             "pet",
             "Питомец",
@@ -538,6 +548,8 @@ class PanelsMixin:
             self.conference_button,
             self.personalities_button,
             self.settings_button,
+            self.update_button,
+            self.performance_button,
             self.pet_button,
         )
 
@@ -561,6 +573,12 @@ class PanelsMixin:
         )
         self.settings_button.clicked.connect(
             self.open_settings_dialog
+        )
+        self.update_button.clicked.connect(
+            self.open_update_dialog
+        )
+        self.performance_button.clicked.connect(
+            self.open_performance_dialog
         )
         self.pet_button.clicked.connect(
             self.open_pets_dialog
@@ -632,6 +650,11 @@ class PanelsMixin:
             )
         elif key == "conference":
             added_name = ""
+            pet_off = False
+
+            if enabled and getattr(self, "attached_pet", None):
+                self.detach_pet(announce=False)
+                pet_off = True
 
             if enabled:
                 active_id = get_current_model_id()
@@ -685,6 +708,9 @@ class PanelsMixin:
                         f" Активная модель «{added_name}» "
                         "добавлена в сенат."
                     )
+
+            if pet_off:
+                note += " Питомец откреплён: включён сенат."
         else:
             note = (
                 "Помощь моделей включена. Если ядро будет "
