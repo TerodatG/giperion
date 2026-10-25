@@ -3,6 +3,8 @@
 
 from terminal.core.agent import settings
 
+import pytest
+
 
 def test_save_and_load(tmp_path, monkeypatch) -> None:
     """Настройки сохраняются и читаются обратно."""
@@ -122,6 +124,30 @@ def test_provider_is_created_from_file(
     assert provider is not None
     assert provider.model == "model-x"
     assert provider.base_url == "https://api.example.com/v1"
+
+
+def test_approval_policy_default_and_roundtrip(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Политика подтверждений по умолчанию confirm и сохраняется."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+
+    assert settings.approval_policy() == "confirm"
+
+    settings.set_approval_policy("trust")
+    assert settings.approval_policy() == "trust"
+
+    settings.set_approval_policy("read")
+    assert settings.approval_policy() == "read"
+
+    with pytest.raises(ValueError):
+        settings.set_approval_policy("unknown")
 
 
 def test_plugins_are_off_by_default(tmp_path, monkeypatch) -> None:

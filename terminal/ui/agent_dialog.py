@@ -33,7 +33,11 @@ from terminal.core.agent.diff_marks import (
     diff_marks as build_marks,
 )
 from terminal.core.agent.providers import NativeBrain
-from terminal.core.agent.settings import provider_from_settings
+from terminal.core.agent.settings import (
+    approval_policy,
+    provider_from_settings,
+    set_approval_policy,
+)
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
@@ -146,10 +150,28 @@ class AgentDialog(SkinDialog):
             lambda: show_provider_dialog(self)
         )
 
+        self.policy_combo = QComboBox(self)
+        self.policy_combo.setObjectName("approvalPolicy")
+        self.policy_combo.addItem("Спрашивать всё", "confirm")
+        self.policy_combo.addItem("Доверять правкам", "trust")
+        self.policy_combo.addItem("Только чтение", "read")
+        self.policy_combo.setToolTip(
+            "Только чтение — запись запрещена; "
+            "Доверять правкам — apply_patch и запись без вопросов, "
+            "но команды и коммиты всё равно спрашивают."
+        )
+
+        current_policy = approval_policy()
+        policy_index = self.policy_combo.findData(current_policy)
+
+        if policy_index >= 0:
+            self.policy_combo.setCurrentIndex(policy_index)
+
         model_row = QHBoxLayout()
         model_row.setSpacing(8)
         model_row.addWidget(self.worktree_checkbox)
         model_row.addWidget(self.provider_button)
+        model_row.addWidget(self.policy_combo)
         model_row.addStretch(1)
 
         self.run_button = QPushButton("Запустить", self)
@@ -362,12 +384,16 @@ class AgentDialog(SkinDialog):
         self._shown = 0
         self.approval_frame.setVisible(False)
         self._reset_edit()
+
+        policy = self.policy_combo.currentData() or "confirm"
+        set_approval_policy(policy)
         self.job = AgentJob(
             task,
             brain,
             root,
             max_steps=MAX_STEPS,
             model_name=model_name,
+            policy=policy,
         )
 
         self.run_button.setEnabled(False)

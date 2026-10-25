@@ -491,6 +491,100 @@ def test_result_reports_context_size(tmp_path) -> None:
     assert result.context_chars > 0
 
 
+def test_trust_policy_applies_write_without_question(tmp_path) -> None:
+    """Политика «доверять правкам» применяет патч без подтверждения."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("старое", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool(
+                "apply_patch",
+                path="a.txt",
+                old="старое",
+                new="новое",
+            ),
+            _answer("готово"),
+        ]
+    )
+
+    result = run_agent(
+        "замени",
+        brain,
+        tmp_path,
+        ground_first=False,
+        policy="trust",
+    )
+
+    assert target.read_text(encoding="utf-8") == "новое"
+    assert result.answer == "готово"
+    assert any(
+        "Разрешено политикой" in step.title
+        for step in result.steps
+    )
+
+
+def test_read_policy_denies_write(tmp_path) -> None:
+    """Политика «только чтение» не даёт менять файлы."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("старое", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool(
+                "apply_patch",
+                path="a.txt",
+                old="старое",
+                new="новое",
+            ),
+            _answer("нельзя"),
+        ]
+    )
+
+    result = run_agent(
+        "замени",
+        brain,
+        tmp_path,
+        ground_first=False,
+        policy="read",
+        approve=lambda request: True,
+    )
+
+    assert target.read_text(encoding="utf-8") == "старое"
+    assert result.answer == "нельзя"
+    assert any(
+        "Запрещено политикой" in step.title
+        for step in result.steps
+    )
+
+
+def test_trust_policy_still_asks_for_commands(tmp_path) -> None:
+    """Даже в доверенном режиме команда требует подтверждения."""
+
+    brain = ScriptedBrain(
+        [
+            _tool("run_command", command="git status"),
+            _answer("ок"),
+        ]
+    )
+
+    requests = []
+
+    run_agent(
+        "статус",
+        brain,
+        tmp_path,
+        ground_first=False,
+        policy="trust",
+        approve=lambda request: requests.append(request) or False,
+    )
+
+    assert requests
+    assert requests[0].title == "Выполнить команду"
+
+
 def test_parse_decision_accepts_fenced_json() -> None:
     """JSON в ```-блоке тоже разбирается."""
 

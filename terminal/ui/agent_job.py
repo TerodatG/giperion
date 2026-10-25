@@ -29,6 +29,7 @@ class AgentJob:
         root: Path,
         max_steps: int = 8,
         model_name: str = "",
+        policy: str = "confirm",
     ) -> None:
         self.steps: list[AgentStep] = []
         self.answer = ""
@@ -45,6 +46,7 @@ class AgentJob:
         self._root = root
         self._max_steps = max_steps
         self._model_name = model_name
+        self._policy = policy
         self._stop = threading.Event()
         self._approval = threading.Event()
         self._approved = False
@@ -113,6 +115,7 @@ class AgentJob:
                 on_step=self._on_step,
                 should_stop=self._stop.is_set,
                 approve=self.request_approval,
+                policy=self._policy,
             )
 
             self.answer = result.answer

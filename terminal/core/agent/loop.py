@@ -147,6 +147,7 @@ def _run_subagent(
         approve=None,
         depth=depth + 1,
         allow_subagent=False,
+        policy="read",
     )
 
     if result.answer:
@@ -171,6 +172,7 @@ def run_agent(
     depth: int = 0,
     allow_subagent: bool = True,
     max_prompt_chars: int = MAX_PROMPT,
+    policy: str = "confirm",
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -178,6 +180,9 @@ def run_agent(
 
     if not clean_task:
         return AgentResult(error="Пустая задача.")
+
+    if policy not in ("read", "confirm", "trust"):
+        policy = "confirm"
 
     steps: list[AgentStep] = []
     history: list[tuple[ToolCall, ToolResult]] = []
@@ -364,7 +369,51 @@ def run_agent(
 
                 continue
 
-            if registry.needs_approval(call):
+            spec = registry.get_spec(call.tool)
+            risk = spec.risk if spec is not None else "read"
+            requires_approval = registry.needs_approval(call)
+
+            if requires_approval and policy == "read":
+                emit(
+                    AgentStep(
+                        index,
+                        "approval",
+                        "Запрещено политикой · "
+                        + _approval_title(call),
+                        "Политика «только чтение».",
+                    )
+                )
+                history.append(
+                    (
+                        call,
+                        ToolResult(
+                            False,
+                            "Политика «только чтение»: действие "
+                            "запрещено. Предложи ответ без изменений.",
+                        ),
+                    )
+                )
+
+                continue
+
+            if (
+                requires_approval
+                and policy == "trust"
+                and risk == "write"
+                and call.tool != "git_commit"
+            ):
+                emit(
+                    AgentStep(
+                        index,
+                        "approval",
+                        "Разрешено политикой · "
+                        + _approval_title(call),
+                        "Правки разрешены на время задачи.",
+                    )
+                )
+                requires_approval = False
+
+            if requires_approval:
                 preview = registry.preview(root, call)
 
                 if not preview.ok:

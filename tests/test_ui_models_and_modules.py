@@ -55,7 +55,7 @@ def test_model_avatars_exist() -> None:
         if model["id"] == "deepseek-v4.1-flash-free"
     )
 
-    assert deepseek["avatar"].endswith("dipsik_face.png")
+    assert deepseek["avatar"].endswith("deepseek_face.png")
 
 
 def test_giperion_skills_are_honest() -> None:

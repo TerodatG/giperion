@@ -131,3 +131,26 @@ def set_plugins_enabled(enabled: bool) -> None:
     document = read_json_object(SETTINGS_FILE)
     document["plugins_enabled"] = bool(enabled)
     write_json(SETTINGS_FILE, document)
+
+
+POLICIES = ("read", "confirm", "trust")
+
+
+def approval_policy() -> str:
+    """Возвращает политику подтверждений (по умолчанию confirm)."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = document.get("approval_policy")
+
+    return value if value in POLICIES else "confirm"
+
+
+def set_approval_policy(policy: str) -> None:
+    """Сохраняет политику подтверждений."""
+
+    if policy not in POLICIES:
+        raise ValueError(f"Неизвестная политика: {policy}")
+
+    document = read_json_object(SETTINGS_FILE)
+    document["approval_policy"] = policy
+    write_json(SETTINGS_FILE, document)
