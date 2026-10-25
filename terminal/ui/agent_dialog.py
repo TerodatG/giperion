@@ -25,7 +25,7 @@ from terminal.core.model_registry import (
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
-MAX_STEPS = 10
+MAX_STEPS = 12
 POLL_MS = 120
 
 STEP_MARKS = {

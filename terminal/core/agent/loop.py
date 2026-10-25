@@ -81,10 +81,14 @@ class Brain(Protocol):
 def _approval_title(call: ToolCall) -> str:
     """Заголовок подтверждения по типу действия."""
 
-    if call.tool == "run_tests":
-        return "Запустить тесты"
+    titles = {
+        "run_tests": "Запустить тесты",
+        "run_command": "Выполнить команду",
+        "git_commit": "Коммит",
+        "git_restore": "Откатить файл",
+    }
 
-    return "Изменить файл"
+    return titles.get(call.tool, "Изменить файл")
 
 
 def _call_title(call: ToolCall) -> str:

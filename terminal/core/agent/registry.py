@@ -4,7 +4,8 @@
 
 from pathlib import Path
 
-from terminal.core.agent import tools
+from terminal.core.agent import git_tools, tools
+from terminal.core.agent.commands import CommandError, validate_command
 from terminal.core.agent.protocol import (
     ToolCall,
     ToolResult,
@@ -61,6 +62,54 @@ TOOL_SPECS = (
         args={},
         risk="exec",
     ),
+    ToolSpec(
+        name="git_status",
+        description="Показать состояние рабочей копии git.",
+        args={},
+        risk="read",
+    ),
+    ToolSpec(
+        name="git_diff",
+        description="Показать незакоммиченные изменения.",
+        args={"path": "файл или пусто для всего проекта"},
+        risk="read",
+    ),
+    ToolSpec(
+        name="git_log",
+        description="Показать последние коммиты.",
+        args={"limit": "сколько коммитов, по умолчанию 5"},
+        risk="read",
+    ),
+    ToolSpec(
+        name="git_commit",
+        description=(
+            "Закоммитить один файл с сообщением. "
+            "Требует подтверждения."
+        ),
+        args={
+            "path": "путь к файлу",
+            "message": "сообщение коммита",
+        },
+        risk="write",
+    ),
+    ToolSpec(
+        name="git_restore",
+        description=(
+            "Откатить незакоммиченные изменения файла. "
+            "Требует подтверждения."
+        ),
+        args={"path": "путь к файлу"},
+        risk="write",
+    ),
+    ToolSpec(
+        name="run_command",
+        description=(
+            "Разрешённая команда: git status/diff/log/show, "
+            "python -m pytest, python -m compileall."
+        ),
+        args={"command": "команда одной строкой"},
+        risk="exec",
+    ),
 )
 
 _TOOLS = {spec.name: spec for spec in TOOL_SPECS}
@@ -113,6 +162,33 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
                 True,
                 "python -m pytest -q\nрабочая папка: " + str(root),
             )
+
+        if call.tool == "git_commit":
+            return ToolResult(
+                True,
+                git_tools.git_preview_commit(
+                    root,
+                    _string_arg(call, "message"),
+                    _string_arg(call, "path"),
+                ),
+            )
+
+        if call.tool == "git_restore":
+            return ToolResult(
+                True,
+                git_tools.git_preview_restore(
+                    root,
+                    _string_arg(call, "path"),
+                ),
+            )
+
+        if call.tool == "run_command":
+            command = _string_arg(call, "command")
+            tokens = validate_command(command)
+
+            return ToolResult(True, " ".join(tokens))
+    except CommandError as error:
+        return ToolResult(False, str(error))
     except ValueError as error:
         return ToolResult(False, str(error))
     except Exception as error:  # noqa: BLE001 — покажем причину
@@ -204,6 +280,40 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
 
         if call.tool == "run_tests":
             return tools.run_tests(root)
+
+        if call.tool == "git_status":
+            return git_tools.git_status(root)
+
+        if call.tool == "git_diff":
+            return git_tools.git_diff(
+                root,
+                _string_arg(call, "path"),
+            )
+
+        if call.tool == "git_log":
+            return git_tools.git_log(
+                root,
+                _string_arg(call, "limit", "5"),
+            )
+
+        if call.tool == "git_commit":
+            return git_tools.git_commit(
+                root,
+                _string_arg(call, "message"),
+                _string_arg(call, "path"),
+            )
+
+        if call.tool == "git_restore":
+            return git_tools.git_restore(
+                root,
+                _string_arg(call, "path"),
+            )
+
+        if call.tool == "run_command":
+            return tools.run_command(
+                root,
+                _string_arg(call, "command"),
+            )
     except ValueError as error:
         return ToolResult(False, str(error))
     except Exception as error:  # noqa: BLE001 — ошибку увидит модель

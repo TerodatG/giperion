@@ -148,6 +148,12 @@ def test_registry_has_read_write_and_exec_tools() -> None:
         "apply_patch": "write",
         "write_file": "write",
         "run_tests": "exec",
+        "git_status": "read",
+        "git_diff": "read",
+        "git_log": "read",
+        "git_commit": "write",
+        "git_restore": "write",
+        "run_command": "exec",
     }
 
 
@@ -258,6 +264,32 @@ def test_write_applies_after_approval(tmp_path) -> None:
     assert target.read_text(encoding="utf-8") == "новое"
     assert result.answer == "готово"
     assert (tmp_path / "data" / "agent_backups").is_dir()
+
+
+def test_run_command_requires_approval(tmp_path) -> None:
+    """Команда не выполняется без согласия пользователя."""
+
+    brain = ScriptedBrain(
+        [
+            _tool("run_command", command="git status"),
+            _answer("не разрешили"),
+        ]
+    )
+
+    requests = []
+
+    result = run_agent(
+        "посмотри статус",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=lambda request: requests.append(request) or False,
+    )
+
+    assert requests
+    assert requests[0].title == "Выполнить команду"
+    assert "status" in requests[0].detail
+    assert result.answer == "не разрешили"
 
 
 def test_parse_decision_accepts_fenced_json() -> None:
