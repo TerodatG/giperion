@@ -34,6 +34,7 @@ TEXT_SUFFIXES = {
 SKIP_DIRS = {
     ".git", "__pycache__", ".venv", "venv", "env", "node_modules",
     ".pytest_cache", "logs", "archive", "models", ".mypy_cache",
+    ".agent_plugin_tmp",
 }
 
 DENIED_NAMES = {

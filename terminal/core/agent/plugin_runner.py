@@ -6,6 +6,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +27,99 @@ def _exit_hint(code: int) -> str:
         return "Плагин превысил лимит времени CPU и был остановлен."
 
     return ""
+
+
+def install_guard(
+    root: Path,
+    permissions: tuple[str, ...] = (),
+    module_dir: Path | None = None,
+) -> None:
+    """Ставит сторож на файлы, сеть и запуск программ.
+
+    Это не песочница уровня ОС: ctypes и прямые вызовы WinAPI теоретически
+    обходят аудит-хук. Но случайный или честный плагин уже не откроет
+    файл за пределами проекта, не полезет в сеть и не запустит процесс
+    без разрешения.
+    """
+
+    allowed_read = [
+        Path(root).resolve(),
+        Path(BASE_DIR).resolve(),
+        Path(sys.base_prefix).resolve(),
+        Path(sys.prefix).resolve(),
+    ]
+
+    if module_dir is not None:
+        allowed_read.append(Path(module_dir).resolve())
+
+    allowed_write = [Path(root).resolve()]
+
+    allow_net = "net" in permissions
+    allow_exec = "exec" in permissions
+
+    def inside(path, roots: list[Path]) -> bool:
+        try:
+            real = Path(os.path.realpath(str(path))).resolve()
+        except (OSError, ValueError, TypeError):
+            return False
+
+        return any(real == base or base in real.parents for base in roots)
+
+    def fail(what: str, path: str = "") -> None:
+        detail = f" ({path})" if path else ""
+
+        raise PermissionError(
+            f"Песочница плагина: {what}{detail}"
+        )
+
+    def hook(event: str, args: tuple) -> None:
+        if event == "open":
+            path = args[0] if args else None
+
+            if path is None or isinstance(path, int):
+                return
+
+            mode = str(args[1] or "") if len(args) > 1 else ""
+            writing = any(symbol in mode for symbol in "wax+")
+
+            if writing:
+                if not inside(path, allowed_write):
+                    fail("запись за пределами проекта", str(path))
+            elif not inside(path, allowed_read):
+                fail("чтение за пределами проекта", str(path))
+
+            return
+
+        if event in (
+            "os.mkdir",
+            "os.rmdir",
+            "os.remove",
+            "os.rename",
+            "os.replace",
+            "os.symlink",
+            "os.link",
+            "os.truncate",
+        ):
+            for path in args:
+                if isinstance(path, (str, bytes, os.PathLike)) and path:
+                    if not inside(path, allowed_write):
+                        fail("изменение за пределами проекта", str(path))
+
+            return
+
+        if event.startswith("socket.") and not allow_net:
+            fail("сеть запрещена")
+
+        if event in (
+            "subprocess.Popen",
+            "os.system",
+            "os.exec",
+            "os.spawn",
+            "os.posix_spawn",
+        ) and not allow_exec:
+            fail("запуск программ запрещён")
+
+    sys.addaudithook(hook)
 
 
 def _load_module(path: Path, handler_name: str):
@@ -61,8 +155,11 @@ def execute_plugin(
     root: Path,
     args: dict,
     handler_name: str = "handler",
+    permissions: tuple[str, ...] = (),
 ) -> ToolResult:
     """Выполняет плагин и возвращает результат."""
+
+    install_guard(root, permissions, Path(module_path).parent)
 
     handler = _load_module(module_path, handler_name)
 
@@ -103,6 +200,7 @@ def run_plugin_process(
     timeout: int = TIMEOUT,
     memory_mb: int | None = None,
     cpu_seconds: int | None = None,
+    permissions: tuple[str, ...] = (),
 ) -> ToolResult:
     """Запускает плагин в отдельном процессе с песочницей."""
 
@@ -114,10 +212,18 @@ def run_plugin_process(
         str(root),
         json.dumps(args, ensure_ascii=False),
         handler_name,
+        json.dumps(list(permissions), ensure_ascii=False),
     ]
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    env = sandbox.plugin_env(BASE_DIR)
+    temp_dir = Path(root).resolve() / ".agent_plugin_tmp"
+
+    try:
+        temp_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        temp_dir = Path(root).resolve()
+
+    env = sandbox.plugin_env(BASE_DIR, temp_dir)
 
     try:
         process = subprocess.Popen(
@@ -203,6 +309,18 @@ def main(argv: list[str]) -> int:
     root = Path(argv[2]).resolve()
     args = json.loads(argv[3])
     handler_name = argv[4] if len(argv) > 4 else "handler"
+    permissions: tuple[str, ...] = ()
+
+    if len(argv) > 5:
+        try:
+            parsed = json.loads(argv[5])
+
+            if isinstance(parsed, list):
+                permissions = tuple(
+                    str(item) for item in parsed if isinstance(item, str)
+                )
+        except json.JSONDecodeError:
+            permissions = ()
 
     try:
         result = execute_plugin(
@@ -210,6 +328,7 @@ def main(argv: list[str]) -> int:
             root,
             args,
             handler_name,
+            permissions,
         )
     except Exception as error:  # noqa: BLE001 — ответим JSON-ошибкой
         result = ToolResult(

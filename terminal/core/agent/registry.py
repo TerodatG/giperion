@@ -320,7 +320,11 @@ def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
                     continue
 
                 specs.append(spec)
-                plugins[spec.name] = (module_path, handler)
+                plugins[spec.name] = (
+                    module_path,
+                    handler,
+                    spec.permissions,
+                )
 
         _plugin_cache = (tuple(specs), plugins)
 
@@ -352,6 +356,8 @@ def get_spec(name: str) -> ToolSpec | None:
 
 
 def _plugin_handler(name: str):
+    """Модуль, обработчик и разрешения плагина."""
+
     return plugin_tools()[1].get(name)
 
 
@@ -651,13 +657,14 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
         plugin_entry = _plugin_handler(call.tool)
 
         if plugin_entry is not None:
-            module_path, handler_name = plugin_entry
+            module_path, handler_name, permissions = plugin_entry
 
             return run_plugin_process(
                 module_path,
                 root,
                 call.args,
                 handler_name,
+                permissions=permissions,
             )
 
         if call.tool == "list_dir":

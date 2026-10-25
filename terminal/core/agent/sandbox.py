@@ -56,7 +56,7 @@ def is_sensitive(name: str) -> bool:
     return any(word in upper for word in SENSITIVE)
 
 
-def plugin_env(base_dir: Path) -> dict[str, str]:
+def plugin_env(base_dir: Path, temp_dir: Path | None = None) -> dict[str, str]:
     """Окружение плагина: только системный минимум и путь к проекту."""
 
     env: dict[str, str] = {}
@@ -69,6 +69,10 @@ def plugin_env(base_dir: Path) -> dict[str, str]:
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["AGENT_PLUGIN_SANDBOX"] = "1"
+
+    if temp_dir is not None:
+        env["TEMP"] = str(Path(temp_dir).resolve())
+        env["TMP"] = str(Path(temp_dir).resolve())
 
     return env
 

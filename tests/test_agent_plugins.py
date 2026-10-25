@@ -366,3 +366,140 @@ def test_memory_limit_stops_greedy_plugin(tmp_path, monkeypatch) -> None:
     assert "MemoryError" in result.text or "упал" in result.text
 
     registry.reload_plugins()
+
+
+def test_guard_blocks_reading_outside_project(tmp_path, monkeypatch) -> None:
+    """Плагин не может прочитать файл за пределами проекта."""
+
+    outside = tmp_path.parent / "outside_secret.txt"
+    outside.write_text("секрет", encoding="utf-8")
+
+    _install(
+        tmp_path,
+        monkeypatch,
+        module_code=(
+            "from terminal.core.agent.protocol import ToolResult\n"
+            "def handler(root, args):\n"
+            "    try:\n"
+            f"        open(r'{outside}', encoding='utf-8').read()\n"
+            "        return ToolResult(True, 'прочитал')\n"
+            "    except PermissionError as error:\n"
+            "        return ToolResult(True, 'заблокировано: ' + str(error))\n"
+        ),
+    )
+
+    module = tmp_path / "plugins" / "word_count.py"
+    result = run_plugin_process(module, tmp_path, {})
+
+    assert result.ok
+    assert "заблокировано" in result.text
+    assert "Песочница плагина" in result.text
+
+    registry.reload_plugins()
+
+
+def test_guard_blocks_writing_outside_project(tmp_path, monkeypatch) -> None:
+    """Плагин не может писать за пределами проекта."""
+
+    target = tmp_path.parent / "escaped.txt"
+
+    _install(
+        tmp_path,
+        monkeypatch,
+        module_code=(
+            "from terminal.core.agent.protocol import ToolResult\n"
+            "def handler(root, args):\n"
+            "    try:\n"
+            f"        open(r'{target}', 'w', encoding='utf-8').write('x')\n"
+            "        return ToolResult(True, 'записал')\n"
+            "    except PermissionError:\n"
+            "        return ToolResult(True, 'заблокировано')\n"
+        ),
+    )
+
+    module = tmp_path / "plugins" / "word_count.py"
+    result = run_plugin_process(module, tmp_path, {})
+
+    assert result.ok
+    assert "заблокировано" in result.text
+    assert not target.exists()
+
+    registry.reload_plugins()
+
+
+def test_guard_blocks_network_without_permission(tmp_path, monkeypatch) -> None:
+    """Без разрешения net сокет не создаётся."""
+
+    _install(
+        tmp_path,
+        monkeypatch,
+        module_code=(
+            "import socket\n"
+            "from terminal.core.agent.protocol import ToolResult\n"
+            "def handler(root, args):\n"
+            "    try:\n"
+            "        socket.socket()\n"
+            "        return ToolResult(True, 'сокет создан')\n"
+            "    except PermissionError:\n"
+            "        return ToolResult(True, 'заблокировано')\n"
+        ),
+    )
+
+    module = tmp_path / "plugins" / "word_count.py"
+    result = run_plugin_process(module, tmp_path, {})
+
+    assert result.ok
+    assert "заблокировано" in result.text
+
+    allowed = run_plugin_process(
+        module,
+        tmp_path,
+        {},
+        permissions=("fs:read", "net"),
+    )
+
+    assert allowed.text == "сокет создан"
+
+    registry.reload_plugins()
+
+
+def test_guard_blocks_programs_without_permission(tmp_path, monkeypatch) -> None:
+    """Без разрешения exec нельзя запустить процесс."""
+
+    import sys as _sys
+
+    _install(
+        tmp_path,
+        monkeypatch,
+        module_code=(
+            "import subprocess, sys\n"
+            "from terminal.core.agent.protocol import ToolResult\n"
+            "def handler(root, args):\n"
+            "    try:\n"
+            "        subprocess.run(\n"
+            f"            [sys.executable, '-c', 'print(1)'],\n"
+            "            capture_output=True,\n"
+            "        )\n"
+            "        return ToolResult(True, 'запустил')\n"
+            "    except PermissionError:\n"
+            "        return ToolResult(True, 'заблокировано')\n"
+        ),
+    )
+
+    module = tmp_path / "plugins" / "word_count.py"
+    result = run_plugin_process(module, tmp_path, {})
+
+    assert result.ok
+    assert "заблокировано" in result.text
+
+    allowed = run_plugin_process(
+        module,
+        tmp_path,
+        {},
+        permissions=("fs:read", "exec"),
+    )
+
+    assert allowed.text == "запустил"
+
+    registry.reload_plugins()
+
