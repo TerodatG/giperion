@@ -432,6 +432,65 @@ def test_approval_can_edit_text(tmp_path) -> None:
     )
 
 
+def test_context_budget_compacts_history() -> None:
+    """Старые шаги сжимаются и промпт укладывается в бюджет."""
+
+    from terminal.core.agent.context import build_prompt
+    from terminal.core.agent.protocol import ToolCall, ToolResult
+
+    history = [
+        (
+            ToolCall("read_file", {"path": f"file{index}.txt"}),
+            ToolResult(True, "строка\n" * 400),
+        )
+        for index in range(20)
+    ]
+
+    prompt = build_prompt("задача", history, max_chars=8000)
+
+    assert len(prompt) <= 8000
+    assert "Ранее:" in prompt or "сжаты" in prompt
+
+
+def test_loop_stops_when_budget_too_small(tmp_path) -> None:
+    """Если даже системный промпт не влезает — понятная ошибка."""
+
+    brain = ScriptedBrain([_answer("не дойдёт")])
+
+    result = run_agent(
+        "задача",
+        brain,
+        tmp_path,
+        ground_first=False,
+        max_prompt_chars=200,
+    )
+
+    assert "бюджет" in result.error.lower()
+    assert result.context_chars > 0
+
+
+def test_result_reports_context_size(tmp_path) -> None:
+    """Итог содержит пиковый размер контекста."""
+
+    (tmp_path / "a.txt").write_text("альфа", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("read_file", path="a.txt"),
+            _answer("готово"),
+        ]
+    )
+
+    result = run_agent(
+        "прочитай",
+        brain,
+        tmp_path,
+        ground_first=False,
+    )
+
+    assert result.context_chars > 0
+
+
 def test_parse_decision_accepts_fenced_json() -> None:
     """JSON в ```-блоке тоже разбирается."""
 

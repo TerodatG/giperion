@@ -189,7 +189,7 @@ def read_file(root: Path, path: str) -> ToolResult:
         return ToolResult(False, "Это двоичный файл, читать не буду.")
 
     text = data.decode("utf-8", "replace")
-    lines = text.count("\n") + 1
+    lines = len(text.splitlines())
 
     if len(text) > MAX_READ_CHARS:
         text = text[:MAX_READ_CHARS]

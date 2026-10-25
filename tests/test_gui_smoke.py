@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v022
+# Giperion/tests/test_gui_smoke.py                                 v023
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: пустой слот «Файлов ПК» и меню «плюса».
+# Последнее изменение: образ активной модели на главном экране.
 
 import copy
 import os
@@ -691,6 +691,33 @@ def test_files_module_button_is_empty_slot(window) -> None:
     assert "files" not in window.module_buttons
     assert kinds.count("empty") == 1
     assert len(kinds) == 6
+
+
+def test_model_avatar_switches_main_screen(window, monkeypatch) -> None:
+    """У активной модели на главном экране свой портрет."""
+
+    from PySide6.QtGui import QPixmap
+
+    from config import BASE_DIR
+    from terminal.core.model_registry import get_model
+    from terminal.ui import avatar_mixin
+
+    model = get_model("deepseek-v4.1-flash-free")
+
+    monkeypatch.setattr(
+        avatar_mixin,
+        "get_active_model",
+        lambda: model,
+    )
+
+    window.apply_model_avatar()
+
+    expected = QPixmap(str(BASE_DIR / model["avatar"]))
+
+    assert not expected.isNull()
+    assert window.avatar_caption.text() == "ОБРАЗ МОДЕЛИ"
+    assert window.avatar_pixmap.size() == expected.size()
+    assert window.avatar_animated is False
 
 
 def test_attachment_plus_opens_menu(window, monkeypatch) -> None:

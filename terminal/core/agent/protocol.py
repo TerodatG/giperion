@@ -80,3 +80,4 @@ class AgentResult:
     steps: list[AgentStep] = field(default_factory=list)
     error: str = ""
     cancelled: bool = False
+    context_chars: int = 0

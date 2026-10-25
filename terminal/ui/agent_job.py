@@ -38,6 +38,7 @@ class AgentJob:
         self.pending: ApprovalRequest | None = None
         self.approvals = 0
         self.duration_s = 0.0
+        self.context_chars = 0
 
         self._task = task
         self._brain = brain
@@ -117,6 +118,7 @@ class AgentJob:
             self.answer = result.answer
             self.error = result.error
             self.cancelled = result.cancelled
+            self.context_chars = result.context_chars
 
             if not self.steps and result.steps:
                 self.steps = list(result.steps)

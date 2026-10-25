@@ -692,6 +692,7 @@ class AgentDialog(SkinDialog):
                 f"Готово за {len(job.steps)} шаг(ов)"
                 f" · {job.duration_s:.1f} с"
                 f" · подтверждений: {job.approvals}"
+                f" · контекст {job.context_chars // 1000}k"
                 + branch_note
             )
 

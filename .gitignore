@@ -43,6 +43,9 @@ data/agent_backups/
 # --- Журнал прогонов агента ---
 data/agent_runs.jsonl
 
+# --- Отчёты стенда оценки агента ---
+data/agent_eval/
+
 # --- Настройки провайдера агента (ключ) ---
 data/agent_settings.json
 

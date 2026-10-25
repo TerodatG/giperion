@@ -1,6 +1,6 @@
-# Giperion/tests/test_ui_models_and_modules.py                     v004
+# Giperion/tests/test_ui_models_and_modules.py                     v005
 # Проверки названий модулей, умений моделей и сената.
-# Последнее изменение: «Файлы ПК» больше не модуль панели.
+# Последнее изменение: аватарки моделей и их файлы.
 
 from terminal.core.model_registry import get_model
 from terminal.ui.panels_mixin import MODULE_INFO
@@ -29,6 +29,33 @@ def test_model_skills_come_from_card() -> None:
     assert "Кодинг" in names
     assert "Изображения" in names
     assert all(entry["description"] for entry in entries)
+
+
+def test_model_avatars_exist() -> None:
+    """У каждой указанной аватарки модели есть файл в проекте."""
+
+    from config import BASE_DIR
+    from terminal.core.model_registry import load_models
+
+    models = load_models()
+    with_avatar = [
+        model for model in models if model.get("avatar")
+    ]
+
+    assert with_avatar
+
+    for model in with_avatar:
+        path = BASE_DIR / model["avatar"]
+
+        assert path.is_file(), f"{model['id']}: {model['avatar']}"
+
+    deepseek = next(
+        model
+        for model in models
+        if model["id"] == "deepseek-v4.1-flash-free"
+    )
+
+    assert deepseek["avatar"].endswith("dipsik_face.png")
 
 
 def test_giperion_skills_are_honest() -> None:

@@ -9,8 +9,10 @@ from typing import Callable, Protocol
 
 from terminal.core.agent import registry
 from terminal.core.agent.context import (
+    MAX_PROMPT,
     DecisionError,
     build_prompt,
+    is_within_budget,
     parse_decision,
 )
 from terminal.core.agent.protocol import (
@@ -168,6 +170,7 @@ def run_agent(
     approve: Callable[[ApprovalRequest], bool] | None = None,
     depth: int = 0,
     allow_subagent: bool = True,
+    max_prompt_chars: int = MAX_PROMPT,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -178,6 +181,7 @@ def run_agent(
 
     steps: list[AgentStep] = []
     history: list[tuple[ToolCall, ToolResult]] = []
+    context_peak = 0
 
     def emit(step: AgentStep) -> None:
         steps.append(step)
@@ -205,9 +209,28 @@ def run_agent(
 
     for index in range(1, max(max_steps, 1) + 1):
         if stopped():
-            return AgentResult(steps=steps, cancelled=True)
+            return AgentResult(
+                steps=steps,
+                cancelled=True,
+                context_chars=context_peak,
+            )
 
-        prompt = build_prompt(clean_task, history)
+        prompt = build_prompt(
+            clean_task,
+            history,
+            max_chars=max_prompt_chars,
+        )
+        context_peak = max(context_peak, len(prompt))
+
+        if not is_within_budget(prompt, max_prompt_chars):
+            return AgentResult(
+                steps=steps,
+                error=(
+                    "Контекст превысил бюджет "
+                    f"{max_prompt_chars} символов."
+                ),
+                context_chars=context_peak,
+            )
 
         try:
             raw = brain.decide(prompt)
@@ -224,6 +247,7 @@ def run_agent(
             return AgentResult(
                 steps=steps,
                 error=f"Модель не ответила: {error}",
+                context_chars=context_peak,
             )
 
         try:
@@ -287,7 +311,11 @@ def run_agent(
                 )
             )
 
-            return AgentResult(answer=decision.text, steps=steps)
+            return AgentResult(
+                answer=decision.text,
+                steps=steps,
+                context_chars=context_peak,
+            )
 
         calls = list(decision.calls)
 
@@ -431,4 +459,5 @@ def run_agent(
     return AgentResult(
         steps=steps,
         error=f"Достигнут лимит шагов: {max_steps}.",
+        context_chars=context_peak,
     )

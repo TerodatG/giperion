@@ -14,6 +14,9 @@ from terminal.core.agent.registry import tools_prompt
 
 MAX_OBSERVATION = 4000
 MAX_HISTORY = 24000
+MAX_PROMPT = 60000
+RECENT_STEPS = 3
+SUMMARY_CHARS = 220
 
 SYSTEM_PROMPT = (
     "Ты — агент «Терминал» в проекте Giperion. Ты умеешь читать файлы, "
@@ -67,11 +70,35 @@ def _shorten(text: str, limit: int) -> str:
     return clean[:limit] + "\n… обрезано"
 
 
+def estimate_tokens(text: str) -> int:
+    """Грубая оценка токенов по символам (без токенизатора)."""
+
+    return max(1, len(str(text)) // 3)
+
+
+def _step_line(
+    number: int,
+    call: ToolCall,
+    result: ToolResult,
+    detail_limit: int,
+) -> str:
+    """Одна строка истории шага."""
+
+    args = json.dumps(call.args, ensure_ascii=False)
+    detail = _shorten(result.text, detail_limit)
+
+    return (
+        f"{number}. {call.tool}({args})\n"
+        f"   результат: {detail}"
+    )
+
+
 def build_prompt(
     task: str,
     history: list[tuple[ToolCall, ToolResult]],
+    max_chars: int = MAX_PROMPT,
 ) -> str:
-    """Собирает промпт: правила, инструменты, задача и прошлые шаги."""
+    """Собирает промпт и сжимает старые шаги под бюджет."""
 
     parts = [
         SYSTEM_PROMPT,
@@ -79,24 +106,71 @@ def build_prompt(
         f"Задача: {task.strip()}",
     ]
 
-    if history:
-        lines = ["Выполненные шаги:"]
+    if not history:
+        parts.append("Выполненных шагов пока нет.")
+    else:
+        recent_start = max(0, len(history) - RECENT_STEPS)
+        old_steps = history[:recent_start]
 
-        for number, (call, result) in enumerate(history, start=1):
-            args = json.dumps(call.args, ensure_ascii=False)
-            lines.append(f"{number}. {call.tool}({args})")
-            lines.append(
-                "   результат: " + _shorten(result.text, 1200)
+        if old_steps:
+            summaries = [
+                f"{number}. {call.tool}: "
+                + _shorten(result.text, SUMMARY_CHARS).splitlines()[0]
+                for number, (call, result) in enumerate(
+                    old_steps,
+                    start=1,
+                )
+            ]
+            old_block = "\n".join(summaries)
+
+            if len(old_block) > MAX_HISTORY // 2:
+                old_block = (
+                    f"[{len(old_steps)} старых шагов сжаты, "
+                    "чтобы уложиться в контекст]"
+                )
+
+            parts.append("Ранее:\n" + old_block)
+
+        recent_lines = ["Последние шаги:"]
+
+        for number, (call, result) in enumerate(
+            history[recent_start:],
+            start=recent_start + 1,
+        ):
+            recent_lines.append(
+                _step_line(number, call, result, 1200)
             )
 
-        block = "\n".join(lines)
-        parts.append(_shorten(block, MAX_HISTORY))
-    else:
-        parts.append("Выполненных шагов пока нет.")
+        parts.append("\n".join(recent_lines))
 
     parts.append("Следующий шаг — один JSON-объект:")
 
-    return "\n\n".join(parts)
+    prompt = "\n\n".join(parts)
+
+    if len(prompt) <= max_chars:
+        return prompt
+
+    # Жёсткий бюджет: оставляем только последний шаг.
+    if history:
+        last_call, last_result = history[-1]
+        parts = [
+            SYSTEM_PROMPT,
+            "Доступные инструменты:\n" + tools_prompt(),
+            f"Задача: {task.strip()}",
+            "[История сжата из-за лимита контекста]",
+            _step_line(len(history), last_call, last_result, 600),
+            "Следующий шаг — один JSON-объект:",
+        ]
+
+        prompt = "\n\n".join(parts)
+
+    return prompt
+
+
+def is_within_budget(prompt: str, max_chars: int) -> bool:
+    """Помещается ли промпт в бюджет."""
+
+    return len(prompt) <= max_chars
 
 
 def parse_decision(raw: str) -> AgentDecision:
