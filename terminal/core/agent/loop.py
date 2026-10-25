@@ -352,7 +352,7 @@ def run_agent(
 
                     continue
 
-                payload_path, payload_text = (
+                payload_path, payload_old, payload_text = (
                     registry.approval_payload(root, call)
                 )
 
@@ -362,6 +362,7 @@ def run_agent(
                     detail=preview.text,
                     path=payload_path,
                     new_text=payload_text,
+                    old_text=payload_old,
                 )
 
                 answer = approve(request) if approve else None

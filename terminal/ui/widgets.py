@@ -29,13 +29,14 @@ class SideIconButton(QPushButton):
         icon_name: str,
         tooltip: str,
         parent=None,
+        size: tuple[int, int] = (46, 42),
     ) -> None:
         super().__init__("", parent)
 
         self.icon_name = icon_name
 
         self.setObjectName("sideIconButton")
-        self.setFixedSize(46, 42)
+        self.setFixedSize(size[0], size[1])
         self.setToolTip(tooltip)
         self.setAccessibleName(tooltip)
         self.setCursor(Qt.ArrowCursor)
@@ -852,38 +853,23 @@ class ModuleButton(QAbstractButton):
         painter.restore()
 
 
-class PaperclipButton(QAbstractButton):
-    """Скрепка в левом нижнем углу поля ввода."""
+class AttachButton(QAbstractButton):
+    """Кнопка «+» в левом нижнем углу поля ввода: меню вложений."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
-        self.allowed = True
         self.hovered = False
 
         self.setFixedSize(28, 28)
         self.setFocusPolicy(Qt.NoFocus)
         self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Добавить текстовый файл")
+        self.setToolTip("Добавить вложение")
+        self.setAccessibleName("Добавить вложение")
         self.setStyleSheet("background: transparent; border: none;")
 
-    def set_allowed(self, allowed: bool) -> None:
-        """Показывает, разрешён ли сейчас доступ к файлам."""
-
-        self.allowed = bool(allowed)
-
-        if self.allowed:
-            self.setToolTip("Добавить текстовый файл")
-        else:
-            self.setToolTip(
-                "Доступ к файлам выключен. "
-                "Включи модуль «Файлы ПК»."
-            )
-
-        self.update()
-
     def enterEvent(self, event) -> None:
-        """Подсвечивает скрепку под мышью."""
+        """Подсвечивает плюс под мышью."""
 
         self.hovered = True
         self.update()
@@ -899,7 +885,7 @@ class PaperclipButton(QAbstractButton):
         super().leaveEvent(event)
 
     def paintEvent(self, event) -> None:
-        """Рисует скрепку без системной рамки кнопки."""
+        """Рисует плюс без системной рамки кнопки."""
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
@@ -913,50 +899,26 @@ class PaperclipButton(QAbstractButton):
                 5.0,
             )
 
-        color = (
-            QColor(157, 214, 160)
-            if self.allowed
-            else QColor(92, 78, 66)
-        )
+        color = QColor(157, 214, 160) if self.hovered else QColor(124, 196, 134)
 
-        painter.save()
+        painter.setPen(
+            QPen(color, 1.9, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        )
+        painter.setBrush(Qt.NoBrush)
 
         center = QPointF(
             self.width() / 2,
             self.height() / 2,
         )
 
-        painter.translate(center)
-        painter.rotate(-20)
-        painter.translate(-center)
-
-        painter.setPen(
-            QPen(color, 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        painter.drawLine(
+            QPointF(center.x() - 6.5, center.y()),
+            QPointF(center.x() + 6.5, center.y()),
         )
-        painter.setBrush(Qt.NoBrush)
-
-        painter.drawRoundedRect(
-            QRectF(
-                center.x() - 6,
-                center.y() - 9,
-                12,
-                18,
-            ),
-            6.0,
-            6.0,
+        painter.drawLine(
+            QPointF(center.x(), center.y() - 6.5),
+            QPointF(center.x(), center.y() + 6.5),
         )
-        painter.drawRoundedRect(
-            QRectF(
-                center.x() - 2.6,
-                center.y() - 6,
-                5.2,
-                12,
-            ),
-            2.6,
-            2.6,
-        )
-
-        painter.restore()
 
 
 class FuturisticGrip(QSizeGrip):

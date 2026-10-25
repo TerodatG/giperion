@@ -43,6 +43,9 @@ data/agent_backups/
 # --- Журнал прогонов агента ---
 data/agent_runs.jsonl
 
+# --- Настройки провайдера агента (ключ) ---
+data/agent_settings.json
+
 # --- Параллельные рабочие деревья агента ---
 .agent_worktrees/
 

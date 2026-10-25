@@ -90,7 +90,8 @@ def test_settings_roundtrip(tmp_path) -> None:
     assert settings["response"]["typing_speed"] == 70
     assert settings["response"]["delay_seconds"] == 2.5
     assert settings["modules"]["internet"] is True
-    assert settings["modules"]["files"] is False
+    # Доступ к файлам больше не выключается: сохранённое «false» игнорируется.
+    assert settings["modules"]["files"] is True
 
 
 def test_invalid_values_are_clamped(tmp_path) -> None:

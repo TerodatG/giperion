@@ -62,6 +62,9 @@ DEFAULT_MODULE_STATES = {
     "voice": False,
 }
 
+# Модули без выключателя: доступ к файлам теперь постоянный, кнопки нет.
+ALWAYS_ON_MODULES = ("files",)
+
 DEFAULT_WINDOW_SETTINGS = {
     "chat_font_family": "",
     "chat_font_size": 11,
@@ -160,6 +163,10 @@ def _clean_modules(value: object) -> dict:
     for key in DEFAULT_MODULE_STATES:
         if isinstance(value.get(key), bool):
             settings[key] = value[key]
+
+    # Доступ к файлам сохранённые настройки выключить не могут.
+    for key in ALWAYS_ON_MODULES:
+        settings[key] = True
 
     return settings
 

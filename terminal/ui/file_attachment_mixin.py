@@ -1,13 +1,14 @@
-# Giperion/app/ui/file_attachment_mixin.py                          v001
-# Прикрепление и показ текстовых файлов, кнопки очистки и скрепки.
-# Последнее изменение: методы вынесены из GiperionWindow как отдельный слой.
+# Giperion/app/ui/file_attachment_mixin.py                          v002
+# Прикрепление и показ текстовых файлов, кнопки очистки и «плюса».
+# Последнее изменение: меню вложений и постоянный доступ к файлам.
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
+    QMenu,
     QPushButton,
 )
 
@@ -18,7 +19,7 @@ from terminal.skills.file_reader import (
     read_text_file,
 )
 from terminal.ui.theme import DATA_COLOR, STAMP_COLOR
-from terminal.ui.widgets import PaperclipButton
+from terminal.ui.widgets import AttachButton
 
 
 class FileAttachmentMixin:
@@ -60,20 +61,40 @@ class FileAttachmentMixin:
         return clear_button
 
     def _add_attachment_button(self) -> None:
-        """Добавляет скрепку в левый нижний угол поля ввода."""
+        """Добавляет «плюс» в левый нижний угол поля ввода."""
 
-        self.attach_button = PaperclipButton(self.input)
-        self.attach_button.set_allowed(
-            bool(self.modules.get("files", False))
-        )
-        self.attach_button.clicked.connect(self.attach_text_file)
+        self.attach_button = AttachButton(self.input)
+        self.attach_button.clicked.connect(self._show_attachment_menu)
         self.attach_button.show()
         self.attach_button.raise_()
 
         self._position_attachment_button()
 
+    def _attachment_menu(self) -> QMenu:
+        """Собирает меню вложений; «Загрузить файл» идёт первым."""
+
+        menu = QMenu(self.input)
+        menu.setObjectName("attachMenu")
+
+        upload = menu.addAction("Загрузить файл")
+        upload.triggered.connect(self.attach_text_file)
+
+        return menu
+
+    def _show_attachment_menu(self) -> None:
+        """Показывает выпадающее меню под кнопкой «+»."""
+
+        menu = self._attachment_menu()
+
+        menu.exec(
+            self.attach_button.mapToGlobal(
+                QPoint(0, self.attach_button.height() + 2)
+            )
+        )
+        menu.deleteLater()
+
     def _position_attachment_button(self) -> None:
-        """Держит скрепку у нижнего левого угла поля ввода."""
+        """Держит «плюс» у нижнего левого угла поля ввода."""
 
         if not hasattr(self, "attach_button"):
             return
@@ -87,17 +108,9 @@ class FileAttachmentMixin:
     def attach_text_file(self) -> None:
         """Выбирает текстовый файл и выводит его содержимое в чат."""
 
-        if not self.modules.get("files", False):
-            self.append_system(
-                "Доступ к файлам выключен. Включи модуль «Файлы ПК» "
-                "на панели под портретом."
-            )
-
-            return
-
         path, _ = QFileDialog.getOpenFileName(
             self.window,
-            "Добавить текстовый файл",
+            "Загрузить файл",
             str(Path.home()),
             TEXT_FILE_FILTER,
         )
@@ -155,7 +168,7 @@ class FileAttachmentMixin:
 
         self._append(
             f'<p style="margin:8px 0 2px 0;">'
-            f'<b style="color:{color};">📎 ФАЙЛ:</b> '
+            f'<b style="color:{color};">📄 ФАЙЛ:</b> '
             f'<span style="color:{color}; {style}">'
             f'{self._escape(data["name"])}</span> '
             f'{meta}</p>'

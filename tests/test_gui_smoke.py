@@ -483,13 +483,12 @@ def test_core_tabs_are_present(window) -> None:
 
 
 def test_module_tooltips_have_no_extra_comments(window) -> None:
-    """У голоса, файлов и личности в подсказке только название."""
+    """У голоса, «плюса» и личности в подсказке только название."""
 
     voice = window.module_buttons["voice"]
-    files = window.module_buttons["files"]
 
     assert voice.toolTip() == "Голосовой модуль"
-    assert files.toolTip() == "Файлы ПК"
+    assert "files" not in window.module_buttons
     assert (
         window.personality_module_button.toolTip()
         == "Личностная матрица"
@@ -589,6 +588,31 @@ def test_agent_dialog_opens_with_approval(window) -> None:
     dialog.close()
 
 
+def test_agent_provider_dialog_opens(window) -> None:
+    """Кнопка «Провайдер…» открывает настройки провайдера."""
+
+    from PySide6.QtWidgets import QLineEdit
+
+    window.open_agent_dialog()
+
+    windows = window.window._tool_windows
+    dialog = windows["agent"]
+
+    dialog.provider_button.click()
+
+    provider = dialog._tool_windows["agent-provider"]
+
+    assert provider.windowTitle() == "Провайдер агента"
+    assert provider.base_input is not None
+    assert (
+        provider.key_input.echoMode()
+        == QLineEdit.EchoMode.Password
+    )
+
+    provider.close()
+    dialog.close()
+
+
 def test_agent_new_task_opens_second_window(window) -> None:
     """«Новая задача» открывает второе окно, не закрывая первое."""
 
@@ -630,6 +654,74 @@ def test_system_buttons_live_in_system_panel(window) -> None:
         window.pet_button,
     ):
         assert button.parent() is window.system_panel
+
+    from PySide6.QtWidgets import QGridLayout
+
+    grid = window.system_panel.findChild(QGridLayout)
+
+    assert grid is not None
+    assert grid.columnCount() == 4
+    assert window.skills_button.width() == 36
+
+
+def test_files_module_button_is_empty_slot(window) -> None:
+    """Кнопки «Файлы ПК» больше нет: её слот пустой."""
+
+    from terminal.ui.widgets import ModuleButton
+
+    kinds = [
+        button.kind
+        for button in window.modules_panel.findChildren(ModuleButton)
+    ]
+
+    assert "files" not in window.module_buttons
+    assert kinds.count("empty") == 2
+    assert len(kinds) == 7
+
+
+def test_attachment_plus_opens_menu(window, monkeypatch) -> None:
+    """«Плюс» открывает меню, а файл читается без модуля."""
+
+    from terminal.ui import file_attachment_mixin
+    from terminal.ui.widgets import AttachButton
+
+    assert isinstance(window.attach_button, AttachButton)
+    assert window.attach_button.toolTip() == "Добавить вложение"
+
+    actions = [
+        action.text()
+        for action in window._attachment_menu().actions()
+    ]
+
+    assert actions[0] == "Загрузить файл"
+
+    # Модуль «Файлы ПК» выключен, но загрузка всё равно работает.
+    window.modules["files"] = False
+
+    data = {
+        "name": "note.txt",
+        "text": "привет",
+        "size": 12,
+        "encoding": "utf-8",
+        "full_length": 6,
+        "truncated": False,
+    }
+
+    monkeypatch.setattr(
+        file_attachment_mixin.QFileDialog,
+        "getOpenFileName",
+        lambda *args, **kwargs: ("note.txt", ""),
+    )
+    monkeypatch.setattr(
+        file_attachment_mixin,
+        "read_text_file",
+        lambda path: data,
+    )
+
+    window.attach_text_file()
+
+    assert "note.txt" in window.chat.toPlainText()
+    assert "ФАЙЛ" in window.chat.toPlainText()
 
 
 def test_performance_dialog_shows_live_metrics(

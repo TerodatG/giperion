@@ -21,10 +21,8 @@ from PySide6.QtWidgets import (
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
-from terminal.core.agent.providers import (
-    NativeBrain,
-    provider_from_env,
-)
+from terminal.core.agent.providers import NativeBrain
+from terminal.core.agent.settings import provider_from_settings
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
@@ -38,6 +36,7 @@ from terminal.core.model_registry import (
 )
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.provider_dialog import show_provider_dialog
 
 MAX_STEPS = 12
 POLL_MS = 120
@@ -120,6 +119,21 @@ class AgentDialog(SkinDialog):
             "чтобы не мешать другим задачам."
         )
 
+        self.provider_button = QPushButton("Провайдер…", self)
+        self.provider_button.setObjectName("workshopAction")
+        self.provider_button.setToolTip(
+            "Адрес, ключ и модель провайдера с настоящими tool calls."
+        )
+        self.provider_button.clicked.connect(
+            lambda: show_provider_dialog(self)
+        )
+
+        model_row = QHBoxLayout()
+        model_row.setSpacing(8)
+        model_row.addWidget(self.worktree_checkbox)
+        model_row.addWidget(self.provider_button)
+        model_row.addStretch(1)
+
         self.run_button = QPushButton("Запустить", self)
         self.run_button.setObjectName("workshopAction")
         self.run_button.clicked.connect(self._start)
@@ -182,10 +196,36 @@ class AgentDialog(SkinDialog):
         self.approval_detail.setReadOnly(True)
         self.approval_detail.setFixedHeight(200)
 
-        self.edit_area = QPlainTextEdit(self.approval_frame)
+        self.edit_split = QWidget(self.approval_frame)
+        self.edit_split.setVisible(False)
+
+        split_layout = QHBoxLayout(self.edit_split)
+        split_layout.setContentsMargins(0, 0, 0, 0)
+        split_layout.setSpacing(6)
+
+        old_column = QVBoxLayout()
+        old_column.setSpacing(2)
+        old_caption = QLabel("БЫЛО", self.edit_split)
+        old_caption.setObjectName("paramsPlateTitle")
+        self.old_view = QPlainTextEdit(self.edit_split)
+        self.old_view.setObjectName("agentTrace")
+        self.old_view.setReadOnly(True)
+        self.old_view.setFixedHeight(200)
+        old_column.addWidget(old_caption)
+        old_column.addWidget(self.old_view)
+
+        new_column = QVBoxLayout()
+        new_column.setSpacing(2)
+        new_caption = QLabel("СТАНЕТ", self.edit_split)
+        new_caption.setObjectName("paramsPlateTitle")
+        self.edit_area = QPlainTextEdit(self.edit_split)
         self.edit_area.setObjectName("agentTask")
         self.edit_area.setFixedHeight(200)
-        self.edit_area.setVisible(False)
+        new_column.addWidget(new_caption)
+        new_column.addWidget(self.edit_area)
+
+        split_layout.addLayout(old_column, 1)
+        split_layout.addLayout(new_column, 1)
 
         approval_buttons = QHBoxLayout()
         approval_buttons.setSpacing(8)
@@ -219,7 +259,7 @@ class AgentDialog(SkinDialog):
 
         approval_layout.addWidget(self.approval_title)
         approval_layout.addWidget(self.approval_detail)
-        approval_layout.addWidget(self.edit_area)
+        approval_layout.addWidget(self.edit_split)
         approval_layout.addLayout(approval_buttons)
 
         self.trace = QPlainTextEdit(self)
@@ -234,7 +274,7 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(title)
         self.body_layout.addWidget(subtitle)
         self.body_layout.addWidget(self.task_input)
-        self.body_layout.addWidget(self.worktree_checkbox)
+        self.body_layout.addLayout(model_row)
         self.body_layout.addLayout(controls)
         self.body_layout.addLayout(worktree_row)
         self.body_layout.addWidget(self.approval_frame)
@@ -253,7 +293,7 @@ class AgentDialog(SkinDialog):
             self.status_label.setText("Сначала опиши задачу.")
             return
 
-        native = provider_from_env()
+        native = provider_from_settings()
 
         if native is not None:
             brain = NativeBrain(native)
@@ -395,7 +435,7 @@ class AgentDialog(SkinDialog):
         self._editing = False
         self.edit_button.setText("Править")
         self.edit_button.setEnabled(False)
-        self.edit_area.setVisible(False)
+        self.edit_split.setVisible(False)
         self.approval_detail.setVisible(True)
 
     def _toggle_edit(self) -> None:
@@ -406,7 +446,7 @@ class AgentDialog(SkinDialog):
 
         self._editing = not self._editing
         self.approval_detail.setVisible(not self._editing)
-        self.edit_area.setVisible(self._editing)
+        self.edit_split.setVisible(self._editing)
         self.edit_button.setText(
             "К диффу" if self._editing else "Править"
         )
@@ -470,6 +510,7 @@ class AgentDialog(SkinDialog):
         if pending is not None and not self.approval_frame.isVisible():
             self.approval_title.setText(pending.title.upper())
             self.approval_detail.setPlainText(pending.detail)
+            self.old_view.setPlainText(pending.old_text or "")
             self.edit_area.setPlainText(pending.new_text or "")
             self._reset_edit()
             self.edit_button.setEnabled(pending.new_text is not None)

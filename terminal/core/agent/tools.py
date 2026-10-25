@@ -500,8 +500,8 @@ def prepare_patch(
     path: str,
     old: str,
     new: str,
-) -> tuple[Path, str, str]:
-    """Готовит точечную замену: путь, новый текст и дифф."""
+) -> tuple[Path, str, str, str]:
+    """Готовит точечную замену: путь, старый текст, новый и дифф."""
 
     if not str(old):
         raise ToolError("Пустой фрагмент для замены.")
@@ -525,7 +525,7 @@ def prepare_patch(
     new_text = text.replace(old, new, 1)
     diff = _diff(_relative(root, target), text, new_text)
 
-    return target, new_text, diff
+    return target, text, new_text, diff
 
 
 def apply_patch(
@@ -537,7 +537,7 @@ def apply_patch(
     """Заменяет один уникальный фрагмент в файле."""
 
     try:
-        target, new_text, diff = prepare_patch(
+        target, _old, new_text, diff = prepare_patch(
             root,
             path,
             old,

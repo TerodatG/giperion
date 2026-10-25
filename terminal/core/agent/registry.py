@@ -221,12 +221,12 @@ def validate_call(call: ToolCall) -> ToolResult | None:
 def approval_payload(
     root: Path,
     call: ToolCall,
-) -> tuple[str, str | None]:
-    """Возвращает путь и итоговый текст для редактирования."""
+) -> tuple[str, str, str | None]:
+    """Возвращает путь, старый текст и итоговый текст для правки."""
 
     try:
         if call.tool == "write_file":
-            target, _old, _diff = tools.prepare_write(
+            target, old_text, _diff = tools.prepare_write(
                 root,
                 _string_arg(call, "path"),
                 _string_arg(call, "content"),
@@ -234,11 +234,12 @@ def approval_payload(
 
             return (
                 target.relative_to(Path(root).resolve()).as_posix(),
+                old_text,
                 _string_arg(call, "content"),
             )
 
         if call.tool == "apply_patch":
-            target, new_text, _diff = tools.prepare_patch(
+            target, old_text, new_text, _diff = tools.prepare_patch(
                 root,
                 _string_arg(call, "path"),
                 _string_arg(call, "old"),
@@ -247,12 +248,13 @@ def approval_payload(
 
             return (
                 target.relative_to(Path(root).resolve()).as_posix(),
+                old_text,
                 new_text,
             )
     except (ToolError, ValueError, OSError):
-        return "", None
+        return "", "", None
 
-    return "", None
+    return "", "", None
 
 
 def needs_approval(call: ToolCall) -> bool:
@@ -282,7 +284,7 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
             return ToolResult(True, diff)
 
         if call.tool == "apply_patch":
-            _path, _text, diff = tools.prepare_patch(
+            _path, _old, _text, diff = tools.prepare_patch(
                 root,
                 _string_arg(call, "path"),
                 _string_arg(call, "old"),

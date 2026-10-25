@@ -51,6 +51,7 @@ class ApprovalRequest:
     detail: str
     path: str = ""
     new_text: str | None = None
+    old_text: str | None = None
 
 
 @dataclass(frozen=True)

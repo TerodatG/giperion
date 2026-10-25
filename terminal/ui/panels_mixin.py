@@ -48,15 +48,17 @@ from terminal.ui.widgets import (
     StatusLed,
 )
 
-# Порядок кнопок-модулей и их подписи.
-MODULE_ORDER = ("internet", "files", "models", "conference", "voice")
+# Слоты полосы модулей. «Файлы ПК» больше не выключаются: доступ к файлам
+# постоянный, поэтому на его месте остаётся пустая кнопка.
+MODULE_SLOTS = ("internet", "empty", "models", "conference", "voice")
+
+# Порядок настоящих модулей и их подписи.
+MODULE_ORDER = tuple(
+    key for key in MODULE_SLOTS if key != "empty"
+)
 MODULE_INFO = {
     "internet": (
         "Сетевой модуль",
-        "",
-    ),
-    "files": (
-        "Файлы ПК",
         "",
     ),
     "models": (
@@ -178,7 +180,19 @@ class PanelsMixin:
         row.setSpacing(4)
         row.addStretch(1)
 
-        for key in MODULE_ORDER:
+        for key in MODULE_SLOTS:
+            if key == "empty":
+                row.addWidget(
+                    ModuleButton(
+                        "empty",
+                        "Свободный слот",
+                        "",
+                        container,
+                    )
+                )
+
+                continue
+
             title, tooltip = MODULE_INFO[key]
 
             button = ModuleButton(
@@ -483,7 +497,7 @@ class PanelsMixin:
         container.setAttribute(Qt.WA_StyledBackground, True)
 
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(6, 8, 6, 8)
         layout.setSpacing(4)
 
         caption = QLabel("СИСТЕМА", container)
@@ -495,51 +509,35 @@ class PanelsMixin:
         row.setSpacing(4)
         row.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-        self.skills_button = SideIconButton(
-            "skills",
-            "Умения",
-            container,
-        )
-        self.models_button = SideIconButton(
-            "models",
-            "Модель",
-            container,
-        )
-        self.workshop_button = SideIconButton(
-            "workshop",
-            "Мастерская",
-            container,
-        )
-        self.conference_button = SideIconButton(
+        # Четыре кнопки в линию: 36 px + зазоры помещаются в плиту 198 px.
+        def make_button(icon: str, tooltip: str) -> SideIconButton:
+            """Создаёт кнопку плиты одного размера."""
+
+            return SideIconButton(
+                icon,
+                tooltip,
+                container,
+                size=(36, 34),
+            )
+
+        self.skills_button = make_button("skills", "Умения")
+        self.models_button = make_button("models", "Модель")
+        self.workshop_button = make_button("workshop", "Мастерская")
+        self.conference_button = make_button(
             "conference",
             "Вид сената",
-            container,
         )
-        self.personalities_button = SideIconButton(
+        self.personalities_button = make_button(
             "personalities",
             "Личностные матрицы",
-            container,
         )
-        self.settings_button = SideIconButton(
-            "settings",
-            "Настройки",
-            container,
-        )
-        self.update_button = SideIconButton(
-            "update",
-            "Обновление",
-            container,
-        )
-        self.performance_button = SideIconButton(
+        self.settings_button = make_button("settings", "Настройки")
+        self.update_button = make_button("update", "Обновление")
+        self.performance_button = make_button(
             "performance",
             "Производительность",
-            container,
         )
-        self.pet_button = SideIconButton(
-            "pet",
-            "Питомец",
-            container,
-        )
+        self.pet_button = make_button("pet", "Питомец")
 
         buttons = (
             self.skills_button,
@@ -554,7 +552,7 @@ class PanelsMixin:
         )
 
         for index, button in enumerate(buttons):
-            row.addWidget(button, index // 3, index % 3)
+            row.addWidget(button, index // 4, index % 4)
 
         self.skills_button.clicked.connect(
             self.open_skills_dialog
@@ -619,17 +617,7 @@ class PanelsMixin:
         set_module(key, enabled)
         self._save_window_settings()
 
-        if key == "files":
-            self.attach_button.set_allowed(enabled)
-
-            note = (
-                "Доступ к файлам включён. Скрепка читает "
-                "выбранный текстовый файл."
-                if enabled
-                else "Доступ к файлам выключен. Скрепка больше "
-                "не читает файлы."
-            )
-        elif key == "voice":
+        if key == "voice":
             if enabled:
                 self._schedule_voice()
 

@@ -300,6 +300,7 @@ QLabel#systemCaption {
     font-size: 9pt;
     font-weight: bold;
     letter-spacing: 1px;
+    padding-left: 12px;
 }
 
 QWidget#performanceCard {
