@@ -5,16 +5,16 @@
 from dataclasses import dataclass, field
 
 from terminal.core.conference_roster import order_models_by_reputation
-from terminal.core.model_registry import (
+from terminal.core.model_catalog import (
     COMPANION_GROUP,
     CONFERENCE_GROUP,
-    get_current_model_id,
-    load_companion_ids,
-    load_conference_ids,
     load_models,
 )
 from terminal.core.model_settings import (
     ModelPolicy,
+    get_current_model_id,
+    load_companion_ids,
+    load_conference_ids,
     load_model_group_flags,
 )
 

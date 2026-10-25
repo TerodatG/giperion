@@ -17,15 +17,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from terminal.core.model_registry import (
-    DEFAULT_MODEL_ID,
-    get_model,
-    remove_custom_model,
+from terminal.core.model_catalog import DEFAULT_MODEL_ID, get_model
+from terminal.core.model_custom import remove_custom_model
+from terminal.core.model_settings import (
     set_companion,
     set_conference_member,
     set_current_model_id,
-)
-from terminal.core.model_settings import (
     set_model_group_enabled,
 )
 from terminal.ui.add_model_dialog import show_add_model_dialog

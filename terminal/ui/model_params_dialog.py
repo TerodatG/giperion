@@ -19,7 +19,7 @@ from terminal.core.model_passport import (
     passport_notes,
     passport_sections,
 )
-from terminal.core.model_registry import (
+from terminal.core.model_stats import (
     build_stars,
     get_reputation,
 )

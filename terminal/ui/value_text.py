@@ -3,7 +3,7 @@
 # Последнее изменение: статус «недоступна» для выключенной группы.
 
 from terminal.core.model_catalog import DEFAULT_STRENGTHS
-from terminal.core.model_registry import build_stars, get_reputation
+from terminal.core.model_stats import build_stars, get_reputation
 
 CAPABILITY_FEATURES = (
     ("text", "Текст и диалог"),

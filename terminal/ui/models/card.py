@@ -16,12 +16,12 @@ from PySide6.QtWidgets import (
 )
 
 from config import BASE_DIR
-from terminal.core.model_registry import (
+from terminal.core.model_settings import GROUP_LABELS, model_group_key
+from terminal.core.model_stats import (
     build_stars,
     get_reputation,
     get_usage,
 )
-from terminal.core.model_settings import GROUP_LABELS, model_group_key
 from terminal.ui.rating_bars import clear_layout, fill_rating_bars
 from terminal.ui.value_text import (
     CAPABILITY_FEATURES,
