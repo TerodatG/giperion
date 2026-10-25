@@ -23,11 +23,16 @@ def record_run(
     tokens: int = 0,
     cost: float = 0.0,
     retries: int = 0,
+    files: list[str] | None = None,
+    started_at: str = "",
+    root: str = "",
 ) -> None:
     """Добавляет одну строку в журнал; ошибки записи не ломают агента."""
 
     record = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
+        "started_at": str(started_at)[:40],
+        "root": str(root)[:500],
         "task": str(task)[:500],
         "model": str(model)[:120],
         "steps": int(steps),
@@ -39,6 +44,7 @@ def record_run(
         "tokens": int(tokens),
         "cost": round(float(cost), 6),
         "retries": int(retries),
+        "files": [str(item)[:300] for item in (files or [])][:50],
     }
 
     try:

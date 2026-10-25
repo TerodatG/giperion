@@ -101,15 +101,16 @@ TOOL_SPECS = (
     ToolSpec(
         name="git_commit",
         description=(
-            "Закоммитить один файл с сообщением. "
+            "Закоммитить один или несколько изменённых файлов с сообщением. "
             "Требует подтверждения."
         ),
         args={
-            "path": "путь к файлу",
+            "paths": "список путей к файлам",
             "message": "сообщение коммита",
         },
+        types={"paths": "array"},
         risk="write",
-        required=("path", "message"),
+        required=("paths", "message"),
     ),
     ToolSpec(
         name="git_restore",
@@ -295,13 +296,19 @@ def tool_schemas() -> list[dict]:
     schemas = []
 
     for spec in all_specs():
-        properties = {
-            name: {
-                "type": "string",
+        properties = {}
+
+        for name, description in spec.args.items():
+            kind = spec.types.get(name, "string")
+            entry = {
+                "type": kind,
                 "description": description,
             }
-            for name, description in spec.args.items()
-        }
+
+            if kind == "array":
+                entry["items"] = {"type": "string"}
+
+            properties[name] = entry
 
         schemas.append(
             {
@@ -347,6 +354,23 @@ def validate_call(call: ToolCall) -> ToolResult | None:
 
         value = call.args[name]
 
+        if spec.types.get(name) == "array":
+            if (
+                not isinstance(value, list)
+                or not value
+                or not all(
+                    isinstance(item, str) and item.strip()
+                    for item in value
+                )
+            ):
+                return ToolResult(
+                    False,
+                    f"Аргумент «{name}» должен быть непустым списком "
+                    "строк.",
+                )
+
+            continue
+
         if not isinstance(value, str):
             return ToolResult(
                 False,
@@ -360,7 +384,19 @@ def validate_call(call: ToolCall) -> ToolResult | None:
             )
 
     for name, value in call.args.items():
-        if name in spec.args and not isinstance(value, str):
+        if name not in spec.args:
+            continue
+
+        if spec.types.get(name) == "array":
+            if not isinstance(value, list):
+                return ToolResult(
+                    False,
+                    f"Аргумент «{name}» должен быть списком строк.",
+                )
+
+            continue
+
+        if not isinstance(value, str):
             return ToolResult(
                 False,
                 f"Аргумент «{name}» должен быть строкой.",
@@ -466,7 +502,7 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
                 git_tools.git_preview_commit(
                     root,
                     _string_arg(call, "message"),
-                    _string_arg(call, "path"),
+                    _list_arg(call, "paths"),
                 ),
             )
 
@@ -522,6 +558,20 @@ def _string_arg(call: ToolCall, name: str, default: str = "") -> str:
         raise ValueError(f"Аргумент «{name}» должен быть строкой.")
 
     return value
+
+
+def _list_arg(call: ToolCall, name: str) -> list[str]:
+    """Список путей: массив или одна строка для совместимости."""
+
+    value = call.args.get(name)
+
+    if isinstance(value, list):
+        return [str(item) for item in value]
+
+    if isinstance(value, str) and value.strip():
+        return [value]
+
+    return []
 
 
 def execute(root: Path, call: ToolCall) -> ToolResult:
@@ -601,7 +651,7 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
             return git_tools.git_commit(
                 root,
                 _string_arg(call, "message"),
-                _string_arg(call, "path"),
+                _list_arg(call, "paths"),
             )
 
         if call.tool == "git_restore":

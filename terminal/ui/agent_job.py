@@ -50,6 +50,9 @@ class AgentJob:
         self.tokens = 0
         self.cost = 0.0
         self.partial = ""
+        # Файлы, которые агент изменил: нужны для отката прогона.
+        self.changed: set[str] = set()
+        self._started_at = self._now()
         self._budget = budget
 
         self._task = task
@@ -88,6 +91,7 @@ class AgentJob:
             "history": task_store.serialize_history(
                 self._initial_history
             ),
+            "files": [],
             "created_at": self._now(),
         }
 
@@ -187,10 +191,20 @@ class AgentJob:
     def _on_history(self, history) -> None:
         """Сохраняет историю для продолжения задачи."""
 
+        for call, _result in history:
+            if call.tool not in ("apply_patch", "write_file"):
+                continue
+
+            path = str(call.args.get("path") or "").strip()
+
+            if path:
+                self.changed.add(path)
+
         if self._persist:
             self._state["history"] = task_store.serialize_history(
                 history
             )
+            self._state["files"] = sorted(self.changed)
             task_store.save_state(self._state)
 
     def _on_delta(self, piece: str) -> None:
@@ -243,6 +257,9 @@ class AgentJob:
                 self.tokens,
                 self.cost,
                 self.retries,
+                sorted(self.changed),
+                self._started_at,
+                str(self._root),
             )
 
             if self._persist:
@@ -258,6 +275,7 @@ class AgentJob:
                         "status": status,
                         "answer": self.answer,
                         "error": self.error,
+                        "files": sorted(self.changed),
                         "steps": task_store.serialize_steps(
                             self.steps
                         ),

@@ -71,7 +71,7 @@ def test_commit_saves_one_file(repo) -> None:
 
     (repo / "a.txt").write_text("бета\n", encoding="utf-8")
 
-    result = git_tools.git_commit(repo, "правка агента", "a.txt")
+    result = git_tools.git_commit(repo, "правка агента", ["a.txt"])
 
     assert result.ok
 
@@ -80,6 +80,55 @@ def test_commit_saves_one_file(repo) -> None:
 
     log = git_tools.git_log(repo, 3)
     assert "правка агента" in log.text
+
+
+def test_commit_saves_several_files(repo) -> None:
+    """Один коммит закрывает несколько файлов сразу."""
+
+    (repo / "a.txt").write_text("бета\n", encoding="utf-8")
+    (repo / "b.txt").write_text("гамма\n", encoding="utf-8")
+
+    result = git_tools.git_commit(
+        repo,
+        "две правки",
+        ["a.txt", "b.txt"],
+    )
+
+    assert result.ok
+
+    status = git_tools.git_status(repo)
+
+    assert "a.txt" not in status.text
+    assert "b.txt" not in status.text
+
+    log = git_tools.git_log(repo, 3)
+    assert "две правки" in log.text
+
+    # В коммите ровно два файла и ничего лишнего.
+    import subprocess
+
+    from terminal.core.agent.commands import _git_executable
+
+    shown = subprocess.run(
+        [_git_executable(), "show", "--stat", "--oneline", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    ).stdout
+
+    assert "a.txt" in shown
+    assert "b.txt" in shown
+
+
+def test_commit_rejects_empty_paths(repo) -> None:
+    """Без файлов коммит не создаётся."""
+
+    result = git_tools.git_commit(repo, "пусто", [])
+
+    assert not result.ok
+    assert "ни один файл" in result.text
 
 
 def test_restore_returns_original(repo) -> None:
@@ -109,7 +158,7 @@ def test_commit_preview_contains_diff(repo) -> None:
     preview = git_tools.git_preview_commit(
         repo,
         "ещё правка",
-        "a.txt",
+        ["a.txt"],
     )
 
     assert "git commit" in preview
@@ -121,6 +170,6 @@ def test_commit_requires_message(repo) -> None:
 
     (repo / "a.txt").write_text("бета\n", encoding="utf-8")
 
-    result = git_tools.git_commit(repo, "   ", "a.txt")
+    result = git_tools.git_commit(repo, "   ", ["a.txt"])
 
     assert not result.ok

@@ -78,12 +78,29 @@ def git_log(root: Path, limit: int = 5) -> ToolResult:
     return _run(root, ["log", f"-{count}", "--oneline"])
 
 
+def _relatives(root: Path, paths) -> list[str]:
+    """Проверяет список путей и убирает повторы."""
+
+    if isinstance(paths, str):
+        paths = [paths]
+
+    relatives: list[str] = []
+
+    for path in paths or []:
+        relative = _relative(root, str(path))
+
+        if relative not in relatives:
+            relatives.append(relative)
+
+    return relatives
+
+
 def git_commit(
     root: Path,
     message: str,
-    path: str,
+    paths,
 ) -> ToolResult:
-    """Коммитит один файл с сообщением."""
+    """Коммитит один или несколько файлов с общим сообщением."""
 
     text = str(message or "").strip()
 
@@ -94,22 +111,30 @@ def git_commit(
         return ToolResult(False, "Сообщение коммита слишком длинное.")
 
     try:
-        relative = _relative(root, path)
+        relatives = _relatives(root, paths)
     except ToolError as error:
         return ToolResult(False, str(error))
 
-    added = _run(root, ["add", "--", relative])
+    if not relatives:
+        return ToolResult(False, "Не выбран ни один файл для коммита.")
+
+    added = _run(root, ["add", "--", *relatives])
 
     if not added.ok:
         return added
 
     result = _run(
         root,
-        ["commit", "-m", text, "--", relative],
+        ["commit", "-m", text, "--", *relatives],
     )
 
     if result.ok:
-        add_action(f"Агент: коммит {relative}")
+        listed = ", ".join(relatives[:3])
+
+        if len(relatives) > 3:
+            listed += f" и ещё {len(relatives) - 3}"
+
+        add_action(f"Агент: коммит {listed}")
 
     return result
 
@@ -133,18 +158,38 @@ def git_restore(root: Path, path: str) -> ToolResult:
 def git_preview_commit(
     root: Path,
     message: str,
-    path: str,
+    paths,
 ) -> str:
     """Описание коммита для окна подтверждения."""
 
-    diff = git_diff(root, path)
-    body = diff.text if diff.ok else diff.text
+    try:
+        relatives = _relatives(root, paths)
+    except ToolError as error:
+        return str(error)
 
-    return (
-        f"git add -- {path}\n"
-        f"git commit -m {message!r} -- {path}\n\n"
-        f"{body}"
-    )
+    if not relatives:
+        return "Не выбран ни один файл для коммита."
+
+    listed = " ".join(relatives)
+    parts = [
+        f"git add -- {listed}",
+        f"git commit -m {message!r} -- {listed}",
+        "",
+    ]
+
+    for relative in relatives:
+        diff = git_diff(root, relative)
+
+        if diff.ok:
+            parts.append(diff.text)
+        else:
+            parts.append(f"{relative}: {diff.text[:200]}")
+
+        if sum(len(part) for part in parts) > 5000:
+            parts.append("… дифф обрезан.")
+            break
+
+    return "\n\n".join(parts)
 
 
 def git_preview_restore(root: Path, path: str) -> str:

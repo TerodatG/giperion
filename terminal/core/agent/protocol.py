@@ -14,6 +14,9 @@ class ToolSpec:
     args: dict[str, str]
     risk: str = "read"
     required: tuple[str, ...] = ()
+    # Типы аргументов, которых нет в строковом словаре: например
+    # {"paths": "array"} для списка путей.
+    types: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
