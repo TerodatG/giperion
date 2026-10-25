@@ -450,7 +450,7 @@ def test_provider_gives_up_after_last_attempt() -> None:
         sleep=lambda seconds: None,
     )
 
-    with pytest.raises(ProviderRetry):
+    with pytest.raises(ProviderError):
         provider.complete([{"role": "user", "content": "привет"}])
 
     assert len(calls) == 2

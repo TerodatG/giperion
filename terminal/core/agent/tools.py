@@ -156,8 +156,17 @@ def list_dir(root: Path, path: str = ".") -> ToolResult:
     return ToolResult(True, "\n".join(entries))
 
 
-def read_file(root: Path, path: str) -> ToolResult:
-    """Читает текстовый файл проекта с ограничениями."""
+def read_file(
+    root: Path,
+    path: str,
+    start: int = 1,
+    limit: int = 0,
+) -> ToolResult:
+    """Читает текстовый файл проекта или диапазон строк.
+
+    `start` — первая строка (с 1), `limit` — сколько вернуть; ноль
+    означает «до конца файла».
+    """
 
     try:
         file_path = safe_path(root, path)
@@ -190,13 +199,42 @@ def read_file(root: Path, path: str) -> ToolResult:
         return ToolResult(False, "Это двоичный файл, читать не буду.")
 
     text = data.decode("utf-8", "replace")
-    lines = len(text.splitlines())
+    all_lines = text.splitlines()
+
+    try:
+        first = max(1, int(start or 1))
+    except (TypeError, ValueError):
+        first = 1
+
+    try:
+        count = max(0, int(limit or 0))
+    except (TypeError, ValueError):
+        count = 0
+
+    total = len(all_lines)
+
+    if first > 1 or count:
+        end = total if count == 0 else min(total, first + count - 1)
+        selected = all_lines[first - 1:end]
+
+        if not selected:
+            return ToolResult(
+                False,
+                f"{path}: строки {first}–{end} вне файла "
+                f"(всего {total}).",
+            )
+
+        text = "\n".join(selected)
+        header = (
+            f"{path} · строки {first}–{first + len(selected) - 1} "
+            f"из {total}\n"
+        )
+    else:
+        header = f"{path} · {total} строк\n"
 
     if len(text) > MAX_READ_CHARS:
         text = text[:MAX_READ_CHARS]
         text += "\n… файл обрезан по лимиту."
-
-    header = f"{path} · {lines} строк\n"
 
     return ToolResult(True, header + text)
 

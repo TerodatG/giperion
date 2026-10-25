@@ -37,6 +37,7 @@ class AgentJob:
         worktree_branch: str = "",
         persist: bool = True,
         budget=None,
+        max_prompt_chars: int = 60_000,
     ) -> None:
         self.steps: list[AgentStep] = list(initial_steps or [])
         self.answer = ""
@@ -54,6 +55,7 @@ class AgentJob:
         self.changed: set[str] = set()
         self._started_at = self._now()
         self._budget = budget
+        self._max_prompt_chars = max(8_000, int(max_prompt_chars))
 
         self._task = task
         self._brain = brain
@@ -229,6 +231,7 @@ class AgentJob:
                 on_history=self._on_history,
                 allowed=self.allowed,
                 budget=self._budget,
+                max_prompt_chars=self._max_prompt_chars,
             )
 
             self.answer = result.answer

@@ -37,6 +37,7 @@ from terminal.core.agent.providers import NativeBrain
 from terminal.core.agent.settings import (
     approval_policy,
     budget_limits,
+    context_limit_chars,
     provider_from_settings,
     set_approval_policy,
 )
@@ -508,6 +509,7 @@ class AgentDialog(SkinDialog):
 
         native = provider_from_settings()
         limits = budget_limits()
+        context_chars = context_limit_chars()
 
         if native is not None:
             brain = NativeBrain(native, limits)
@@ -567,6 +569,7 @@ class AgentDialog(SkinDialog):
                 initial_steps=steps,
                 worktree_branch=branch,
                 budget=limits,
+                max_prompt_chars=context_chars,
             )
 
             self._shown = len(steps)
@@ -609,6 +612,7 @@ class AgentDialog(SkinDialog):
             policy=policy,
             worktree_branch=self.worktree_branch,
             budget=limits,
+            max_prompt_chars=context_chars,
         )
 
         self.run_button.setEnabled(False)

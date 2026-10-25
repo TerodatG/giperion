@@ -406,7 +406,7 @@ class OpenAICompatibleProvider:
                 )
             except ProviderRetry as error:
                 if attempt >= self.retries:
-                    raise
+                    raise ProviderError(str(error)) from error
 
                 delay = self._wait(attempt, error.retry_after)
                 self.retry_count += 1

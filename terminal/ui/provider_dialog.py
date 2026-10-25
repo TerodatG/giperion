@@ -26,6 +26,7 @@ from terminal.core.agent.registry import reload_plugins
 from terminal.core.agent.settings import (
     allow_unsafe_plugins,
     budget_limits,
+    context_limit_chars,
     load_settings,
     mask_key,
     plugins_enabled,
@@ -33,6 +34,7 @@ from terminal.core.agent.settings import (
     save_budget_limits,
     save_settings,
     set_allow_unsafe_plugins,
+    set_context_limit_chars,
     set_plugins_enabled,
     set_request_timeout,
     set_stream_enabled,
@@ -155,6 +157,18 @@ class ProviderDialog(SkinDialog):
             "Временные ошибки провайдер повторяет сам."
         )
         form.addRow("Таймаут запроса", self.timeout_input)
+
+        self.context_input = QSpinBox(self)
+        self.context_input.setRange(8_000, 2_000_000)
+        self.context_input.setSingleStep(10_000)
+        self.context_input.setSuffix(" символов")
+        self.context_input.setValue(int(context_limit_chars()))
+        self.context_input.setToolTip(
+            "Сколько символов промпта разрешено одной задаче. "
+            "Для локальной модели с окном 32k токенов разумно 60–80k "
+            "символов."
+        )
+        form.addRow("Бюджет контекста", self.context_input)
 
         self.plugins_check = QCheckBox(
             "Разрешить плагины инструментов",
@@ -292,6 +306,7 @@ class ProviderDialog(SkinDialog):
         )
 
         set_request_timeout(self.timeout_input.value())
+        set_context_limit_chars(self.context_input.value())
 
         set_plugins_enabled(self.plugins_check.isChecked())
         set_allow_unsafe_plugins(self.unsafe_check.isChecked())

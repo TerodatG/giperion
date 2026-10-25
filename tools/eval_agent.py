@@ -14,7 +14,10 @@ from config import BASE_DIR, DATA_DIR
 from terminal.core.agent.brain import ModelBrain
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.providers import NativeBrain
-from terminal.core.agent.settings import provider_from_settings
+from terminal.core.agent.settings import (
+    context_limit_chars,
+    provider_from_settings,
+)
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
@@ -351,6 +354,7 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
             max_steps=task.max_steps,
             ground_first=True,
             approve=lambda request: approvals.append(request) or True,
+            max_prompt_chars=context_limit_chars(),
         )
 
         duration = time.monotonic() - started

@@ -245,6 +245,32 @@ def save_budget_limits(
 
 
 DEFAULT_TIMEOUT = 120
+DEFAULT_CONTEXT_CHARS = 60_000
+
+
+def context_limit_chars() -> int:
+    """Бюджет промпта в символах (настраивается под модель)."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = _number(
+        document,
+        "context_chars",
+        DEFAULT_CONTEXT_CHARS,
+        as_int=True,
+    )
+
+    return min(2_000_000, max(8_000, int(value)))
+
+
+def set_context_limit_chars(chars: int) -> None:
+    """Сохраняет бюджет промпта в символах."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["context_chars"] = min(
+        2_000_000,
+        max(8_000, int(chars)),
+    )
+    write_json(SETTINGS_FILE, document)
 
 
 def request_timeout() -> int:

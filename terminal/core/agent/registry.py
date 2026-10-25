@@ -34,9 +34,26 @@ TOOL_SPECS = (
     ),
     ToolSpec(
         name="read_file",
-        description="Прочитать текстовый файл проекта.",
-        args={"path": "путь к файлу относительно корня проекта"},
+        description=(
+            "Прочитать текстовый файл проекта или его часть по строкам. "
+            "start — первая строка (с 1), limit — сколько строк."
+        ),
+        args={
+            "path": "путь к файлу относительно корня проекта",
+            "start": "номер первой строки, по умолчанию 1",
+            "limit": "сколько строк вернуть, по умолчанию весь файл",
+        },
+        types={"start": "integer", "limit": "integer"},
         required=("path",),
+    ),
+    ToolSpec(
+        name="find_symbol",
+        description=(
+            "Найти функцию, метод или класс по части имени в индексе "
+            "проекта. Быстрее, чем search_text."
+        ),
+        args={"query": "часть имени, минимум 2 символа"},
+        required=("query",),
     ),
     ToolSpec(
         name="search_text",
@@ -380,7 +397,6 @@ def tool_schemas() -> list[dict]:
                 entry["items"] = {"type": "string"}
 
             properties[name] = entry
-
         schemas.append(
             {
                 "type": "function",
@@ -442,6 +458,25 @@ def validate_call(call: ToolCall) -> ToolResult | None:
 
             continue
 
+        if spec.types.get(name) == "integer":
+            if isinstance(value, bool) or not isinstance(
+                value, (int, str)
+            ):
+                return ToolResult(
+                    False,
+                    f"Аргумент «{name}» должен быть целым числом.",
+                )
+
+            try:
+                int(value)
+            except (TypeError, ValueError):
+                return ToolResult(
+                    False,
+                    f"Аргумент «{name}» должен быть целым числом.",
+                )
+
+            continue
+
         if not isinstance(value, str):
             return ToolResult(
                 False,
@@ -465,6 +500,9 @@ def validate_call(call: ToolCall) -> ToolResult | None:
                     f"Аргумент «{name}» должен быть списком строк.",
                 )
 
+            continue
+
+        if spec.types.get(name) == "integer":
             continue
 
         if not isinstance(value, str):
@@ -631,6 +669,20 @@ def _string_arg(call: ToolCall, name: str, default: str = "") -> str:
     return value
 
 
+def _int_arg(call: ToolCall, name: str, default: int = 0) -> int:
+    """Целый аргумент: число или строка с числом."""
+
+    value = call.args.get(name, default)
+
+    if isinstance(value, bool):
+        return default
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _list_arg(call: ToolCall, name: str) -> list[str]:
     """Список путей: массив или одна строка для совместимости."""
 
@@ -677,6 +729,16 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
             return tools.read_file(
                 root,
                 _string_arg(call, "path"),
+                _int_arg(call, "start", 1),
+                _int_arg(call, "limit", 0),
+            )
+
+        if call.tool == "find_symbol":
+            from terminal.core.agent import index
+
+            return index.find_symbol(
+                root,
+                _string_arg(call, "query"),
             )
 
         if call.tool == "search_text":
