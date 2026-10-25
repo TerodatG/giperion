@@ -337,6 +337,29 @@ def _append_chat_step(
         )
 
 
+def _subagent_tasks(call: ToolCall) -> list[str]:
+    """Список подзадач из аргументов: одна строка или массив."""
+
+    tasks: list[str] = []
+    raw = call.args.get("tasks")
+
+    if isinstance(raw, list):
+        tasks = [
+            str(item).strip()
+            for item in raw
+            if isinstance(item, str) and item.strip()
+        ]
+    elif isinstance(raw, str) and raw.strip():
+        tasks = [raw.strip()]
+
+    single = str(call.args.get("task") or "").strip()
+
+    if single and single not in tasks:
+        tasks.insert(0, single)
+
+    return tasks[:4]
+
+
 def _run_subagent(
     call: ToolCall,
     brain: "Brain",
@@ -345,7 +368,7 @@ def _run_subagent(
     allow_subagent: bool,
     should_stop: Callable[[], bool] | None,
 ) -> ToolResult:
-    """Запускает читающего подагента без права записи."""
+    """Запускает читающих подагентов; несколько — параллельно."""
 
     if depth >= 1 or not allow_subagent:
         return ToolResult(
@@ -353,32 +376,58 @@ def _run_subagent(
             "Подагенты не могут вызывать других подагентов.",
         )
 
-    task = str(call.args.get("task") or "").strip()
+    tasks = _subagent_tasks(call)
 
-    if not task:
+    if not tasks:
         return ToolResult(False, "Подагенту не передана задача.")
 
-    result = run_agent(
-        task,
-        brain,
-        root,
-        max_steps=4,
-        should_stop=should_stop,
-        require_tool_first=True,
-        ground_first=True,
-        approve=None,
-        depth=depth + 1,
-        allow_subagent=False,
-        policy="read",
-    )
+    fork = getattr(brain, "fork", None)
+    can_parallel = len(tasks) > 1 and callable(fork)
 
-    if result.answer:
-        return ToolResult(True, result.answer)
+    def run_one(task: str) -> tuple[str, object]:
+        sub_brain = fork() if callable(fork) else brain
 
-    if result.cancelled:
-        return ToolResult(False, "Подагент остановлен.")
+        result = run_agent(
+            task,
+            sub_brain,
+            root,
+            max_steps=4,
+            should_stop=should_stop,
+            require_tool_first=True,
+            ground_first=True,
+            approve=None,
+            depth=depth + 1,
+            allow_subagent=False,
+            policy="read",
+        )
 
-    return ToolResult(False, result.error or "Подагент не ответил.")
+        return task, result
+
+    if can_parallel:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(
+            max_workers=min(3, len(tasks)),
+        ) as pool:
+            outcomes = list(pool.map(run_one, tasks))
+    else:
+        outcomes = [run_one(task) for task in tasks]
+
+    parts = []
+    answered = False
+
+    for task, outcome in outcomes:
+        if outcome.answer:
+            answered = True
+            text = outcome.answer
+        elif outcome.cancelled:
+            text = "остановлен"
+        else:
+            text = outcome.error or "не ответил"
+
+        parts.append(f"Задача: {task}\nРезультат: {text}")
+
+    return ToolResult(answered, "\n\n".join(parts))
 
 
 def run_agent(
@@ -826,11 +875,17 @@ def run_agent(
                     should_stop,
                 )
 
+                count = len(_subagent_tasks(call))
+
                 emit(
                     AgentStep(
                         index,
                         "subagent",
-                        "Подагент",
+                        (
+                            f"Подагенты · {count}"
+                            if count > 1
+                            else "Подагент"
+                        ),
                         result.text[:500],
                     )
                 )

@@ -534,6 +534,7 @@ class NativeBrain:
         self,
         provider: OpenAICompatibleProvider,
         limits=None,
+        parent: "NativeBrain | None" = None,
     ) -> None:
         from terminal.core.agent.budget import BudgetLimits
 
@@ -544,6 +545,16 @@ class NativeBrain:
         self.calls = 0
         self.cost = 0.0
         self.on_delta = None
+        self._parent = parent
+
+    def fork(self) -> "NativeBrain":
+        """Мозг для подагента: свой диалог, общий расход и доли."""
+
+        return NativeBrain(
+            self.provider,
+            self.limits,
+            parent=self._parent or self,
+        )
 
     @property
     def total_tokens(self) -> int:
@@ -557,6 +568,11 @@ class NativeBrain:
         from terminal.core.agent.budget import cost_of
 
         self.calls += 1
+
+        if self._parent is not None:
+            self._parent._account(reply)
+
+            return
 
         usage = reply.usage if isinstance(reply.usage, dict) else {}
 
