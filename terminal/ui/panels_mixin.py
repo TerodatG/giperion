@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/panels_mixin.py                              v012
-# Панели окна: подписи, модули, рост ядра, плита «Система» и голос.
-# Последнее изменение: системные кнопки переехали под открытые чаты.
+# Giperion/terminal/ui/panels_mixin.py                              v013
+# Панели окна: подписи, модули, рост ядра, две плиты справа и голос.
+# Последнее изменение: «Открытые чаты» и «Система» — отдельные плиты.
 
 import random
 
@@ -482,8 +482,8 @@ class PanelsMixin:
         container.setAttribute(Qt.WA_StyledBackground, True)
 
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(7, 5, 7, 7)
-        layout.setSpacing(5)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(4)
 
         caption = QLabel("СИСТЕМА", container)
         caption.setObjectName("systemCaption")
@@ -491,7 +491,7 @@ class PanelsMixin:
 
         row = QGridLayout()
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(6)
+        row.setSpacing(4)
         row.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
         self.skills_button = SideIconButton(
@@ -550,13 +550,21 @@ class PanelsMixin:
         layout.addWidget(caption)
         layout.addLayout(row)
 
+        # Размерный уголок — в нижнем правом углу плиты «Система».
+        grip = FuturisticGrip(container)
+        grip.setFixedSize(18, 18)
+
+        grip_row = QHBoxLayout()
+        grip_row.setContentsMargins(0, 0, 0, 0)
+        grip_row.addStretch(1)
+        grip_row.addWidget(grip)
+
+        layout.addLayout(grip_row)
+
         self.side_actions_panel = container
         self.system_panel = container
 
         return container
-
-        # Старая текстовая кнопка из .ui больше не нужна.
-        self.window.settingsButton.hide()
 
     def _on_module_toggled(
         self,
@@ -721,7 +729,7 @@ class PanelsMixin:
             )
 
     def _build_tools_panel(self) -> None:
-        """Собирает правую панель со списком открытых чатов."""
+        """Собирает правую колонку из двух плит: чаты и система."""
 
         panel = self.window.toolsPanel
         layout = panel.layout()
@@ -740,11 +748,24 @@ class PanelsMixin:
                 widget.setParent(None)
                 widget.deleteLater()
 
-        caption = QLabel("ОТКРЫТЫЕ ЧАТЫ", panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+
+        # --- Верхняя плита: открытые чаты ---
+
+        self.chats_panel = QWidget(panel)
+        self.chats_panel.setObjectName("chatsPanel")
+        self.chats_panel.setAttribute(Qt.WA_StyledBackground, True)
+
+        chats_layout = QVBoxLayout(self.chats_panel)
+        chats_layout.setContentsMargins(12, 12, 12, 12)
+        chats_layout.setSpacing(6)
+
+        caption = QLabel("ОТКРЫТЫЕ ЧАТЫ", self.chats_panel)
         caption.setObjectName("toolsCaption")
         caption.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        self.chat_list = ChatListWidget(panel)
+        self.chat_list = ChatListWidget(self.chats_panel)
         self.chat_list.setObjectName("chatList")
         self.chat_list.setUniformItemSizes(True)
         self.chat_list.setSpacing(2)
@@ -768,24 +789,20 @@ class PanelsMixin:
 
         self.new_chat_button = QPushButton(
             "＋ Новый чат",
-            panel,
+            self.chats_panel,
         )
         self.new_chat_button.setObjectName("newChatButton")
         self.new_chat_button.setCursor(Qt.ArrowCursor)
         self.new_chat_button.setMinimumHeight(36)
         self.new_chat_button.clicked.connect(self._new_chat_clicked)
 
-        layout.addWidget(caption)
-        layout.addWidget(self.chat_list, 1)
-        layout.addWidget(self.new_chat_button)
-        layout.addWidget(self._build_side_buttons(panel))
+        chats_layout.addWidget(caption)
+        chats_layout.addWidget(self.chat_list, 1)
+        chats_layout.addWidget(self.new_chat_button)
 
-        # Размерный уголок — в самом низу панели.
-        grip = FuturisticGrip(panel)
-        grip.setFixedSize(18, 18)
+        # --- Нижняя плита: система ---
 
-        grip_row = QHBoxLayout()
-        grip_row.addStretch(1)
-        grip_row.addWidget(grip)
+        system_panel = self._build_side_buttons(panel)
 
-        layout.addLayout(grip_row)
+        layout.addWidget(self.chats_panel, 1)
+        layout.addWidget(system_panel, 0)

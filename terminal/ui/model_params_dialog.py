@@ -97,29 +97,31 @@ def _add_section(
     title: str,
     rows: list[tuple[str, str]],
 ) -> None:
-    """Добавляет раздел: металлическая плита и зелёный экран с текстом."""
+    """Добавляет раздел: тонкая рамка и зелёный экран на всю её площадь."""
 
     plate = QFrame(parent)
     plate.setObjectName("paramsPlate")
 
     plate_layout = QVBoxLayout(plate)
-    plate_layout.setContentsMargins(16, 10, 16, 14)
-    plate_layout.setSpacing(7)
-
-    caption = QLabel(title, plate)
-    caption.setObjectName("paramsPlateTitle")
+    plate_layout.setContentsMargins(0, 0, 0, 0)
+    plate_layout.setSpacing(0)
 
     screen = QWidget(plate)
     screen.setObjectName("paramsScreen")
     screen.setAttribute(Qt.WA_StyledBackground, True)
 
     grid = QGridLayout(screen)
-    grid.setContentsMargins(12, 9, 12, 9)
+    grid.setContentsMargins(12, 9, 12, 10)
     grid.setHorizontalSpacing(14)
     grid.setVerticalSpacing(5)
     grid.setColumnStretch(1, 1)
 
-    for row_index, (name, value) in enumerate(rows):
+    caption = QLabel(title, screen)
+    caption.setObjectName("paramsPlateTitle")
+
+    grid.addWidget(caption, 0, 0, 1, 2)
+
+    for row_index, (name, value) in enumerate(rows, start=1):
         name_label = QLabel(f"{name}:", screen)
         name_label.setObjectName("paramsKey")
         name_label.setWordWrap(True)
@@ -134,7 +136,6 @@ def _add_section(
         grid.addWidget(name_label, row_index, 0)
         grid.addWidget(value_label, row_index, 1)
 
-    plate_layout.addWidget(caption)
     plate_layout.addWidget(screen)
 
     layout.addWidget(plate)
@@ -145,25 +146,26 @@ def _add_notes(
     parent: QWidget,
     notes: list[str],
 ) -> None:
-    """Добавляет плиту с заметками на зелёном экране."""
+    """Добавляет рамку с заметками на зелёном экране."""
 
     plate = QFrame(parent)
     plate.setObjectName("paramsPlate")
 
     plate_layout = QVBoxLayout(plate)
-    plate_layout.setContentsMargins(16, 10, 16, 14)
-    plate_layout.setSpacing(7)
-
-    caption = QLabel("ЗАМЕТКИ", plate)
-    caption.setObjectName("paramsPlateTitle")
+    plate_layout.setContentsMargins(0, 0, 0, 0)
+    plate_layout.setSpacing(0)
 
     screen = QWidget(plate)
     screen.setObjectName("paramsScreen")
     screen.setAttribute(Qt.WA_StyledBackground, True)
 
     screen_layout = QVBoxLayout(screen)
-    screen_layout.setContentsMargins(12, 9, 12, 9)
+    screen_layout.setContentsMargins(12, 9, 12, 10)
     screen_layout.setSpacing(5)
+
+    caption = QLabel("ЗАМЕТКИ", screen)
+    caption.setObjectName("paramsPlateTitle")
+    screen_layout.addWidget(caption)
 
     for note in notes:
         label = QLabel("• " + note, screen)
@@ -171,7 +173,6 @@ def _add_notes(
         label.setWordWrap(True)
         screen_layout.addWidget(label)
 
-    plate_layout.addWidget(caption)
     plate_layout.addWidget(screen)
 
     layout.addWidget(plate)

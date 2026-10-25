@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v016
+# Giperion/tests/test_gui_smoke.py                                 v017
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: системные кнопки в плите «Система».
+# Последнее изменение: две плиты правой колонки.
 
 import copy
 import os
@@ -503,6 +503,8 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
 def test_system_buttons_live_in_system_panel(window) -> None:
     """Системные кнопки стоят в плите «Система» под открытыми чатами."""
 
+    assert window.chats_panel.objectName() == "chatsPanel"
+    assert window.chats_panel.parent() is window.window.toolsPanel
     assert window.system_panel.objectName() == "systemPanel"
     assert window.system_panel.parent() is window.window.toolsPanel
 

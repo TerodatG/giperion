@@ -1,7 +1,7 @@
-# Giperion/terminal/ui/window_style.py                             v023
+# Giperion/terminal/ui/window_style.py                             v024
 # Футуристическая шкура окна в духе «Кода доступа рай»: тёмный металл
 # с заклёпками и зелёный терминальный лог.
-# Последнее изменение: плита «Система» под списком открытых чатов.
+# Последнее изменение: две плиты в правой колонке.
 
 from config import BASE_DIR
 
@@ -99,8 +99,18 @@ QPushButton#closeButton:pressed {
 }
 
 QWidget#avatarPanel,
-QWidget#chatPanel,
+QWidget#chatPanel {
+    border-image: url(@PANEL@) 14 fill;
+    border-width: 14px;
+}
+
 QWidget#toolsPanel {
+    background: transparent;
+    border: none;
+}
+
+QWidget#chatsPanel,
+QWidget#systemPanel {
     border-image: url(@PANEL@) 14 fill;
     border-width: 14px;
 }
@@ -281,12 +291,6 @@ QLabel#toolsCaption {
     font-weight: bold;
     letter-spacing: 1px;
     padding-left: 12px;
-}
-
-QWidget#systemPanel {
-    background-color: rgba(5, 16, 10, 170);
-    border: 1px solid #23421f;
-    border-radius: 4px;
 }
 
 QLabel#systemCaption {
@@ -820,8 +824,9 @@ QWidget#paramsContent {
 }
 
 QFrame#paramsPlate {
-    border-image: url(@PANEL@) 14 fill;
-    border-width: 14px;
+    background-color: #0d0a08;
+    border: 1px solid #3a2e25;
+    border-radius: 4px;
 }
 
 QLabel#paramsPlateTitle {
@@ -831,13 +836,14 @@ QLabel#paramsPlateTitle {
     font-size: 9pt;
     font-weight: bold;
     letter-spacing: 1px;
+    padding-bottom: 2px;
 }
 
 QWidget#paramsScreen {
     background-color: #05100a;
     background-image: url(@SCANLINE@);
     background-repeat: repeat;
-    border: 1px solid #23421f;
+    border: none;
     border-radius: 3px;
 }
 
