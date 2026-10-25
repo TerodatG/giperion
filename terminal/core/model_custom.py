@@ -1,6 +1,6 @@
-# Giperion/app/core/model_custom.py                               v001
-# Свои модели пользователя: добавление в отдельный файл каталога.
-# Последнее изменение: выделено из model_registry.
+# Giperion/app/core/model_custom.py                               v002
+# Свои модели пользователя: добавление и удаление в отдельном файле.
+# Последнее изменение: удаление своей модели из каталога.
 
 from terminal.core import model_files
 from terminal.core.model_catalog import (
@@ -8,6 +8,33 @@ from terminal.core.model_catalog import (
     _parse_model,
 )
 from shared.storage.json_store import read_json_object, write_json
+
+
+def remove_custom_model(model_id: str) -> bool:
+    """Удаляет свою модель из data/custom_models.json."""
+
+    document = read_json_object(model_files.CUSTOM_MODELS_FILE)
+    records = document.get("models", [])
+
+    if not isinstance(records, list):
+        return False
+
+    kept = [
+        record
+        for record in records
+        if not (
+            isinstance(record, dict)
+            and record.get("id") == model_id
+        )
+    ]
+
+    if len(kept) == len(records):
+        return False
+
+    document["models"] = kept
+    write_json(model_files.CUSTOM_MODELS_FILE, document)
+
+    return True
 
 
 def add_custom_model(

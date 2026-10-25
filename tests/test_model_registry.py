@@ -1,6 +1,6 @@
-# Giperion/tests/test_model_registry.py                            v009
+# Giperion/tests/test_model_registry.py                            v010
 # Проверки каталога, активации, репутации, токенов, своих моделей и компаньонов.
-# Последнее изменение: скрытие недоступных и нерабочих моделей.
+# Последнее изменение: удаление своей модели из каталога.
 
 import json
 
@@ -112,6 +112,31 @@ def test_giperion_always_first(
         model["id"]
         for model in models
     ] == ["giperion", "deepseek"]
+
+
+def test_custom_model_can_be_removed(isolated_registry) -> None:
+    """Своя модель добавляется и удаляется из каталога."""
+
+    created = model_registry.add_custom_model("Qwen 3", "Alibaba")
+
+    assert created is not None
+
+    ids = [
+        model["id"] for model in model_registry.load_models()
+    ]
+
+    assert created["id"] in ids
+
+    assert model_registry.remove_custom_model(created["id"]) is True
+
+    ids = [
+        model["id"] for model in model_registry.load_models()
+    ]
+
+    assert created["id"] not in ids
+
+    # Повторное удаление ничего не ломает.
+    assert model_registry.remove_custom_model(created["id"]) is False
 
 
 def test_capabilities_are_loaded_for_card(

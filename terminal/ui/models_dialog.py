@@ -1,11 +1,12 @@
-# Giperion/app/ui/models_dialog.py                                  v007
+# Giperion/app/ui/models_dialog.py                                  v011
 # Окно «Модель»: каталог, карточка, свои модели и компаньоны.
-# Последнее изменение: сенаторы, значки и сортировка сената.
+# Последнее изменение: свои модели — добавить и удалить в одном ряду.
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDialog,
     QDialogButtonBox,
     QGridLayout,
     QHBoxLayout,
@@ -28,14 +29,22 @@ from terminal.core.model_registry import (
     MODEL_GROUPS,
     build_stars,
     get_current_model_id,
+    get_model,
     get_reputation,
     get_usage,
     load_companion_ids,
     load_conference_ids,
     load_models,
+    remove_custom_model,
     set_companion,
     set_conference_member,
     set_current_model_id,
+)
+from terminal.core.model_settings import (
+    GROUP_LABELS,
+    load_model_group_flags,
+    model_group_key,
+    set_model_group_enabled,
 )
 from terminal.core.conference_roster import (
     MAX_CONFERENCE_MODELS,
@@ -43,7 +52,11 @@ from terminal.core.conference_roster import (
     senator_title,
 )
 from terminal.ui.add_model_dialog import show_add_model_dialog
-from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.dialogs_base import (
+    ConfirmDialog,
+    SkinDialog,
+    show_tool_window,
+)
 from terminal.ui.model_list_widgets import (
     SENATOR_ICON_ROLE,
     ModelListDelegate,
@@ -75,6 +88,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
         "models": load_models(),
         "companions": set(load_companion_ids()),
         "conference": set(load_conference_ids()),
+        "groups": load_model_group_flags(),
     }
 
     if not state["models"]:
@@ -108,6 +122,63 @@ def show_models_dialog(parent, on_activate=None) -> None:
     subtitle.setObjectName("dialogHint")
     subtitle.setWordWrap(True)
 
+    # --- Включение групп моделей ---
+    free_checkbox = QCheckBox("Бесплатные модели", dialog)
+    free_checkbox.setObjectName("modelGroupCheck")
+    free_checkbox.setCursor(Qt.ArrowCursor)
+    free_checkbox.setChecked(state["groups"]["free"])
+    free_checkbox.setToolTip(
+        "Модели OpenCode без подписки. Снятая галочка выключает их."
+    )
+
+    go_checkbox = QCheckBox("Модели Go", dialog)
+    go_checkbox.setObjectName("modelGroupCheck")
+    go_checkbox.setCursor(Qt.ArrowCursor)
+    go_checkbox.setChecked(state["groups"]["go"])
+    go_checkbox.setToolTip(
+        "Модели подписки OpenCode Go. Снятая галочка выключает их."
+    )
+
+    groups_hint = QLabel(
+        "Выключенная группа не работает: модели нельзя активировать, "
+        "они исчезают из сената и компаньонов.",
+        dialog,
+    )
+    groups_hint.setObjectName("dialogHint")
+    groups_hint.setWordWrap(True)
+
+    groups_row = QHBoxLayout()
+    groups_row.setContentsMargins(0, 0, 0, 0)
+    groups_row.setSpacing(16)
+    groups_row.addWidget(free_checkbox)
+    groups_row.addWidget(go_checkbox)
+    groups_row.addWidget(groups_hint, 1)
+
+    def model_enabled(model: dict | None) -> bool:
+        """Включена ли группа модели (флаги уже в памяти окна)."""
+
+        if model is None:
+            return False
+
+        return state["groups"].get(model_group_key(model), True)
+
+    def model_usable(model: dict | None) -> bool:
+        """Можно ли задействовать модель: группа включена и есть канал."""
+
+        if model is None:
+            return False
+
+        if not model_enabled(model):
+            return False
+
+        if model_group_key(model) == "core" and not (
+            bool(model.get("available"))
+            or str(model.get("api") or "") == "local"
+        ):
+            return False
+
+        return True
+
     body = QHBoxLayout()
     body.setSpacing(12)
 
@@ -140,10 +211,16 @@ def show_models_dialog(parent, on_activate=None) -> None:
     list_frame_layout.setSpacing(0)
     list_frame_layout.addWidget(view)
 
-    add_button = QPushButton("+ Своя модель", dialog)
+    add_button = QPushButton("+ Добавить модель", dialog)
     add_button.setObjectName("addModelButton")
     add_button.setCursor(Qt.ArrowCursor)
     add_button.setVisible(False)
+
+    delete_button = QPushButton("− Удалить модель", dialog)
+    delete_button.setObjectName("addModelButton")
+    delete_button.setCursor(Qt.ArrowCursor)
+    delete_button.setVisible(False)
+    delete_button.setEnabled(False)
 
     empty_hint = QLabel("Своих моделей пока нет", dialog)
     empty_hint.setObjectName("dialogHint")
@@ -152,8 +229,15 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
     left.addWidget(tabs)
     left.addWidget(list_frame, 1)
+    own_buttons = QHBoxLayout()
+    own_buttons.setContentsMargins(0, 0, 0, 0)
+    own_buttons.setSpacing(8)
+    own_buttons.addWidget(add_button)
+    own_buttons.addStretch(1)
+    own_buttons.addWidget(delete_button)
+
     left.addWidget(empty_hint)
-    left.addWidget(add_button)
+    left.addLayout(own_buttons)
 
     # --- Правая колонка: карточка модели в прокрутке ---
 
@@ -621,6 +705,9 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
         activate_button.setEnabled(False)
         params_button.setEnabled(model is not None)
+        delete_button.setEnabled(
+            model is not None and model["group"] == "own"
+        )
 
         if model is None:
             name_label.setText("Выбери модель")
@@ -633,6 +720,8 @@ def show_models_dialog(parent, on_activate=None) -> None:
             return
 
         active = model["id"] == state["current"]
+        enabled = model_enabled(model)
+        usable = model_usable(model)
 
         name_label.setText(model["name"])
         nick_label.setText(f"НИК: {model['nickname']}")
@@ -647,10 +736,19 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
         if active:
             status = "Статус: активна — отвечает в чате."
+        elif not enabled:
+            group_label = GROUP_LABELS.get(
+                model_group_key(model),
+                "группа моделей",
+            )
+            status = (
+                "Статус: недоступна — группа "
+                f"«{group_label}» выключена."
+            )
+        elif not model["available"] and model["group"] == "own":
+            status = "Статус: недоступна — канал не настроен."
         elif model["available"]:
             status = "Статус: подключена — можно активировать."
-        elif model["group"] == "own":
-            status = "Статус: своя модель — канал ещё не настроен."
         else:
             status = (
                 "Статус: не подключена — вместо неё ответит заглушка."
@@ -666,18 +764,21 @@ def show_models_dialog(parent, on_activate=None) -> None:
             status += " · участник сената."
 
         status_label.setText(status)
+        status_label.setStyleSheet(
+            "" if enabled else "color: #ff9a6a;"
+        )
 
         companion_checkbox.blockSignals(True)
         companion_checkbox.setChecked(is_helper)
         companion_checkbox.blockSignals(False)
         companion_checkbox.setVisible(True)
-        companion_checkbox.setEnabled(True)
+        companion_checkbox.setEnabled(usable)
 
         conference_checkbox.blockSignals(True)
         conference_checkbox.setChecked(is_conference)
         conference_checkbox.blockSignals(False)
         conference_checkbox.setVisible(True)
-        conference_checkbox.setEnabled(True)
+        conference_checkbox.setEnabled(usable)
 
         usage = get_usage(model["id"])
 
@@ -731,7 +832,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
             f"{reputation['percent']} % от самой частой модели"
         )
 
-        activate_button.setEnabled(not active)
+        activate_button.setEnabled(not active and usable)
 
     def refresh_list(keep_id: str | None = None) -> None:
         """Перерисовывает список текущей закладки.
@@ -751,6 +852,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
                 model,
                 state["current"],
                 state["companions"],
+                usable=model_usable(model),
             )
 
             senator_slot = is_conference and (
@@ -771,6 +873,8 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
             if is_active:
                 item.setForeground(QColor("#7cf58f"))
+            elif not model_usable(model):
+                item.setForeground(QColor("#6f7d72"))
             elif model["available"]:
                 item.setForeground(QColor("#cfe8d2"))
             else:
@@ -817,7 +921,11 @@ def show_models_dialog(parent, on_activate=None) -> None:
     def group_changed(index: int) -> None:
         """Переключает закладку и показывает свои модели."""
 
-        add_button.setVisible(tabs.tabData(index) == "own")
+        is_own = tabs.tabData(index) == "own"
+
+        add_button.setVisible(is_own)
+        delete_button.setVisible(is_own)
+
         refresh_list()
 
     def activate() -> None:
@@ -826,6 +934,9 @@ def show_models_dialog(parent, on_activate=None) -> None:
         model = selected_model()
 
         if model is None or model["id"] == state["current"]:
+            return
+
+        if not model_usable(model):
             return
 
         if not set_current_model_id(model["id"]):
@@ -862,6 +973,50 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
                 break
 
+    def delete_own_model() -> None:
+        """Удаляет свою модель из каталога."""
+
+        model = selected_model()
+
+        if model is None or model["group"] != "own":
+            return
+
+        confirm = ConfirmDialog(
+            dialog,
+            "Удалить модель",
+            f"Удалить «{model['name']}» из своих моделей? "
+            "Запись исчезнет из каталога и из закреплённых списков.",
+            "Удалить",
+        )
+
+        if confirm.exec() != QDialog.Accepted:
+            return
+
+        model_id = model["id"]
+
+        # Сначала убираем из списков, пока модель ещё есть в каталоге.
+        set_companion(model_id, False)
+        set_conference_member(model_id, False)
+
+        if not remove_custom_model(model_id):
+            return
+
+        state["models"] = load_models()
+        state["companions"] = set(load_companion_ids())
+        state["conference"] = set(load_conference_ids())
+
+        if state["current"] == model_id:
+            set_current_model_id(DEFAULT_MODEL_ID)
+            state["current"] = DEFAULT_MODEL_ID
+
+            if on_activate is not None:
+                fallback = get_model(DEFAULT_MODEL_ID)
+
+                if fallback is not None:
+                    on_activate(fallback)
+
+        refresh_list()
+
     def toggle_companion(checked: bool) -> None:
         """Включает или выключает модель в списке компаньонов."""
 
@@ -889,6 +1044,45 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
         state["conference"] = set(load_conference_ids())
         refresh_list(model["id"])
+
+    def toggle_group(group: str, enabled: bool) -> None:
+        """Включает или выключает группу моделей целиком."""
+
+        if not set_model_group_enabled(group, enabled):
+            return
+
+        state["groups"] = load_model_group_flags()
+        state["companions"] = set(load_companion_ids())
+        state["conference"] = set(load_conference_ids())
+
+        active = next(
+            (
+                model
+                for model in state["models"]
+                if model["id"] == state["current"]
+            ),
+            None,
+        )
+
+        # Активная модель выключенной группы больше не работает.
+        if active is not None and not model_usable(active):
+            set_current_model_id(DEFAULT_MODEL_ID)
+            state["current"] = DEFAULT_MODEL_ID
+
+            if on_activate is not None:
+                fallback = get_model(DEFAULT_MODEL_ID)
+
+                if fallback is not None:
+                    on_activate(fallback)
+
+        current = selected_model()
+        keep_id = (
+            current["id"]
+            if current is not None and model_usable(current)
+            else None
+        )
+
+        refresh_list(keep_id)
 
     def open_params() -> None:
         """Открывает паспорт выбранной модели."""
@@ -936,8 +1130,15 @@ def show_models_dialog(parent, on_activate=None) -> None:
     )
     activate_button.clicked.connect(activate)
     add_button.clicked.connect(add_own_model)
+    delete_button.clicked.connect(delete_own_model)
     companion_checkbox.toggled.connect(toggle_companion)
     conference_checkbox.toggled.connect(toggle_conference)
+    free_checkbox.toggled.connect(
+        lambda checked: toggle_group("free", checked)
+    )
+    go_checkbox.toggled.connect(
+        lambda checked: toggle_group("go", checked)
+    )
     site_button.clicked.connect(open_site)
     params_button.clicked.connect(open_params)
     api_button.clicked.connect(connect_api)
@@ -966,6 +1167,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
     layout.addWidget(title)
     layout.addWidget(subtitle)
+    layout.addLayout(groups_row)
     layout.addLayout(body, 1)
     layout.addLayout(buttons_row)
 

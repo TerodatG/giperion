@@ -1,6 +1,6 @@
-# Giperion/app/ui/value_text.py                                   v002
+# Giperion/app/ui/value_text.py                                   v003
 # Текстовые представления чисел, моделей и функций для окна.
-# Последнее изменение: умения модели и отказ от сравнения с каталогом.
+# Последнее изменение: статус «недоступна» для выключенной группы.
 
 from terminal.core.model_catalog import DEFAULT_STRENGTHS
 from terminal.core.model_registry import build_stars, get_reputation
@@ -39,13 +39,20 @@ def build_model_item_text(
     model: dict,
     current_id: str,
     companion_ids: set[str] | list[str] = (),
+    usable: bool = True,
 ) -> str:
-    """Собирает подпись модели для списка: имя, репутация, состояние."""
+    """Собирает подпись модели для списка: имя, репутация, состояние.
+
+    `usable` — модель вообще можно задействовать: группа включена и есть
+    канал. Для своих моделей без канала это всегда False.
+    """
 
     reputation = get_reputation(model["id"])
 
     if model["id"] == current_id:
         state = "активна"
+    elif not usable:
+        state = "недоступна"
     elif model["group"] == "own":
         state = "своя"
     elif not model["available"]:

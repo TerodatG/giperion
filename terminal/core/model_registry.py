@@ -1,6 +1,6 @@
-# Giperion/app/core/model_registry.py                              v012
+# Giperion/app/core/model_registry.py                              v013
 # Совместимый фасад каталога моделей, настроек и статистики.
-# Последнее изменение: публичный API участников сената.
+# Последнее изменение: удаление своей модели через фасад.
 
 from terminal.core.model_catalog import (
     COMPANION_GROUP,
@@ -11,7 +11,10 @@ from terminal.core.model_catalog import (
     get_model,
     load_models,
 )
-from terminal.core.model_custom import add_custom_model
+from terminal.core.model_custom import (
+    add_custom_model,
+    remove_custom_model,
+)
 from terminal.core.model_settings import (
     get_active_model,
     get_current_model_id,

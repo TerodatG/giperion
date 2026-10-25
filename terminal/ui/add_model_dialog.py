@@ -1,31 +1,31 @@
-# Giperion/app/ui/add_model_dialog.py                              v001
+# Giperion/app/ui/add_model_dialog.py                              v002
 # Форма добавления своей модели в каталог.
-# Последнее изменение: вынесено из models_dialog.
+# Последнее изменение: окно в общей шкуре с металлической планкой.
 
 from PySide6.QtWidgets import (
-    QDialog,
     QDialogButtonBox,
     QFormLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QSpinBox,
-    QVBoxLayout,
 )
 
 from terminal.core.model_registry import add_custom_model
+from terminal.ui.dialogs_base import SkinDialog
 
 
 def show_add_model_dialog(parent) -> dict | None:
     """Спрашивает данные своей модели и добавляет её в каталог."""
 
-    dialog = QDialog(parent)
-    dialog.setWindowTitle("Своя модель")
-    dialog.setMinimumSize(500, 360)
+    dialog = SkinDialog(
+        parent,
+        "Своя модель",
+        min_width=540,
+        min_height=430,
+    )
 
-    layout = QVBoxLayout(dialog)
-    layout.setContentsMargins(16, 14, 16, 12)
-    layout.setSpacing(8)
+    layout = dialog.body_layout
 
     title = QLabel("НОВАЯ МОДЕЛЬ", dialog)
     title.setObjectName("dialogTitle")

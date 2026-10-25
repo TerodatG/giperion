@@ -1,6 +1,6 @@
-# Giperion/tests/test_ui_models_and_modules.py                     v005
+# Giperion/tests/test_ui_models_and_modules.py                     v006
 # Проверки названий модулей, умений моделей и сената.
-# Последнее изменение: аватарки моделей и их файлы.
+# Последнее изменение: анимация аватара DeepSeek.
 
 from terminal.core.model_registry import get_model
 from terminal.ui.panels_mixin import MODULE_INFO
@@ -31,6 +31,32 @@ def test_model_skills_come_from_card() -> None:
     assert all(entry["description"] for entry in entries)
 
 
+def test_model_item_text_marks_disabled_group() -> None:
+    """Вторая строка списка пишет «недоступна» для выключенной группы."""
+
+    from terminal.core.model_registry import get_model
+    from terminal.ui.value_text import build_model_item_text
+
+    model = get_model("go-deepseek-v4.1-flash")
+
+    enabled = build_model_item_text(
+        model,
+        "giperion",
+        (),
+        usable=True,
+    )
+    disabled = build_model_item_text(
+        model,
+        "giperion",
+        (),
+        usable=False,
+    )
+
+    assert "· доступна" in enabled
+    assert "· недоступна" in disabled
+    assert "· доступна" not in disabled
+
+
 def test_model_avatars_exist() -> None:
     """У каждой указанной аватарки модели есть файл в проекте."""
 
@@ -56,6 +82,17 @@ def test_model_avatars_exist() -> None:
     )
 
     assert deepseek["avatar"].endswith("deepseek_face.png")
+
+    # У аватара DeepSeek есть живая анимация: глаз, линии и огоньки.
+    animation = deepseek["avatar_animation"]
+
+    assert len(animation["eyes"]) == 1
+    assert 0.0 <= animation["eyes"][0][0] <= 1.0
+    assert 0.0 <= animation["eyes"][0][1] <= 1.0
+    assert (BASE_DIR / animation["lines"]).is_file()
+    assert animation["particles"] is True
+    assert 0.0 < animation["eye_radius"] < 0.5
+    assert 0.0 < animation["lines_band"] <= 1.0
 
 
 def test_giperion_skills_are_honest() -> None:
