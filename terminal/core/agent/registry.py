@@ -358,9 +358,11 @@ def reload_plugins() -> None:
 
 
 def all_specs() -> tuple[ToolSpec, ...]:
-    """Встроенные и плагинные инструменты вместе."""
+    """Встроенные, плагинные и MCP-инструменты вместе."""
 
-    return TOOL_SPECS + plugin_tools()[0]
+    from terminal.core.agent import mcp
+
+    return TOOL_SPECS + plugin_tools()[0] + mcp.mcp_tools()[0]
 
 
 def get_spec(name: str) -> ToolSpec | None:
@@ -397,18 +399,25 @@ def tool_schemas() -> list[dict]:
                 entry["items"] = {"type": "string"}
 
             properties[name] = entry
+
+        if spec.schema is not None:
+            parameters = dict(spec.schema)
+            parameters.setdefault("type", "object")
+        else:
+            parameters = {
+                "type": "object",
+                "properties": properties,
+                "required": list(spec.required),
+                "additionalProperties": False,
+            }
+
         schemas.append(
             {
                 "type": "function",
                 "function": {
                     "name": spec.name,
                     "description": spec.description,
-                    "parameters": {
-                        "type": "object",
-                        "properties": properties,
-                        "required": list(spec.required),
-                        "additionalProperties": False,
-                    },
+                    "parameters": parameters,
                 },
             }
         )
@@ -423,6 +432,16 @@ def validate_call(call: ToolCall) -> ToolResult | None:
 
     if spec is None:
         return ToolResult(False, f"Неизвестный инструмент: {call.tool}")
+
+    if spec.schema is not None:
+        for name in spec.required:
+            if name not in call.args:
+                return ToolResult(
+                    False,
+                    f"Не хватает аргумента «{name}».",
+                )
+
+        return None
 
     extra = set(call.args) - set(spec.args)
 
@@ -579,6 +598,16 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
             f"Плагин: {call.tool}\n{args}",
         )
 
+    from terminal.core.agent import mcp
+
+    if call.tool in mcp.mcp_tools()[1]:
+        args = json.dumps(call.args, ensure_ascii=False)
+
+        return ToolResult(
+            True,
+            f"MCP: {call.tool}\n{args}",
+        )
+
     try:
         if call.tool == "write_file":
             _path, _old, diff = tools.prepare_write(
@@ -706,6 +735,11 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
         return invalid
 
     try:
+        from terminal.core.agent import mcp
+
+        if call.tool in mcp.mcp_tools()[1]:
+            return mcp.call_tool(root, call.tool, call.args)
+
         plugin_entry = _plugin_handler(call.tool)
 
         if plugin_entry is not None:

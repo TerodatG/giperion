@@ -29,12 +29,14 @@ from terminal.core.agent.settings import (
     context_limit_chars,
     load_settings,
     mask_key,
+    mcp_enabled,
     plugins_enabled,
     request_timeout,
     save_budget_limits,
     save_settings,
     set_allow_unsafe_plugins,
     set_context_limit_chars,
+    set_mcp_enabled,
     set_plugins_enabled,
     set_request_timeout,
     set_stream_enabled,
@@ -193,6 +195,17 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Опасные плагины", self.unsafe_check)
 
+        self.mcp_check = QCheckBox(
+            "Включить MCP-серверы",
+            self,
+        )
+        self.mcp_check.setChecked(mcp_enabled())
+        self.mcp_check.setToolTip(
+            "Серверы из data/agent_mcp.json: внешние инструменты по "
+            "JSON-RPC через stdio. По умолчанию выключены — см. docs/mcp.md."
+        )
+        form.addRow("MCP", self.mcp_check)
+
         self.stream_check = QCheckBox(
             "Показывать ответ по мере генерации",
             self,
@@ -311,6 +324,11 @@ class ProviderDialog(SkinDialog):
         set_plugins_enabled(self.plugins_check.isChecked())
         set_allow_unsafe_plugins(self.unsafe_check.isChecked())
         set_stream_enabled(self.stream_check.isChecked())
+        set_mcp_enabled(self.mcp_check.isChecked())
+
+        from terminal.core.agent import mcp
+
+        mcp.reload_mcp()
         reload_plugins()
 
         if all(values.values()):

@@ -19,6 +19,8 @@ class ToolSpec:
     types: dict[str, str] = field(default_factory=dict)
     # Что плагину разрешено: fs:read, fs:write, net, exec.
     permissions: tuple[str, ...] = ()
+    # Готовая JSON-схема аргументов (для MCP), вместо args/types.
+    schema: dict | None = None
 
 
 @dataclass(frozen=True)

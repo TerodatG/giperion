@@ -55,6 +55,9 @@ data/agent_settings.json
 # --- Индекс проекта для поиска символов ---
 data/agent_index.json
 
+# --- Настройки MCP-серверов ---
+data/agent_mcp.json
+
 # --- Параллельные рабочие деревья агента ---
 .agent_worktrees/
 

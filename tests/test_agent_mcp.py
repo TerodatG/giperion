@@ -1,0 +1,289 @@
+# Giperion/tests/test_agent_mcp.py                                    v001
+# MCP-клиент: конфиг, рукопожатие, список инструментов и вызовы.
+
+import json
+import sys
+
+import pytest
+
+from terminal.core.agent import mcp, registry, settings
+from terminal.core.agent.protocol import ToolCall
+
+STUB = '''
+import json
+import sys
+
+
+def send(message):
+    sys.stdout.write(json.dumps(message, ensure_ascii=False) + "\\n")
+    sys.stdout.flush()
+
+
+for line in sys.stdin:
+    line = line.strip()
+
+    if not line:
+        continue
+
+    message = json.loads(line)
+    method = message.get("method")
+    request_id = message.get("id")
+
+    if method == "initialize":
+        send({"jsonrpc": "2.0", "id": request_id, "result": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "stub", "version": "1"},
+        }})
+    elif method == "notifications/initialized":
+        continue
+    elif method == "tools/list":
+        send({"jsonrpc": "2.0", "id": request_id, "result": {"tools": [
+            {
+                "name": "echo",
+                "description": "Вернуть текст",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string", "description": "текст"}},
+                    "required": ["text"],
+                },
+                "annotations": {"readOnlyHint": True},
+            },
+            {
+                "name": "write_note",
+                "description": "Записать заметку",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"path": {"type": "string"}},
+                    "required": ["path"],
+                },
+            },
+        ]}})
+    elif method == "tools/call":
+        params = message.get("params") or {}
+        name = params.get("name")
+        arguments = params.get("arguments") or {}
+
+        if name == "write_note":
+            send({"jsonrpc": "2.0", "id": request_id, "result": {
+                "isError": True,
+                "content": [{"type": "text", "text": "нельзя"}],
+            }})
+        else:
+            send({"jsonrpc": "2.0", "id": request_id, "result": {
+                "content": [{"type": "text", "text": "эхо: " + str(arguments.get("text", ""))}],
+            }})
+    else:
+        send({"jsonrpc": "2.0", "id": request_id, "error": {
+            "code": -32601,
+            "message": "нет метода",
+        }})
+'''
+
+SILENT = '''
+import sys
+
+for _line in sys.stdin:
+    pass
+'''
+
+
+def _server_file(tmp_path, code: str = STUB):
+    path = tmp_path / "server.py"
+    path.write_text(code, encoding="utf-8")
+
+    return path
+
+
+def _config(tmp_path, server_path, name="stub", enabled=True) -> dict:
+    return {
+        "servers": [
+            {
+                "name": name,
+                "command": sys.executable,
+                "args": [str(server_path)],
+                "enabled": enabled,
+            }
+        ]
+    }
+
+
+@pytest.fixture()
+def mcp_config(tmp_path, monkeypatch):
+    server_path = _server_file(tmp_path)
+    document = _config(tmp_path, server_path)
+
+    monkeypatch.setattr(
+        mcp,
+        "CONFIG_FILE",
+        tmp_path / "agent_mcp.json",
+    )
+    (tmp_path / "agent_mcp.json").write_text(
+        json.dumps(document, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings, "mcp_enabled", lambda: True)
+    mcp.reload_mcp()
+
+    yield tmp_path / "agent_mcp.json"
+
+    mcp.reload_mcp()
+
+
+def test_load_servers_skips_broken() -> None:
+    """Битые и повторные записи конфига пропускаются."""
+
+    servers = mcp.load_servers(
+        {
+            "servers": [
+                {"name": "Good Server", "command": "python"},
+                {"name": "good_server", "command": "python"},
+                {"name": "no-command"},
+                "мусор",
+                {"name": "with env", "command": "python", "env": {"X": "1"}},
+            ]
+        }
+    )
+
+    assert [item.name for item in servers] == ["good_server", "with_env"]
+    assert servers[0].args == ()
+    assert servers[1].env == {"X": "1"}
+
+
+def test_env_expansion(monkeypatch) -> None:
+    """${VAR} в env подставляется из окружения."""
+
+    monkeypatch.setenv("MCP_TEST_VALUE", "секрет")
+
+    servers = mcp.load_servers(
+        {
+            "servers": [
+                {
+                    "name": "s",
+                    "command": "python",
+                    "env": {"TOKEN": "prefix-${MCP_TEST_VALUE}"},
+                }
+            ]
+        }
+    )
+
+    assert servers[0].env["TOKEN"] == "prefix-секрет"
+
+
+def test_client_handshake_and_calls(tmp_path) -> None:
+    """Клиент проходит initialize, читает tools и вызывает инструмент."""
+
+    server = mcp.McpServer(
+        name="stub",
+        command=sys.executable,
+        args=(str(_server_file(tmp_path)),),
+    )
+
+    with mcp.McpClient(server, timeout=10) as client:
+        tools = client.list_tools()
+
+        assert [tool["name"] for tool in tools] == ["echo", "write_note"]
+
+        result = client.call_tool("echo", {"text": "привет"})
+
+        assert result.ok
+        assert result.text == "эхо: привет"
+
+        failed = client.call_tool("write_note", {"path": "a.txt"})
+
+        assert not failed.ok
+        assert failed.text == "нельзя"
+
+
+def test_client_timeout(tmp_path) -> None:
+    """Молчащий сервер даёт понятную ошибку по таймауту."""
+
+    server = mcp.McpServer(
+        name="silent",
+        command=sys.executable,
+        args=(str(_server_file(tmp_path, SILENT)),),
+    )
+
+    with pytest.raises(mcp.McpError) as error:
+        with mcp.McpClient(server, timeout=1):
+            pass
+
+    assert "не ответил" in str(error.value)
+
+
+def test_registry_exposes_mcp_tools(mcp_config) -> None:
+    """MCP-инструменты попадают в реестр и выполняются."""
+
+    specs = {spec.name: spec for spec in registry.all_specs()}
+
+    assert "mcp_stub_echo" in specs
+    assert "mcp_stub_write_note" in specs
+
+    echo = specs["mcp_stub_echo"]
+    note = specs["mcp_stub_write_note"]
+
+    assert echo.risk == "read"
+    assert note.risk == "write"
+    assert echo.schema is not None
+
+    schema = next(
+        item
+        for item in registry.tool_schemas()
+        if item["function"]["name"] == "mcp_stub_echo"
+    )
+
+    assert schema["function"]["parameters"]["required"] == ["text"]
+
+    result = registry.execute(
+        mcp_config.parent,
+        ToolCall("mcp_stub_echo", {"text": "раз"}),
+    )
+
+    assert result.ok
+    assert result.text == "эхо: раз"
+
+    assert registry.needs_approval(
+        ToolCall("mcp_stub_write_note", {"path": "a.txt"})
+    )
+
+
+def test_mcp_disabled_by_default(tmp_path, monkeypatch) -> None:
+    """Без галочки серверы не опрашиваются."""
+
+    server_path = _server_file(tmp_path)
+
+    monkeypatch.setattr(
+        mcp,
+        "CONFIG_FILE",
+        tmp_path / "agent_mcp.json",
+    )
+    (tmp_path / "agent_mcp.json").write_text(
+        json.dumps(_config(tmp_path, server_path), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(settings, "mcp_enabled", lambda: False)
+    mcp.reload_mcp()
+
+    assert mcp.mcp_tools() == ((), {})
+
+    mcp.reload_mcp()
+
+
+def test_validate_uses_schema_required(mcp_config) -> None:
+    """Для MCP проверяется только наличие обязательных аргументов."""
+
+    assert registry.validate_call(
+        ToolCall("mcp_stub_echo", {"text": "x"})
+    ) is None
+
+    missing = registry.validate_call(
+        ToolCall("mcp_stub_echo", {})
+    )
+
+    assert missing is not None
+    assert "text" in missing.text
+
+    # Число вместо строки отдаём серверу: его схема сама решит.
+    assert registry.validate_call(
+        ToolCall("mcp_stub_echo", {"text": 5})
+    ) is None

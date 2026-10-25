@@ -167,6 +167,22 @@ def set_allow_unsafe_plugins(enabled: bool) -> None:
     write_json(SETTINGS_FILE, document)
 
 
+def mcp_enabled() -> bool:
+    """Включены ли MCP-серверы (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("mcp_enabled") is True
+
+
+def set_mcp_enabled(enabled: bool) -> None:
+    """Включает или выключает MCP-серверы."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["mcp_enabled"] = bool(enabled)
+    write_json(SETTINGS_FILE, document)
+
+
 POLICIES = ("read", "confirm", "trust")
 
 def approval_policy() -> str:
