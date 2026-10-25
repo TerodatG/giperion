@@ -60,6 +60,14 @@ class AgentControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
+        self._build_task(layout)
+        layout.addLayout(self._build_model_row())
+        layout.addLayout(self._build_limits_row())
+        layout.addLayout(self._build_buttons_row())
+
+    def _build_task(self, layout: QVBoxLayout) -> None:
+        """Поле задачи и выбор шаблона."""
+
         self.task_input = QPlainTextEdit(self)
         self.task_input.setObjectName("agentTask")
         self.task_input.setPlaceholderText(
@@ -80,6 +88,12 @@ class AgentControls(QWidget):
         self.template_combo.currentIndexChanged.connect(
             self._apply_template
         )
+
+        layout.addWidget(self.task_input)
+        layout.addWidget(self.template_combo)
+
+    def _build_model_row(self) -> QHBoxLayout:
+        """Ветка, провайдер и политика подтверждений."""
 
         self.worktree_checkbox = QCheckBox(
             "Отдельная ветка (worktree)",
@@ -116,12 +130,17 @@ class AgentControls(QWidget):
         if policy_index >= 0:
             self.policy_combo.setCurrentIndex(policy_index)
 
-        model_row = QHBoxLayout()
-        model_row.setSpacing(8)
-        model_row.addWidget(self.worktree_checkbox)
-        model_row.addWidget(self.provider_button)
-        model_row.addWidget(self.policy_combo)
-        model_row.addStretch(1)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(self.worktree_checkbox)
+        row.addWidget(self.provider_button)
+        row.addWidget(self.policy_combo)
+        row.addStretch(1)
+
+        return row
+
+    def _build_limits_row(self) -> QHBoxLayout:
+        """Модель, лимит шагов и бюджет контекста."""
 
         self.steps_input = QSpinBox(self)
         self.steps_input.setRange(1, 40)
@@ -149,12 +168,17 @@ class AgentControls(QWidget):
         )
         self._fill_models()
 
-        limits_row = QHBoxLayout()
-        limits_row.setSpacing(8)
-        limits_row.addWidget(self.model_combo)
-        limits_row.addWidget(self.steps_input)
-        limits_row.addWidget(self.context_input)
-        limits_row.addStretch(1)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(self.model_combo)
+        row.addWidget(self.steps_input)
+        row.addWidget(self.context_input)
+        row.addStretch(1)
+
+        return row
+
+    def _build_buttons_row(self) -> QHBoxLayout:
+        """Кнопки прогона, задач, наблюдателя и статус."""
 
         self.run_button = QPushButton("Запустить", self)
         self.run_button.setObjectName("workshopAction")
@@ -200,21 +224,17 @@ class AgentControls(QWidget):
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(8)
-        controls.addWidget(self.run_button)
-        controls.addWidget(self.stop_button)
-        controls.addWidget(self.new_task_button)
-        controls.addWidget(self.tasks_button)
-        controls.addWidget(self.watch_button)
-        controls.addWidget(self.undo_button)
-        controls.addWidget(self.status_label, 1)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(self.run_button)
+        row.addWidget(self.stop_button)
+        row.addWidget(self.new_task_button)
+        row.addWidget(self.tasks_button)
+        row.addWidget(self.watch_button)
+        row.addWidget(self.undo_button)
+        row.addWidget(self.status_label, 1)
 
-        layout.addWidget(self.task_input)
-        layout.addWidget(self.template_combo)
-        layout.addLayout(model_row)
-        layout.addLayout(limits_row)
-        layout.addLayout(controls)
+        return row
 
     def _apply_template(self, index: int) -> None:
         """Подставляет текст шаблона в поле задачи."""

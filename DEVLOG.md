@@ -4960,6 +4960,10 @@ un_tests и write_file).
 - **Файловые инструменты разобраны**:
   - `tools_policy.py`, `tools_read.py`, `tools_write.py`,
     `tools_exec.py`; `tools.py` — 739 → **70 строк**, фасад.
+- **Окно агента: панель управления разгружена**:
+  - `AgentControls.__init__` — 162 → **11 строк**;
+  - сборка разбита на `_build_task`, `_build_model_row`,
+    `_build_limits_row`, `_build_buttons_row`.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
