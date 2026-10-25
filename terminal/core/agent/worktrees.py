@@ -96,3 +96,77 @@ def list_worktrees(root: Path) -> str:
         )
 
     return result.stdout.strip()
+
+
+def merge_worktree(root: Path, branch: str) -> str:
+    """Сливает ветку агента в текущую ветку основного дерева."""
+
+    base = Path(root).resolve()
+
+    if not is_repository(base):
+        raise WorktreeError("Проект не является git-репозиторием.")
+
+    name = str(branch or "").strip()
+
+    if not name.startswith("agent/"):
+        raise WorktreeError("Сливать можно только ветки agent/*.")
+
+    dirty = _run(base, ["status", "--porcelain"])
+
+    if dirty.returncode != 0:
+        raise WorktreeError("Не удалось прочитать состояние git.")
+
+    dirty_lines = [
+        line
+        for line in dirty.stdout.splitlines()
+        if WORKTREE_DIR + "/" not in line
+    ]
+
+    if dirty_lines:
+        raise WorktreeError(
+            "В основном дереве есть незакоммиченные изменения — "
+            "сначала закоммить или откати их."
+        )
+
+    result = _run(
+        base,
+        ["merge", "--no-ff", "-m", f"merge {name}", name],
+    )
+
+    if result.returncode != 0:
+        _run(base, ["merge", "--abort"])
+        detail = (result.stderr or result.stdout).strip()[:500]
+
+        raise WorktreeError(f"Слияние не удалось: {detail}")
+
+    return (result.stdout or "Слито.").strip()[:1000]
+
+
+def remove_worktree(
+    root: Path,
+    path: Path,
+    branch: str = "",
+) -> str:
+    """Удаляет рабочее дерево и, если указано, ветку."""
+
+    base = Path(root).resolve()
+    target = Path(path).resolve()
+    allowed = (base / WORKTREE_DIR).resolve()
+
+    if target != allowed and allowed not in target.parents:
+        raise WorktreeError("Удалять можно только деревья агента.")
+
+    result = _run(
+        base,
+        ["worktree", "remove", "--force", str(target)],
+    )
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()[:300]
+
+        raise WorktreeError(f"Не удалось убрать дерево: {detail}")
+
+    if branch:
+        _run(base, ["branch", "-D", branch])
+
+    return f"Удалено дерево {target.name}."

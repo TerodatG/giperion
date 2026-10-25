@@ -69,6 +69,54 @@ def test_job_waits_for_approval(tmp_path) -> None:
     assert any(step.kind == "approval" for step in job.steps)
 
 
+def test_job_writes_run_journal(tmp_path, monkeypatch) -> None:
+    """После прогона в журнале появляется запись с шагами и временем."""
+
+    import json as json_module
+
+    from terminal.core.agent import runs
+
+    journal = tmp_path / "agent_runs.jsonl"
+    monkeypatch.setattr(runs, "RUNS_FILE", journal)
+
+    (tmp_path / "a.txt").write_text("альфа", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            json_module.dumps(
+                {
+                    "action": "tool",
+                    "tool": "read_file",
+                    "args": {"path": "a.txt"},
+                },
+                ensure_ascii=False,
+            ),
+            json_module.dumps(
+                {"action": "answer", "text": "готово"},
+                ensure_ascii=False,
+            ),
+        ]
+    )
+
+    job = AgentJob(
+        "прочитай",
+        brain,
+        tmp_path,
+        max_steps=4,
+        model_name="Тест",
+    )
+
+    _wait_for(lambda: job.done)
+
+    lines = journal.read_text(encoding="utf-8").splitlines()
+
+    assert lines
+    record = json_module.loads(lines[-1])
+    assert record["model"] == "Тест"
+    assert record["steps"] >= 1
+    assert record["duration_s"] >= 0
+
+
 def test_run_agent_without_approval_callback_denies_write(tmp_path) -> None:
     """Без callback запись считается отклонённой."""
 

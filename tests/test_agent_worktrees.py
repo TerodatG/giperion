@@ -13,6 +13,8 @@ from terminal.core.agent.worktrees import (
     create_worktree,
     is_repository,
     list_worktrees,
+    merge_worktree,
+    remove_worktree,
     slugify,
 )
 
@@ -86,3 +88,50 @@ def test_non_repository_is_rejected(tmp_path) -> None:
 
     with pytest.raises(WorktreeError):
         create_worktree(tmp_path, "task")
+
+
+def test_merge_brings_changes_to_main(repo) -> None:
+    """Коммит из ветки агента попадает в основное дерево."""
+
+    folder, branch = create_worktree(repo, "merge")
+
+    (folder / "a.txt").write_text("бета\n", encoding="utf-8")
+    _git(folder, "add", "a.txt")
+    _git(folder, "commit", "-q", "-m", "change")
+
+    message = merge_worktree(repo, branch)
+
+    assert "бета" in (repo / "a.txt").read_text(encoding="utf-8")
+    assert message
+
+
+def test_merge_requires_clean_main(repo) -> None:
+    """При незакоммиченных изменениях слияние запрещено."""
+
+    _folder, branch = create_worktree(repo, "dirty")
+    (repo / "a.txt").write_text("локально\n", encoding="utf-8")
+
+    with pytest.raises(WorktreeError):
+        merge_worktree(repo, branch)
+
+
+def test_remove_worktree_and_branch(repo) -> None:
+    """Дерево и ветка удаляются, основное дерево остаётся."""
+
+    folder, branch = create_worktree(repo, "remove")
+
+    message = remove_worktree(repo, folder, branch)
+
+    assert not folder.exists()
+    assert message
+
+    branches = subprocess.run(
+        [GIT, "branch", "--list", branch],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert branches.stdout.strip() == ""

@@ -3,6 +3,7 @@
 # Последнее изменение: первый вариант — без записи и команд.
 
 import threading
+import time
 from pathlib import Path
 
 from terminal.core.agent.loop import run_agent
@@ -11,6 +12,7 @@ from terminal.core.agent.protocol import (
     ApprovalRequest,
     ApprovalResult,
 )
+from terminal.core.agent.runs import record_run
 
 
 class AgentJob:
@@ -26,6 +28,7 @@ class AgentJob:
         brain,
         root: Path,
         max_steps: int = 8,
+        model_name: str = "",
     ) -> None:
         self.steps: list[AgentStep] = []
         self.answer = ""
@@ -33,15 +36,19 @@ class AgentJob:
         self.cancelled = False
         self.done = False
         self.pending: ApprovalRequest | None = None
+        self.approvals = 0
+        self.duration_s = 0.0
 
         self._task = task
         self._brain = brain
         self._root = root
         self._max_steps = max_steps
+        self._model_name = model_name
         self._stop = threading.Event()
         self._approval = threading.Event()
         self._approved = False
         self._approval_text: str | None = None
+        self._started = time.monotonic()
 
         self._thread = threading.Thread(
             target=self._run,
@@ -62,6 +69,7 @@ class AgentJob:
         """Ждёт решения пользователя, не блокируя интерфейс."""
 
         self.pending = request
+        self.approvals += 1
         self._approved = False
         self._approval_text = None
         self._approval.clear()
@@ -115,4 +123,15 @@ class AgentJob:
         except Exception as error:  # noqa: BLE001 — покажем в окне
             self.error = f"{type(error).__name__}: {error}"
         finally:
+            self.duration_s = time.monotonic() - self._started
+            record_run(
+                self._task,
+                self._model_name,
+                len(self.steps),
+                self.approvals,
+                self.duration_s,
+                self.answer,
+                self.error,
+                self.cancelled,
+            )
             self.done = True

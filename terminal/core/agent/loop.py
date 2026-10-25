@@ -14,6 +14,7 @@ from terminal.core.agent.context import (
     parse_decision,
 )
 from terminal.core.agent.protocol import (
+    AgentDecision,
     AgentResult,
     AgentStep,
     ApprovalRequest,
@@ -75,8 +76,8 @@ def grounding_calls(task: str, root: Path) -> list[ToolCall]:
 class Brain(Protocol):
     """Источник решений агента: модель или сценарий в тестах."""
 
-    def decide(self, prompt: str) -> str:
-        """Возвращает JSON-решение по промпту."""
+    def decide(self, prompt: str) -> str | AgentDecision:
+        """Возвращает JSON-решение или готовое решение агента."""
 
 
 def _approval_title(call: ToolCall) -> str:
@@ -226,7 +227,11 @@ def run_agent(
             )
 
         try:
-            decision = parse_decision(raw)
+            decision = (
+                raw
+                if isinstance(raw, AgentDecision)
+                else parse_decision(raw)
+            )
         except DecisionError as error:
             emit(
                 AgentStep(

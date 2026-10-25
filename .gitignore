@@ -40,6 +40,9 @@ data/update_state.json
 # --- Резервные копии агента перед правкой файлов ---
 data/agent_backups/
 
+# --- Журнал прогонов агента ---
+data/agent_runs.jsonl
+
 # --- Параллельные рабочие деревья агента ---
 .agent_worktrees/
 

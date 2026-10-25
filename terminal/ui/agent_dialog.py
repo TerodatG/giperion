@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -20,9 +21,15 @@ from PySide6.QtWidgets import (
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
+from terminal.core.agent.providers import (
+    NativeBrain,
+    provider_from_env,
+)
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
+    merge_worktree,
+    remove_worktree,
 )
 from terminal.core.helper_model import get_helper_model
 from terminal.core.model_registry import (
@@ -140,6 +147,22 @@ class AgentDialog(SkinDialog):
         controls.addWidget(self.new_task_button)
         controls.addWidget(self.status_label, 1)
 
+        self.merge_button = QPushButton("Слить ветку", self)
+        self.merge_button.setObjectName("workshopAction")
+        self.merge_button.setVisible(False)
+        self.merge_button.clicked.connect(self._merge_branch)
+
+        self.remove_button = QPushButton("Удалить ветку", self)
+        self.remove_button.setObjectName("workshopAction")
+        self.remove_button.setVisible(False)
+        self.remove_button.clicked.connect(self._remove_branch)
+
+        worktree_row = QHBoxLayout()
+        worktree_row.setSpacing(8)
+        worktree_row.addWidget(self.merge_button)
+        worktree_row.addWidget(self.remove_button)
+        worktree_row.addStretch(1)
+
         self.approval_frame = QFrame(self)
         self.approval_frame.setObjectName("paramsPlate")
         self.approval_frame.setVisible(False)
@@ -213,6 +236,7 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(self.task_input)
         self.body_layout.addWidget(self.worktree_checkbox)
         self.body_layout.addLayout(controls)
+        self.body_layout.addLayout(worktree_row)
         self.body_layout.addWidget(self.approval_frame)
         self.body_layout.addWidget(self.trace, 1)
         self.body_layout.addWidget(buttons)
@@ -229,18 +253,27 @@ class AgentDialog(SkinDialog):
             self.status_label.setText("Сначала опиши задачу.")
             return
 
-        model = _pick_model()
+        native = provider_from_env()
 
-        if model is None:
-            self.status_label.setText(
-                "Нет доступной внешней модели: подключи её в окне «Модель»."
+        if native is not None:
+            brain = NativeBrain(native)
+            model_name = f"native · {native.model}"
+        else:
+            model = _pick_model()
+
+            if model is None:
+                self.status_label.setText(
+                    "Нет доступной внешней модели: подключи её в окне "
+                    "«Модель» или задай AGENT_BASE_URL/AGENT_API_KEY/"
+                    "AGENT_MODEL."
+                )
+                return
+
+            brain = ModelBrain(
+                model["model_id"],
+                model.get("provider_id") or "opencode",
             )
-            return
-
-        brain = ModelBrain(
-            model["model_id"],
-            model.get("provider_id") or "opencode",
-        )
+            model_name = model["name"]
 
         root = BASE_DIR
         self.worktree_path = None
@@ -265,10 +298,13 @@ class AgentDialog(SkinDialog):
             brain,
             root,
             max_steps=MAX_STEPS,
+            model_name=model_name,
         )
 
         self.run_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+        self.merge_button.setVisible(False)
+        self.remove_button.setVisible(False)
 
         branch_note = (
             f" · ветка {self.worktree_branch}"
@@ -276,7 +312,7 @@ class AgentDialog(SkinDialog):
             else ""
         )
         self.status_label.setText(
-            f"Модель: {model['name']} · шагов до {MAX_STEPS}"
+            f"Модель: {model_name} · шагов до {MAX_STEPS}"
             f"{branch_note}."
         )
         self._timer.start()
@@ -298,6 +334,60 @@ class AgentDialog(SkinDialog):
             self._parent,
             f"agent-{time.time_ns()}",
         )
+
+    def _merge_branch(self) -> None:
+        """Сливает ветку задачи в текущую ветку проекта."""
+
+        if not self.worktree_path or not self.worktree_branch:
+            return
+
+        try:
+            message = merge_worktree(BASE_DIR, self.worktree_branch)
+        except WorktreeError as error:
+            self.status_label.setText(f"Слияние не удалось: {error}")
+
+            return
+
+        self.status_label.setText(
+            "Слито: " + message.splitlines()[0][:200]
+        )
+        self.merge_button.setVisible(False)
+        self.remove_button.setVisible(False)
+
+    def _remove_branch(self) -> None:
+        """Удаляет дерево и ветку задачи после подтверждения."""
+
+        if not self.worktree_path or not self.worktree_branch:
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Удалить ветку?",
+            "Дерево "
+            f"{self.worktree_path.name} и ветка "
+            f"{self.worktree_branch} будут удалены. "
+            "Незакоммиченные изменения в дереве пропадут.",
+        )
+
+        if answer != QMessageBox.Yes:
+            return
+
+        try:
+            message = remove_worktree(
+                BASE_DIR,
+                self.worktree_path,
+                self.worktree_branch,
+            )
+        except WorktreeError as error:
+            self.status_label.setText(f"Не удалено: {error}")
+
+            return
+
+        self.worktree_path = None
+        self.worktree_branch = ""
+        self.merge_button.setVisible(False)
+        self.remove_button.setVisible(False)
+        self.status_label.setText(message)
 
     def _reset_edit(self) -> None:
         """Возвращает панель подтверждения к просмотру диффа."""
@@ -401,6 +491,10 @@ class AgentDialog(SkinDialog):
         self.run_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 
+        show_worktree_actions = bool(self.worktree_path)
+        self.merge_button.setVisible(show_worktree_actions)
+        self.remove_button.setVisible(show_worktree_actions)
+
         branch_note = (
             f" · ветка {self.worktree_branch}"
             if self.worktree_branch
@@ -416,7 +510,10 @@ class AgentDialog(SkinDialog):
                 self.trace.appendPlainText("\n! " + job.error)
         else:
             self.status_label.setText(
-                f"Готово за {len(job.steps)} шаг(ов)." + branch_note
+                f"Готово за {len(job.steps)} шаг(ов)"
+                f" · {job.duration_s:.1f} с"
+                f" · подтверждений: {job.approvals}"
+                + branch_note
             )
 
         if job.answer:

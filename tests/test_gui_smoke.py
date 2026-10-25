@@ -583,6 +583,8 @@ def test_agent_dialog_opens_with_approval(window) -> None:
     assert dialog.task_input.toPlainText() == ""
     assert dialog.worktree_checkbox.text().startswith("Отдельная ветка")
     assert dialog.new_task_button.text() == "Новая задача"
+    assert dialog.merge_button.isHidden()
+    assert dialog.remove_button.isHidden()
 
     dialog.close()
 
