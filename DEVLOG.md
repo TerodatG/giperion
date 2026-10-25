@@ -4934,6 +4934,13 @@ un_tests и write_file).
   - `transcript_render.py` — лента и печать;
   - `transcript_messages.py` — сообщения и действия;
   - `transcript_mixin.py` — 716 → **15 строк**, только сборка.
+- **Провайдер и счётчики разобраны**:
+  - `provider_http.py` — HTTP-провайдер и разбор ответов;
+  - `native_brain.py` — `NativeBrain` и переписка с tool calls;
+  - `providers.py` — 764 → **58 строк**, фасад и фабрики;
+  - `performance_types.py`, `performance_windows.py`,
+    `performance_psutil.py`, `performance_helpers.py`;
+  - `performance_monitor.py` — 773 → **183 строки**.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
@@ -4969,7 +4976,7 @@ un_tests и write_file).
 - `python -m pytest` — **551 passed за 31,4 с**.
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
-- `python -m tools.check_structure` — файлов >600 строк: 5,
+- `python -m tools.check_structure` — файлов >600 строк: 3,
   функций >150: 12, функций C>20: 16 (было 16/16/20).
 
 **Ограничения**
