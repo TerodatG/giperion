@@ -562,6 +562,7 @@ def test_workshop_dialog_lists_tools(window) -> None:
         "Открыть личности",
         "Открыть умения",
         "Добавить модель",
+        "Открыть журнал",
     ]
     assert window.settings_button.toolTip() == "Настройки"
 
@@ -610,6 +611,19 @@ def test_agent_provider_dialog_opens(window) -> None:
     )
 
     provider.close()
+    dialog.close()
+
+
+def test_agent_runs_dialog_opens(window) -> None:
+    """Журнал агента открывается из окна."""
+
+    window.open_agent_runs_dialog()
+
+    dialog = window.window._tool_windows["agent-runs"]
+
+    assert dialog.windowTitle() == "Журнал агента"
+    assert dialog.view.isReadOnly()
+
     dialog.close()
 
 

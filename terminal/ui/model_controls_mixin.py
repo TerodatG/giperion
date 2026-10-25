@@ -12,6 +12,7 @@ from terminal.core.model_registry import (
 )
 from terminal.core.module_state import set_module
 from terminal.ui.agent_dialog import show_agent_dialog
+from terminal.ui.agent_runs_dialog import show_agent_runs_dialog
 from terminal.ui.conference_dialog import show_conference_dialog
 from terminal.ui.models_dialog import show_models_dialog
 from terminal.ui.personalities_dialog import show_personalities_dialog
@@ -49,6 +50,11 @@ class ModelControlsMixin:
         """Открывает read-only агента с лентой шагов."""
 
         show_agent_dialog(self.window)
+
+    def open_agent_runs_dialog(self) -> None:
+        """Открывает журнал прогонов агента."""
+
+        show_agent_runs_dialog(self.window)
 
     def open_personalities_dialog(self) -> None:
         """Открывает каталог личностных матриц."""

@@ -1,9 +1,14 @@
-# Giperion/terminal/core/agent/registry.py                          v001
-# Реестр read-only инструментов агента и их выполнение.
-# Последнее изменение: первый вариант — список, чтение, поиск.
+# Giperion/terminal/core/agent/registry.py                          v002
+# Реестр инструментов агента, их схемы, риски и плагины.
+# Последнее изменение: плагины из data/agent_tools по явному разрешению.
 
+import importlib.util
+import json
+import re
+import threading
 from pathlib import Path
 
+from config import DATA_DIR
 from terminal.core.agent import git_tools, tools
 from terminal.core.agent.commands import CommandError, validate_command
 from terminal.core.agent.protocol import (
@@ -11,6 +16,14 @@ from terminal.core.agent.protocol import (
     ToolResult,
     ToolSpec,
 )
+
+PLUGIN_DIR = DATA_DIR / "agent_tools"
+PLUGIN_NAME = re.compile(r"^[a-z][a-z0-9_]{2,30}$")
+
+_plugin_cache: (
+    tuple[tuple[ToolSpec, ...], dict] | None
+) = None
+_plugin_lock = threading.Lock()
 
 TOOL_SPECS = (
     ToolSpec(
@@ -129,13 +142,145 @@ TOOL_SPECS = (
     ),
 )
 
-_TOOLS = {spec.name: spec for spec in TOOL_SPECS}
+def _parse_plugin(tool: object, path: Path) -> tuple[ToolSpec, object]:
+    """Проверяет описание плагина и возвращает спецификацию и обработчик."""
+
+    if not isinstance(tool, dict):
+        raise ValueError("TOOL должен быть словарём.")
+
+    name = str(tool.get("name") or "").strip()
+
+    if not PLUGIN_NAME.fullmatch(name):
+        raise ValueError(f"Недопустимое имя плагина: {name}")
+
+    description = str(tool.get("description") or "").strip()
+
+    if not description:
+        raise ValueError("У плагина нет описания.")
+
+    args = tool.get("args") or {}
+
+    if not isinstance(args, dict) or not all(
+        isinstance(key, str) and isinstance(value, str)
+        for key, value in args.items()
+    ):
+        raise ValueError("args плагина должен быть словарём строк.")
+
+    required = tool.get("required") or ()
+
+    if not isinstance(required, (list, tuple)) or not all(
+        isinstance(item, str) and item in args for item in required
+    ):
+        raise ValueError("required должен ссылаться на args.")
+
+    risk = str(tool.get("risk") or "read")
+
+    if risk not in ("read", "write", "exec"):
+        raise ValueError("risk должен быть read, write или exec.")
+
+    handler = tool.get("handler")
+
+    if not callable(handler):
+        raise ValueError("У плагина нет handler.")
+
+    return (
+        ToolSpec(
+            name=name,
+            description=description,
+            args=dict(args),
+            risk=risk,
+            required=tuple(required),
+        ),
+        handler,
+    )
+
+
+def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
+    """Загружает плагины, если они явно разрешены в настройках."""
+
+    global _plugin_cache
+
+    with _plugin_lock:
+        if _plugin_cache is not None:
+            return _plugin_cache
+
+        specs: list[ToolSpec] = []
+        handlers: dict[str, object] = {}
+
+        try:
+            from terminal.core.agent import settings
+
+            enabled = settings.plugins_enabled()
+        except Exception:  # noqa: BLE001 — без настроек плагинов нет
+            enabled = False
+
+        if enabled and PLUGIN_DIR.is_dir():
+            builtin = {spec.name for spec in TOOL_SPECS}
+
+            for path in sorted(PLUGIN_DIR.glob("*.py")):
+                if path.name.startswith("_"):
+                    continue
+
+                try:
+                    module_name = f"agent_plugin_{path.stem}"
+
+                    module_spec = importlib.util.spec_from_file_location(
+                        module_name,
+                        path,
+                    )
+
+                    if module_spec is None or module_spec.loader is None:
+                        continue
+
+                    module = importlib.util.module_from_spec(
+                        module_spec
+                    )
+                    module_spec.loader.exec_module(module)
+
+                    spec, handler = _parse_plugin(
+                        getattr(module, "TOOL", None),
+                        path,
+                    )
+                except Exception:  # noqa: BLE001 — битый плагин пропускаем
+                    continue
+
+                if spec.name in builtin or spec.name in handlers:
+                    continue
+
+                specs.append(spec)
+                handlers[spec.name] = handler
+
+        _plugin_cache = (tuple(specs), handlers)
+
+        return _plugin_cache
+
+
+def reload_plugins() -> None:
+    """Сбрасывает кэш плагинов после изменения настроек."""
+
+    global _plugin_cache
+
+    with _plugin_lock:
+        _plugin_cache = None
+
+
+def all_specs() -> tuple[ToolSpec, ...]:
+    """Встроенные и плагинные инструменты вместе."""
+
+    return TOOL_SPECS + plugin_tools()[0]
 
 
 def get_spec(name: str) -> ToolSpec | None:
     """Возвращает описание инструмента по имени."""
 
-    return _TOOLS.get(name)
+    return next(
+        (spec for spec in all_specs() if spec.name == name),
+        None,
+    )
+
+
+def _plugin_handler(name: str):
+    return plugin_tools()[1].get(name)
 
 
 def tool_schemas() -> list[dict]:
@@ -143,7 +288,7 @@ def tool_schemas() -> list[dict]:
 
     schemas = []
 
-    for spec in TOOL_SPECS:
+    for spec in all_specs():
         properties = {
             name: {
                 "type": "string",
@@ -273,6 +418,16 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
     if spec is None:
         return ToolResult(False, f"Неизвестный инструмент: {call.tool}")
 
+    plugin_handler = _plugin_handler(call.tool)
+
+    if plugin_handler is not None:
+        args = json.dumps(call.args, ensure_ascii=False)
+
+        return ToolResult(
+            True,
+            f"Плагин: {call.tool}\n{args}",
+        )
+
     try:
         if call.tool == "write_file":
             _path, _old, diff = tools.prepare_write(
@@ -338,7 +493,7 @@ def tools_prompt() -> str:
 
     lines = []
 
-    for spec in TOOL_SPECS:
+    for spec in all_specs():
         args = "; ".join(
             f"{key}: {value}" for key, value in spec.args.items()
         )
@@ -372,6 +527,19 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
         return invalid
 
     try:
+        plugin_handler = _plugin_handler(call.tool)
+
+        if plugin_handler is not None:
+            result = plugin_handler(root, call.args)
+
+            if isinstance(result, ToolResult):
+                return result
+
+            return ToolResult(
+                False,
+                "Плагин вернул не ToolResult.",
+            )
+
         if call.tool == "list_dir":
             return tools.list_dir(
                 root,

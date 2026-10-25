@@ -115,3 +115,19 @@ def settings_file() -> Path:
     """Путь к файлу настроек агента."""
 
     return SETTINGS_FILE
+
+
+def plugins_enabled() -> bool:
+    """Разрешены ли сторонние плагины инструментов (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("plugins_enabled") is True
+
+
+def set_plugins_enabled(enabled: bool) -> None:
+    """Включает или выключает плагины в настройках агента."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["plugins_enabled"] = bool(enabled)
+    write_json(SETTINGS_FILE, document)

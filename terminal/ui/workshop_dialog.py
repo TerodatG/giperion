@@ -125,6 +125,12 @@ def show_workshop_dialog(parent, window) -> None:
                 lambda: show_add_model_dialog(parent)
             ),
         ),
+        (
+            "ЖУРНАЛ",
+            "Последние прогоны агента: шаги, время и итог.",
+            "Открыть журнал",
+            lambda: launch(window.open_agent_runs_dialog),
+        ),
     )
 
     for index, (card_title, text, button_text, action) in enumerate(cards):

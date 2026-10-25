@@ -6,6 +6,7 @@ import threading
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
@@ -19,10 +20,13 @@ from terminal.core.agent.providers import (
     OpenAICompatibleProvider,
     ProviderError,
 )
+from terminal.core.agent.registry import reload_plugins
 from terminal.core.agent.settings import (
     load_settings,
     mask_key,
+    plugins_enabled,
     save_settings,
+    set_plugins_enabled,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
@@ -84,6 +88,17 @@ class ProviderDialog(SkinDialog):
         form.addRow("Base URL", self.base_input)
         form.addRow("Модель", self.model_input)
         form.addRow("API-ключ", self.key_input)
+
+        self.plugins_check = QCheckBox(
+            "Разрешить плагины инструментов",
+            self,
+        )
+        self.plugins_check.setChecked(plugins_enabled())
+        self.plugins_check.setToolTip(
+            "Плагины из data/agent_tools — это Python-код. "
+            "Он выполняется с правами Терминала, включай осознанно."
+        )
+        form.addRow("Плагины", self.plugins_check)
 
         self.status_label = QLabel("Готово к настройке.", self)
         self.status_label.setObjectName("dialogHint")
@@ -178,6 +193,9 @@ class ProviderDialog(SkinDialog):
             self.key_input.text(),
             self.model_input.text(),
         )
+
+        set_plugins_enabled(self.plugins_check.isChecked())
+        reload_plugins()
 
         if all(values.values()):
             self.status_label.setText(

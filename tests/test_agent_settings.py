@@ -122,3 +122,21 @@ def test_provider_is_created_from_file(
     assert provider is not None
     assert provider.model == "model-x"
     assert provider.base_url == "https://api.example.com/v1"
+
+
+def test_plugins_are_off_by_default(tmp_path, monkeypatch) -> None:
+    """Плагины включаются только явно и сохраняются в файле."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+
+    assert settings.plugins_enabled() is False
+
+    settings.set_plugins_enabled(True)
+    assert settings.plugins_enabled() is True
+
+    settings.set_plugins_enabled(False)
+    assert settings.plugins_enabled() is False
