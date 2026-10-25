@@ -158,8 +158,10 @@ def test_regression_skips_other_task_set() -> None:
 def test_history_roundtrip(tmp_path, monkeypatch) -> None:
     """История прогонов пишется и читается."""
 
+    from tools import eval_report
+
     monkeypatch.setattr(
-        eval_agent,
+        eval_report,
         "HISTORY",
         tmp_path / "history.jsonl",
     )
@@ -190,8 +192,10 @@ def test_history_roundtrip(tmp_path, monkeypatch) -> None:
 def test_history_empty(tmp_path, monkeypatch) -> None:
     """Пустая история не падает."""
 
+    from tools import eval_report
+
     monkeypatch.setattr(
-        eval_agent,
+        eval_report,
         "HISTORY",
         tmp_path / "missing.jsonl",
     )
@@ -220,13 +224,15 @@ def test_run_task_in_stub_worktree(tmp_path, monkeypatch) -> None:
     worktree = tmp_path / "wt"
     worktree.mkdir()
 
+    from tools import eval_runner
+
     monkeypatch.setattr(
-        eval_agent,
+        eval_runner,
         "create_worktree",
         lambda base, name: (worktree, "agent/stub"),
     )
     monkeypatch.setattr(
-        eval_agent,
+        eval_runner,
         "remove_worktree",
         lambda *args, **kwargs: "ок",
     )
@@ -359,13 +365,15 @@ def test_run_task_uses_prepare_and_inspect(tmp_path, monkeypatch) -> None:
     worktree.mkdir()
     (worktree / "flag.txt").write_text("нет", encoding="utf-8")
 
+    from tools import eval_runner
+
     monkeypatch.setattr(
-        eval_agent,
+        eval_runner,
         "create_worktree",
         lambda base, name: (worktree, "agent/stub"),
     )
     monkeypatch.setattr(
-        eval_agent,
+        eval_runner,
         "remove_worktree",
         lambda *args, **kwargs: "ок",
     )
@@ -418,8 +426,10 @@ def test_report_roundtrip(tmp_path, monkeypatch) -> None:
     output = tmp_path / "eval"
     latest = output / "latest.json"
 
-    monkeypatch.setattr(eval_agent, "OUTPUT_DIR", output)
-    monkeypatch.setattr(eval_agent, "LATEST", latest)
+    from tools import eval_report
+
+    monkeypatch.setattr(eval_report, "OUTPUT_DIR", output)
+    monkeypatch.setattr(eval_report, "LATEST", latest)
 
     summary = eval_agent.summarize(
         [
