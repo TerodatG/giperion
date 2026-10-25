@@ -44,74 +44,59 @@ NO_ANSWERS = {
 }
 
 
-def get_confirmation_response(
-    message: str,
-) -> str | None:
-    """Выполняет или отменяет ожидающее системное действие."""
+def _create_archive_reply(message: str) -> str:
+    """Реакция на подтверждение создания архива."""
 
-    pending = get_pending_action()
-
-    if not pending:
-        return None
-
-    action = pending["action"]
-    archive_id = pending.get("archive_id")
-    category = pending.get("category")
-
-    if action == "create_archive":
-        if message in YES_ANSWERS:
-            clear_pending_action()
-
-            return create_archive_response()
-
-        if message in NO_ANSWERS:
-            clear_pending_action()
-            add_action("Отменено создание архива")
-
-            return "Создание архива отменено."
-
-        return (
-            "Ответь «да», чтобы создать архив, "
-            "или «нет», чтобы отменить."
-        )
-
-    if message in CANCEL_COMMANDS:
+    if message in YES_ANSWERS:
         clear_pending_action()
 
-        if archive_id:
-            add_action(
-                "Отменено действие "
-                f"{action} для архива {archive_id}"
-            )
-        elif category:
-            add_action(
-                f"Отменено действие {action} "
-                f"для категории {category}"
-            )
-        else:
-            add_action(
-                f"Отменено действие {action}"
-            )
+        return create_archive_response()
 
-        return (
-            "Операция отменена. Данные не изменены."
-        )
+    if message in NO_ANSWERS:
+        clear_pending_action()
+        add_action("Отменено создание архива")
 
-    if message not in CONFIRM_COMMANDS:
-        return None
+        return "Создание архива отменено."
 
-    phrase = pending.get("phrase")
-    response = pending.get("response")
+    return (
+        "Ответь «да», чтобы создать архив, "
+        "или «нет», чтобы отменить."
+    )
+
+
+def _cancel_pending(
+    action: str,
+    archive_id,
+    category,
+) -> str:
+    """Отменяет ожидающее действие и пишет журнал."""
 
     clear_pending_action()
+
+    if archive_id:
+        add_action(
+            "Отменено действие "
+            f"{action} для архива {archive_id}"
+        )
+    elif category:
+        add_action(
+            f"Отменено действие {action} "
+            f"для категории {category}"
+        )
+    else:
+        add_action(f"Отменено действие {action}")
+
+    return "Операция отменена. Данные не изменены."
+
+
+def _clear_reply(action: str) -> str | None:
+    """Очистка памяти и истории."""
 
     if action == "clear_unknown_messages":
         clear_unknown_messages()
         add_action("Очищен список непонятых фраз")
 
-        return (
-            "Список непонятых фраз очищен."
-        )
+        return "Список непонятых фраз очищен."
 
     if action == "clear_conversations":
         clear_conversations()
@@ -125,6 +110,12 @@ def get_confirmation_response(
 
         return "Память ИИ-ядра полностью обнулена."
 
+    return None
+
+
+def _archive_reply(action: str, archive_id) -> str | None:
+    """Восстановление и удаление архива."""
+
     if action == "restore_archive" and archive_id:
         if restore_archive(archive_id):
             add_action(
@@ -137,9 +128,7 @@ def get_confirmation_response(
                 f"Архив {archive_id}."
             )
 
-        return (
-            f"Не удалось восстановить архив {archive_id}."
-        )
+        return f"Не удалось восстановить архив {archive_id}."
 
     if action == "delete_archive" and archive_id:
         if delete_archive(archive_id):
@@ -149,6 +138,17 @@ def get_confirmation_response(
 
         return f"Не удалось удалить архив {archive_id}."
 
+    return None
+
+
+def _category_reply(
+    action: str,
+    category,
+    phrase,
+    response,
+) -> str | None:
+    """Создание, изменение и удаление категорий и фраз."""
+
     if (
         action == "create_category"
         and category is not None
@@ -156,11 +156,7 @@ def get_confirmation_response(
         and response is not None
     ):
         try:
-            result = create_category(
-                category,
-                phrase,
-                response,
-            )
+            result = create_category(category, phrase, response)
         except (OSError, ValueError):
             return (
                 "Не удалось создать категорию. "
@@ -168,9 +164,7 @@ def get_confirmation_response(
             )
 
         if result.endswith("создана."):
-            add_action(
-                f"Создана категория {category}"
-            )
+            add_action(f"Создана категория {category}")
 
         return result
 
@@ -180,10 +174,7 @@ def get_confirmation_response(
         and response is not None
     ):
         try:
-            result = change_category_answer(
-                category,
-                response,
-            )
+            result = change_category_answer(category, response)
         except (OSError, ValueError):
             return (
                 "Не удалось изменить ответ. "
@@ -203,10 +194,7 @@ def get_confirmation_response(
         and phrase is not None
     ):
         try:
-            result = remove_phrase(
-                category,
-                phrase,
-            )
+            result = remove_phrase(category, phrase)
         except (OSError, ValueError):
             return (
                 "Не удалось удалить фразу. "
@@ -220,10 +208,7 @@ def get_confirmation_response(
 
         return result
 
-    if (
-        action == "remove_category"
-        and category is not None
-    ):
+    if action == "remove_category" and category is not None:
         try:
             result = remove_category(category)
         except (OSError, ValueError):
@@ -233,12 +218,47 @@ def get_confirmation_response(
             )
 
         if result.endswith("удалена."):
-            add_action(
-                f"Удалена категория {category}"
-            )
+            add_action(f"Удалена категория {category}")
 
         return result
 
-    return (
-        "Не удалось выполнить системную операцию."
-    )
+    return None
+
+
+def get_confirmation_response(
+    message: str,
+) -> str | None:
+    """Выполняет или отменяет ожидающее системное действие."""
+
+    pending = get_pending_action()
+
+    if not pending:
+        return None
+
+    action = pending["action"]
+    archive_id = pending.get("archive_id")
+    category = pending.get("category")
+
+    if action == "create_archive":
+        return _create_archive_reply(message)
+
+    if message in CANCEL_COMMANDS:
+        return _cancel_pending(action, archive_id, category)
+
+    if message not in CONFIRM_COMMANDS:
+        return None
+
+    phrase = pending.get("phrase")
+    response = pending.get("response")
+
+    clear_pending_action()
+
+    for reply in (
+        _clear_reply(action),
+        _archive_reply(action, archive_id),
+        _category_reply(action, category, phrase, response),
+    ):
+        if reply is not None:
+            return reply
+
+    return "Не удалось выполнить системную операцию."
