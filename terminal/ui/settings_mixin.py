@@ -10,6 +10,7 @@ from terminal.core.window_settings import (
     DEFAULT_STYLES,
 )
 from terminal.ui.settings_dialog import SettingsDialog
+from terminal.ui.dialogs_base import show_tool_window
 from terminal.ui.theme import DEFAULT_COLORS
 
 
@@ -42,7 +43,7 @@ class SettingsMixin:
             font_sizes=self.font_sizes,
         )
 
-        dialog.exec()
+        show_tool_window(self.window, dialog, "settings")
 
     def apply_view_settings(
         self,

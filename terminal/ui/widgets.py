@@ -88,6 +88,8 @@ class SideIconButton(QPushButton):
                 center_x,
                 center_y,
             )
+        elif self.icon_name == "pet":
+            self._paint_pet(painter, center_x, center_y)
         else:
             self._paint_skills(painter, center_x, center_y)
 
@@ -256,6 +258,31 @@ class SideIconButton(QPushButton):
             painter.drawEllipse(point, 1.8, 1.8)
 
         painter.drawEllipse(QPointF(center_x, center_y), 2.6, 2.6)
+
+    @staticmethod
+    def _paint_pet(painter, center_x: float, center_y: float) -> None:
+        """Рисует отпечаток лапы — питомец терминала."""
+
+        painter.drawEllipse(
+            QPointF(center_x, center_y + 3.5),
+            6.5,
+            5.0,
+        )
+
+        for offset_x, offset_y in (
+            (-7.0, -5.0),
+            (-2.5, -9.0),
+            (2.5, -9.0),
+            (7.0, -5.0),
+        ):
+            painter.drawEllipse(
+                QPointF(
+                    center_x + offset_x,
+                    center_y + offset_y,
+                ),
+                2.2,
+                2.6,
+            )
 
 
 class StatusLed(QWidget):

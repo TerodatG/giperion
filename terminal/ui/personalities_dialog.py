@@ -23,7 +23,7 @@ from giperion.personality_catalog import (
     load_personality_matrices,
     set_selected_personality_id,
 )
-from terminal.ui.dialogs_base import SkinDialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
 
 def show_personalities_dialog(parent, on_select=None) -> None:
@@ -410,4 +410,4 @@ def show_personalities_dialog(parent, on_select=None) -> None:
     layout.addLayout(buttons_row)
 
     refresh_list()
-    dialog.exec()
+    show_tool_window(parent, dialog, "personalities")

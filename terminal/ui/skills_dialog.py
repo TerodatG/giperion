@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from giperion.identity_matrix import IDENTITY_MATRIX
 from terminal.core.model_registry import DEFAULT_MODEL_ID, get_active_model
-from terminal.ui.dialogs_base import SkinDialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.dialog_text import build_skills_html
 from terminal.ui.tab_strip import TabStrip
 from terminal.ui.value_text import model_skill_entries
@@ -155,4 +155,4 @@ def show_skills_dialog(parent) -> None:
 
     layout.addWidget(buttons)
 
-    dialog.exec()
+    show_tool_window(parent, dialog, "skills")

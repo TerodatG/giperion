@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFontComboBox,
     QFormLayout,
+    QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -679,7 +681,7 @@ class SettingsDialog(SkinDialog):
         return page
 
     def _build_about_page(self) -> QWidget:
-        """Собирает страницу «О нас»."""
+        """Собирает страницу «О нас»: проект отдельно, остальное на экране."""
 
         page = QWidget(self)
         layout = QVBoxLayout(page)
@@ -689,21 +691,64 @@ class SettingsDialog(SkinDialog):
         title = QLabel("О ПРОЕКТЕ", page)
         title.setObjectName("dialogTitle")
 
-        text = QLabel(
+        project = QLabel(
             "<h3>Giperion</h3>"
-            "<p><b>Разработчики:</b></p>"
-            "<p>Terodat — автор проекта.</p>"
-            "<p>DeepSeek V4.1 Flash — соавтор, ИИ-помощник "
-            "по коду и архитектуре.</p>"
-            "<p>Интерфейс: PySide6, металлическая шкура и зелёный "
-            "терминал связи.</p>",
+            "<p>Локальный ИИ-собеседник: собственная модель, "
+            "агент «Терминал» и оконный интерфейс.</p>",
             page,
         )
-        text.setWordWrap(True)
-        text.setAlignment(Qt.AlignTop)
+        project.setWordWrap(True)
+        project.setAlignment(Qt.AlignTop)
+
+        plate = QFrame(page)
+        plate.setObjectName("paramsPlate")
+
+        plate_layout = QVBoxLayout(plate)
+        plate_layout.setContentsMargins(0, 0, 0, 0)
+        plate_layout.setSpacing(0)
+
+        screen = QWidget(plate)
+        screen.setObjectName("paramsScreen")
+
+        grid = QGridLayout(screen)
+        grid.setContentsMargins(12, 9, 12, 10)
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(6)
+        grid.setColumnStretch(1, 1)
+
+        caption = QLabel("О НАС", screen)
+        caption.setObjectName("paramsPlateTitle")
+        grid.addWidget(caption, 0, 0, 1, 2)
+
+        rows = (
+            ("Разработчик", "Terodat — автор проекта."),
+            (
+                "ИИ-соавтор",
+                "DeepSeek V4.1 Flash — код и архитектура.",
+            ),
+            (
+                "Интерфейс",
+                "PySide6, металлическая шкура и зелёный терминал связи.",
+            ),
+        )
+
+        for index, (name, value) in enumerate(rows, start=1):
+            key_label = QLabel(f"{name}:", screen)
+            key_label.setObjectName("paramsKey")
+            key_label.setWordWrap(True)
+
+            value_label = QLabel(value, screen)
+            value_label.setObjectName("paramsValue")
+            value_label.setWordWrap(True)
+
+            grid.addWidget(key_label, index, 0)
+            grid.addWidget(value_label, index, 1)
+
+        plate_layout.addWidget(screen)
 
         layout.addWidget(title)
-        layout.addWidget(text)
+        layout.addWidget(project)
+        layout.addWidget(plate)
         layout.addStretch(1)
 
         return page

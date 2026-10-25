@@ -87,6 +87,11 @@ class ModelControlsMixin:
 
         add_action(f"Активирована модель: {model['name']}")
 
+        pet_off = getattr(self, "attached_pet", None) is not None
+
+        if pet_off:
+            self.detach_pet(announce=False)
+
         # Выбранная модель должна отвечать одна: сенат — отдельный
         # режим, и её участники иначе перехватывают ответы.
         conference_off = self._turn_off_conference()
@@ -105,6 +110,12 @@ class ModelControlsMixin:
         if conference_off:
             self.append_system(
                 "Сенат выключен: теперь в чате отвечает "
+                f"«{model['name']}»."
+            )
+
+        if pet_off:
+            self.append_system(
+                "Питомец откреплён: теперь в чате отвечает "
                 f"«{model['name']}»."
             )
 
@@ -167,7 +178,11 @@ class ModelControlsMixin:
     def update_input_placeholder(self) -> None:
         """Подсказка в поле ввода называет того, кто отвечает."""
 
-        if get_current_model_id() == DEFAULT_MODEL_ID:
+        if getattr(self, "attached_pet", None) is not None:
+            self.input.setPlaceholderText(
+                f"Напиши {self.bot_nickname}…"
+            )
+        elif get_current_model_id() == DEFAULT_MODEL_ID:
             self.input.setPlaceholderText("Напиши Гипериону…")
         else:
             self.input.setPlaceholderText(

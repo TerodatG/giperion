@@ -684,6 +684,60 @@ QWidget#modelCard {
     border-radius: 4px;
 }
 
+QWidget#petCard {
+    background-color: #07120c;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+}
+
+QLabel#petAvatar {
+    background-color: #0a1a10;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+    color: #7cf58f;
+    font-size: 24pt;
+}
+
+QLabel#petName {
+    color: #ffb37a;
+    font-family: "Bahnschrift SemiBold", "Segoe UI";
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+QLabel#petType {
+    color: #b98a5c;
+    font-size: 9pt;
+}
+
+QLabel#petDescription {
+    color: #cfe8d2;
+    font-size: 9pt;
+}
+
+QLabel#petHint {
+    color: #9fbfa5;
+    font-size: 8pt;
+    font-style: italic;
+}
+
+QLabel#petStatus {
+    color: #9fbfa5;
+    font-size: 9pt;
+}
+
+QLabel#petStatus[active="true"] {
+    color: #7cf58f;
+}
+
+QPushButton#petAttachButton {
+    color: #fff0e0;
+}
+
+QWidget#petsHolder {
+    background: transparent;
+}
+
 QTabBar#modelsTabs::tab {
     background-color: #1b1512;
     border: 1px solid #3d2f26;
@@ -722,11 +776,22 @@ QLabel#modelNickname {
     letter-spacing: 0.5px;
 }
 
-QLabel#dialogQuestion {
+QWidget#closePlate {
+    border-image: url(@PANEL@) 14 fill;
+    border-width: 14px;
+}
+
+QLabel#closeScreen {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
     color: #eaffea;
     font-family: "Bahnschrift SemiBold", "Segoe UI";
     font-size: 15pt;
     font-weight: bold;
+    padding: 12px;
 }
 
 QLabel#conferenceModeName {

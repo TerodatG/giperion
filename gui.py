@@ -16,6 +16,7 @@ from terminal.core.model_registry import (
     get_current_model_id,
 )
 from terminal.core.module_state import set_modules
+from terminal.core.pets import get_active_pet
 from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
     DEFAULT_MODULE_STATES,
@@ -31,6 +32,7 @@ from terminal.ui.file_attachment_mixin import FileAttachmentMixin
 from terminal.ui.input_mixin import InputMixin
 from terminal.ui.model_controls_mixin import ModelControlsMixin
 from terminal.ui.panels_mixin import PanelsMixin
+from terminal.ui.pets_mixin import PetsMixin
 from terminal.ui.settings_mixin import SettingsMixin
 from terminal.ui.theme import (
     BOT_NAME,
@@ -58,6 +60,7 @@ class GiperionWindow(
     FileAttachmentMixin,
     DashboardMixin,
     ModelControlsMixin,
+    PetsMixin,
     SettingsMixin,
     InputMixin,
     AnswerMixin,
@@ -100,6 +103,18 @@ class GiperionWindow(
             if active_model
             else BOT_NICKNAME
         )
+
+        # Питомец, закреплённый за терминалом, важнее активной модели:
+        # он отвечает локальным ядром от своего имени.
+        self.attached_pet = get_active_pet()
+
+        if self.attached_pet is not None:
+            self.bot_name = self.attached_pet["name"]
+            self.bot_nickname = (
+                self.attached_pet.get("nickname")
+                or self.attached_pet["name"]
+            )
+
         self.update_input_placeholder()
 
         # У кнопок — обычная стрелка, а не курсор растягивания окна.
@@ -212,6 +227,12 @@ class GiperionWindow(
         self._build_context_menus()
         self._reconcile_conference_state()
 
+        if (
+            self.attached_pet is not None
+            and self.modules.get("conference")
+        ):
+            self._turn_off_conference()
+
         if self.modules["voice"]:
             self._schedule_voice()
 
@@ -227,7 +248,19 @@ class GiperionWindow(
 
         self.update_core_panel()
 
-        if self.modules.get("conference"):
+        if self.attached_pet is not None:
+            pet = self.attached_pet
+            self.append_system(
+                f"За терминалом закреплён питомец «{pet['name']}». "
+                "Отвечает локальное ядро Гипериона."
+            )
+            self.append_bot(
+                pet["greeting"],
+                name=pet.get("nickname") or pet["name"],
+                role="bot",
+                with_copy=False,
+            )
+        elif self.modules.get("conference"):
             members = get_conference_members()
             names = ", ".join(
                 model["name"] for model in members

@@ -43,7 +43,7 @@ from terminal.core.conference_roster import (
     senator_title,
 )
 from terminal.ui.add_model_dialog import show_add_model_dialog
-from terminal.ui.dialogs_base import SkinDialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.model_list_widgets import (
     SENATOR_ICON_ROLE,
     ModelListDelegate,
@@ -978,4 +978,4 @@ def show_models_dialog(parent, on_activate=None) -> None:
     # Первый расчёт до показа окна использует ещё не применённые метрики
     # QSS, из-за чего подсветка первой строки наезжает на соседнюю.
     QTimer.singleShot(0, finish_initial_layout)
-    dialog.exec()
+    show_tool_window(parent, dialog, "models")

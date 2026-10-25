@@ -4,6 +4,7 @@
 
 import threading
 
+from terminal.core.chatbot import get_response
 from terminal.core.model_engine import get_model_response
 from terminal.core.model_registry import (
     DEFAULT_MODEL_ID,
@@ -23,6 +24,8 @@ class AnswerJob:
         self,
         user_message: str,
         context: str = "",
+        local_only: bool = False,
+        persona: dict | None = None,
     ) -> None:
         self.answer = ""
         self.save_to_history = False
@@ -30,6 +33,10 @@ class AnswerJob:
         self.model_error = False
         self.error_reason = ""
         self.done = False
+
+        # Питомец терминала всегда отвечает локальным ядром.
+        self.local_only = local_only
+        self.persona = persona
 
         # Группа стиля: у внешних моделей своя группа шрифта.
         self.role = "bot"
@@ -52,6 +59,22 @@ class AnswerJob:
         """Вызывает движок модели и запоминает результат."""
 
         try:
+            if self.local_only:
+                result = get_response(
+                    user_message,
+                    persona=self.persona,
+                )
+                self.answer, self.save_to_history = result
+                self.model_error = bool(
+                    getattr(result, "external_error", "")
+                )
+                self.error_reason = str(
+                    getattr(result, "external_error", "")
+                )
+                self.role = "bot"
+
+                return
+
             result = get_model_response(
                 user_message,
                 context,

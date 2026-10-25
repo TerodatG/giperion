@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from terminal.ui.add_model_dialog import show_add_model_dialog
-from terminal.ui.dialogs_base import SkinDialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
 
 def _card(
@@ -83,9 +83,8 @@ def show_workshop_dialog(parent, window) -> None:
     subtitle.setWordWrap(True)
 
     def launch(action) -> None:
-        """Закрывает мастерскую и открывает выбранный инструмент."""
+        """Открывает выбранный инструмент, не закрывая мастерскую."""
 
-        dialog.accept()
         QTimer.singleShot(0, action)
 
     grid = QGridLayout()
@@ -144,4 +143,4 @@ def show_workshop_dialog(parent, window) -> None:
     dialog.body_layout.addLayout(grid, 1)
     dialog.body_layout.addWidget(buttons)
 
-    dialog.exec()
+    show_tool_window(parent, dialog, "workshop")

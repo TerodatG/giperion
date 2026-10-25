@@ -102,6 +102,7 @@ class ChatContext:
     message: str
     user_message: str
     is_system_mode: bool
+    persona: dict | None = None
 
 
 StageResult = tuple[str, bool] | None
@@ -156,6 +157,12 @@ def identity_stage(context: ChatContext) -> StageResult:
     """Отвечает на вопросы «кто ты» до нейросети и внешних моделей."""
 
     if _identity_key(context.message) in IDENTITY_PATTERNS:
+        if context.persona:
+            description = context.persona.get("self_description")
+
+            if description:
+                return (str(description), True)
+
         return (
             IDENTITY_MATRIX["self_description"],
             True,

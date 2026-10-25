@@ -134,9 +134,18 @@ class WindowChromeMixin:
         )
 
         question = QLabel("Закрыть Терминал?", dialog)
-        question.setObjectName("dialogQuestion")
+        question.setObjectName("closeScreen")
         question.setAlignment(Qt.AlignCenter)
         question.setWordWrap(True)
+        question.setMinimumHeight(74)
+
+        plate = QWidget(dialog)
+        plate.setObjectName("closePlate")
+        plate.setAttribute(Qt.WA_StyledBackground, True)
+
+        plate_layout = QVBoxLayout(plate)
+        plate_layout.setContentsMargins(14, 14, 14, 14)
+        plate_layout.addWidget(question)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -147,7 +156,7 @@ class WindowChromeMixin:
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
 
-        dialog.body_layout.addWidget(question, 1)
+        dialog.body_layout.addWidget(plate, 1)
         dialog.body_layout.addWidget(buttons)
 
         if dialog.exec() != QDialog.Accepted:

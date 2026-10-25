@@ -23,7 +23,7 @@ from terminal.core.model_registry import (
     build_stars,
     get_reputation,
 )
-from terminal.ui.dialogs_base import SkinDialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.value_text import (
     format_tokens,
     model_modalities_text,
@@ -252,4 +252,8 @@ def show_model_params_dialog(parent, model: dict) -> None:
     dialog.body_layout.addWidget(scroll, 1)
     dialog.body_layout.addWidget(buttons)
 
-    dialog.exec()
+    show_tool_window(
+        parent,
+        dialog,
+        "params:" + str(model.get("id", "")),
+    )

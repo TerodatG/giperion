@@ -26,7 +26,7 @@ from terminal.core.conference_roster import (
     order_models_by_reputation,
     senator_title,
 )
-from terminal.ui.dialogs_base import SkinDialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
 
 def show_conference_dialog(parent) -> None:
@@ -277,4 +277,4 @@ def show_conference_dialog(parent) -> None:
     layout.addLayout(body, 1)
     layout.addLayout(buttons_row)
 
-    dialog.exec()
+    show_tool_window(parent, dialog, "conference")

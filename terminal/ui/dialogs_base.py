@@ -226,3 +226,46 @@ class ConfirmDialog(SkinDialog):
         self.body_layout.addWidget(heading)
         self.body_layout.addWidget(message, 1)
         self.body_layout.addWidget(buttons)
+
+
+def show_tool_window(
+    parent,
+    dialog: QDialog,
+    key: str = "",
+) -> None:
+    """Показывает инструмент без модальности и держит его, пока он открыт.
+
+    Окна терминала не должны блокировать друг друга: можно открыть
+    «Модель», «Личность» и «Настройки» одновременно. Ссылка хранится
+    у родителя, иначе Python соберёт окно сразу после показа.
+    """
+
+    dialog.setModal(False)
+    dialog.setWindowModality(Qt.NonModal)
+    dialog.setAttribute(Qt.WA_DeleteOnClose, True)
+
+    owner = parent if parent is not None else dialog
+    windows = getattr(owner, "_tool_windows", None)
+
+    if not isinstance(windows, dict):
+        windows = {}
+        setattr(owner, "_tool_windows", windows)
+
+    if key:
+        existing = windows.get(key)
+
+        if existing is not None and existing.isVisible():
+            existing.raise_()
+            existing.activateWindow()
+            dialog.deleteLater()
+
+            return
+
+        windows[key] = dialog
+        dialog.destroyed.connect(
+            lambda *_: windows.pop(key, None)
+        )
+
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()

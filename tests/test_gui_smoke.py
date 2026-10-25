@@ -428,6 +428,7 @@ def test_extracted_dialogs_construct(
     from terminal.ui.conference_dialog import show_conference_dialog
     from terminal.ui.models_dialog import show_models_dialog
     from terminal.ui.personalities_dialog import show_personalities_dialog
+    from terminal.ui.pets_dialog import show_pets_dialog
     from terminal.ui.skills_dialog import show_skills_dialog
 
     monkeypatch.setattr(
@@ -439,8 +440,14 @@ def test_extracted_dialogs_construct(
     show_models_dialog(window.window)
     show_personalities_dialog(window.window)
     show_skills_dialog(window.window)
+    show_pets_dialog(window.window)
     show_conference_dialog(window.window)
     window.open_settings_dialog()
+
+    pets_window = window.window._tool_windows.get("pets")
+
+    if pets_window is not None:
+        pets_window.close()
 
 
 def test_core_tabs_are_present(window) -> None:
@@ -498,27 +505,44 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
         window.personalities_button.toolTip()
         == "Личностные матрицы"
     )
+    assert window.pet_button.toolTip() == "Питомец"
 
 
-def test_workshop_dialog_lists_tools(window, monkeypatch) -> None:
+def test_tool_windows_do_not_block_each_other(window) -> None:
+    """Окна терминала немодальные: можно открыть несколько сразу."""
+
+    from PySide6.QtWidgets import QFrame
+
+    window.open_models_dialog()
+    window.open_settings_dialog()
+
+    windows = window.window._tool_windows
+
+    assert {"models", "settings"} <= set(windows)
+
+    for key in ("models", "settings"):
+        dialog = windows[key]
+
+        assert dialog.isVisible()
+        assert dialog.isModal() is False
+
+    settings = windows["settings"]
+    settings.stack.setCurrentIndex(2)
+
+    assert settings.findChildren(QFrame, "paramsPlate")
+
+    for dialog in list(windows.values()):
+        dialog.close()
+
+
+def test_workshop_dialog_lists_tools(window) -> None:
     """«Мастерская» открывается и предлагает четыре инструмента."""
 
     from PySide6.QtWidgets import QPushButton
 
-    from terminal.ui import workshop_dialog
-
-    captured = []
-
-    monkeypatch.setattr(
-        workshop_dialog.SkinDialog,
-        "exec",
-        lambda self: captured.append(self) or 0,
-    )
-
     window.open_workshop_dialog()
 
-    assert captured
-    dialog = captured[0]
+    dialog = window.window._tool_windows["workshop"]
 
     assert dialog.windowTitle() == "Мастерская"
 
@@ -536,6 +560,8 @@ def test_workshop_dialog_lists_tools(window, monkeypatch) -> None:
     ]
     assert window.settings_button.toolTip() == "Настройки"
 
+    dialog.close()
+
 
 def test_system_buttons_live_in_system_panel(window) -> None:
     """Системные кнопки стоят в плите «Система» под открытыми чатами."""
@@ -548,11 +574,64 @@ def test_system_buttons_live_in_system_panel(window) -> None:
     for button in (
         window.skills_button,
         window.models_button,
+        window.workshop_button,
         window.conference_button,
         window.personalities_button,
         window.settings_button,
+        window.pet_button,
     ):
         assert button.parent() is window.system_panel
+
+
+def test_pet_attachment_changes_responder(
+    window,
+    monkeypatch,
+) -> None:
+    """Закреплённый питомец становится отвечающим в чате."""
+
+    from terminal.ui import pets_mixin
+
+    pet = {
+        "id": "robot-puppy",
+        "name": "Робо-щенок",
+        "nickname": "Робо-щенок",
+        "greeting": "Гав!",
+        "self_description": "Я Робо-щенок.",
+    }
+
+    monkeypatch.setattr(
+        pets_mixin,
+        "get_active_pet",
+        lambda: pet,
+    )
+    monkeypatch.setattr(
+        pets_mixin,
+        "set_active_pet_id",
+        lambda *args, **kwargs: True,
+    )
+
+    window._pets_changed()
+
+    assert window.attached_pet == pet
+    assert window.bot_name == "Робо-щенок"
+    assert window.bot_nickname == "Робо-щенок"
+    assert window.input.placeholderText() == "Напиши Робо-щенок…"
+
+    monkeypatch.setattr(
+        pets_mixin,
+        "get_active_pet",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        pets_mixin,
+        "get_active_model",
+        lambda: None,
+    )
+
+    window._pets_changed()
+
+    assert window.attached_pet is None
+    assert window.bot_name == "Гиперион"
 
 
 def test_chats_plate_bottom_matches_chat(window) -> None:
@@ -577,6 +656,39 @@ def test_chats_plate_bottom_matches_chat(window) -> None:
     ).y()
 
     assert plate_bottom == chat_bottom
+
+
+def test_close_dialog_uses_green_screen(window, monkeypatch) -> None:
+    """Надпись закрытия стоит на зелёном экране внутри плиты."""
+
+    from PySide6.QtWidgets import QLabel, QWidget
+
+    from terminal.ui import dialogs_base
+
+    captured = {}
+
+    def fake_exec(self):
+        captured["screen"] = self.findChild(
+            QLabel,
+            "closeScreen",
+        )
+        captured["plate"] = self.findChild(
+            QWidget,
+            "closePlate",
+        )
+
+        return 0
+
+    monkeypatch.setattr(
+        dialogs_base.SkinDialog,
+        "exec",
+        fake_exec,
+    )
+
+    window._confirm_window_close()
+
+    assert captured["screen"].text() == "Закрыть Терминал?"
+    assert captured["plate"] is not None
 
 
 def test_model_error_goes_to_system_field(window) -> None:

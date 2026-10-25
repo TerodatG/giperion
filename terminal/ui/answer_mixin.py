@@ -39,6 +39,9 @@ class AnswerMixin:
     def _conference_participants(self) -> list[dict]:
         """Возвращает участников параллельного совета, если он включён."""
 
+        if getattr(self, "attached_pet", None):
+            return []
+
         if not is_module_enabled("conference"):
             return []
 
@@ -141,7 +144,13 @@ class AnswerMixin:
         if not self.answering:
             return
 
-        job = AnswerJob(user_message, context)
+        pet = getattr(self, "attached_pet", None)
+        job = AnswerJob(
+            user_message,
+            context,
+            local_only=pet is not None,
+            persona=pet,
+        )
 
         self._poll_answer(
             job,

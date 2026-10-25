@@ -525,6 +525,11 @@ class PanelsMixin:
             "Настройки",
             container,
         )
+        self.pet_button = SideIconButton(
+            "pet",
+            "Питомец",
+            container,
+        )
 
         buttons = (
             self.skills_button,
@@ -533,6 +538,7 @@ class PanelsMixin:
             self.conference_button,
             self.personalities_button,
             self.settings_button,
+            self.pet_button,
         )
 
         for index, button in enumerate(buttons):
@@ -555,6 +561,9 @@ class PanelsMixin:
         )
         self.settings_button.clicked.connect(
             self.open_settings_dialog
+        )
+        self.pet_button.clicked.connect(
+            self.open_pets_dialog
         )
 
         layout.addWidget(caption)
@@ -833,14 +842,18 @@ class PanelsMixin:
         if not hasattr(self, "chats_panel"):
             return
 
-        panel_top = self.chats_panel.mapTo(
-            self.window,
-            QPoint(0, 0),
-        ).y()
-        chat_bottom = self.chat.mapTo(
-            self.window,
-            QPoint(0, self.chat.height()),
-        ).y()
+        try:
+            panel_top = self.chats_panel.mapTo(
+                self.window,
+                QPoint(0, 0),
+            ).y()
+            chat_bottom = self.chat.mapTo(
+                self.window,
+                QPoint(0, self.chat.height()),
+            ).y()
+        except RuntimeError:
+            # Окно уже закрывается: пересчитывать нечего.
+            return
 
         height = chat_bottom - panel_top
 

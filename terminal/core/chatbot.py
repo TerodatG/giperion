@@ -29,6 +29,7 @@ NO_ANSWERS = {
 def get_clarification_response(
     message: str,
     is_system_mode: bool,
+    persona: dict | None = None,
 ) -> tuple[str, bool] | None:
     """Обрабатывает ответ пользователя на предложенное уточнение."""
 
@@ -41,7 +42,10 @@ def get_clarification_response(
         clarified_phrase = pending
         clear_pending_clarification()
 
-        return get_response(clarified_phrase)
+        return get_response(
+            clarified_phrase,
+            persona=persona,
+        )
 
     if message in NO_ANSWERS:
         clear_pending_clarification()
@@ -59,6 +63,7 @@ def get_clarification_response(
 def get_response(
     user_message: str,
     is_system_mode: bool = False,
+    persona: dict | None = None,
 ) -> tuple[str, bool]:
     """Возвращает ответ и признак сохранения диалога в историю.
 
@@ -80,6 +85,7 @@ def get_response(
     clarification_response = get_clarification_response(
         message,
         is_system_mode,
+        persona,
     )
 
     if clarification_response:
@@ -89,6 +95,7 @@ def get_response(
         message=message,
         user_message=user_message,
         is_system_mode=is_system_mode,
+        persona=persona,
     )
 
     for _, stage in STAGES:
