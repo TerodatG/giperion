@@ -58,6 +58,9 @@ data/agent_index.json
 # --- Настройки MCP-серверов ---
 data/agent_mcp.json
 
+# --- Настройки наблюдателя за файлами ---
+data/agent_watch.json
+
 # --- Параллельные рабочие деревья агента ---
 .agent_worktrees/
 

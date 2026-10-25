@@ -63,6 +63,7 @@ from terminal.core.agent.worktrees import (
 )
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.watch_dialog import show_watch_dialog
 from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
 from terminal.ui.provider_dialog import show_provider_dialog
 
@@ -317,6 +318,15 @@ class AgentDialog(SkinDialog):
         )
         self.undo_button.clicked.connect(self._undo_changes)
 
+        self.watch_button = QPushButton("Наблюдатель…", self)
+        self.watch_button.setObjectName("workshopAction")
+        self.watch_button.setToolTip(
+            "Следить за файлами проекта и запускать проверку по изменениям."
+        )
+        self.watch_button.clicked.connect(
+            lambda: show_watch_dialog(self._parent)
+        )
+
         self.status_label = QLabel("Готов к задаче.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -327,6 +337,7 @@ class AgentDialog(SkinDialog):
         controls.addWidget(self.stop_button)
         controls.addWidget(self.new_task_button)
         controls.addWidget(self.tasks_button)
+        controls.addWidget(self.watch_button)
         controls.addWidget(self.undo_button)
         controls.addWidget(self.status_label, 1)
 
