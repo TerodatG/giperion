@@ -166,7 +166,7 @@ TASKS = (
         "Белый список команд",
         "Где задан белый список команд агента? Назови файл.",
         answer_has("commands.py"),
-        max_steps=5,
+        max_steps=7,
     ),
     EvalTask(
         "write-note",
@@ -258,13 +258,39 @@ TASKS = (
         "Файл из двух строк",
         "Создай файл eval_lines.txt с двумя строками: «альфа» и «бета».",
         lambda root, _answer: (
-            _text(root / "eval_lines.txt").strip().splitlines()
-            == ["альфа", "бета"],
-            "две строки на месте",
+            (
+                _text(root / "eval_lines.txt").strip().splitlines()
+                == ["альфа", "бета"]
+            ),
+            "две строки на месте"
+            if _text(root / "eval_lines.txt").strip().splitlines()
+            == ["альфа", "бета"]
+            else "строки не совпали",
         ),
         max_steps=5,
     ),
 )
+
+
+FATAL_MARKERS = (
+    "usage limit",
+    "limit reached",
+    "quota",
+    "insufficient",
+    "неверный ключ",
+    "unauthorized",
+    "forbidden",
+    "401",
+    "403",
+)
+
+
+def is_fatal(error: str) -> bool:
+    """Ошибка провайдера, после которой нет смысла гонять остальные задачи."""
+
+    text = str(error or "").casefold()
+
+    return any(marker in text for marker in FATAL_MARKERS)
 
 
 def build_brain(model: str, provider: str):
@@ -507,6 +533,13 @@ def main() -> None:
             f"{result['duration_s']} с · {result['note']}"
         )
 
+        if is_fatal(result.get("error", "")):
+            print(
+                "    Стоп: провайдер исчерпал лимит или отклонил ключ — "
+                "остальные задачи не запускаю."
+            )
+            break
+
     summary = summarize(results)
     path = save_report(model_name, results, summary)
 
@@ -529,6 +562,12 @@ def main() -> None:
             else ""
         )
         print(f"Расход: {summary['tokens']} токенов{money}")
+
+    if len(results) < len(tasks):
+        print(
+            f"Прогон остановлен на {len(results)} из {len(tasks)} задач: "
+            "провайдер исчерпал лимит."
+        )
 
     if previous:
         delta = summary["passed"] - int(

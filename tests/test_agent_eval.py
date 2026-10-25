@@ -67,6 +67,20 @@ def test_tests_passed_accepts_russian_answer() -> None:
     assert note == "нет результата"
 
 
+def test_fatal_provider_errors() -> None:
+    """Исчерпание квоты и отказ ключа останавливают прогон."""
+
+    assert eval_agent.is_fatal(
+        "Модель сообщила об ошибке: Free usage limit reached."
+    )
+    assert eval_agent.is_fatal("Провайдер отклонил ключ (401)")
+    assert eval_agent.is_fatal("insufficient funds")
+
+    assert not eval_agent.is_fatal("")
+    assert not eval_agent.is_fatal("достигнут лимит шагов")
+    assert not eval_agent.is_fatal("тесты упали: 3 failed")
+
+
 def test_summarize() -> None:
     results = [
         {"ok": True, "steps": 4, "duration_s": 2.0, "context_chars": 100},

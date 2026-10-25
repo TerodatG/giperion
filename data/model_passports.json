@@ -1119,6 +1119,36 @@
       "notes": [
         "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
       ]
+    },
+    "custom-1": {
+      "updated": "2026-10-25",
+      "source": "каталог моделей",
+      "architecture": {
+        "kind": "Qwen · custom-1",
+        "context_tokens": 32000,
+        "output_tokens": null,
+        "input": [],
+        "output": []
+      },
+      "access": {
+        "provider": "Qwen",
+        "api": "",
+        "price": "",
+        "status": "канал не настроен"
+      },
+      "features": {
+        "reasoning": false,
+        "tools": false,
+        "structured": false,
+        "vision": false,
+        "pdf": false,
+        "video": false,
+        "audio": false,
+        "temperature": false
+      },
+      "notes": [
+        "Паспорт заполнен из каталога моделей: качество на нашем наборе не измерялось."
+      ]
     }
   }
 }
