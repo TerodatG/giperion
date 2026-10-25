@@ -1,8 +1,10 @@
-# Giperion/app/ui/avatar_mixin.py                                   v001
+# Giperion/app/ui/avatar_mixin.py                                   v002
 # Живой образ Гипериона: загрузка портрета, анимация и свечение.
-# Последнее изменение: методы вынесены из GiperionWindow как отдельный слой.
+# Последнее изменение: живая анимация аватара внешней модели.
 
 import math
+import random
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -34,6 +36,23 @@ FALLBACK_AVATAR_EYES = ((0.34, 0.47), (0.66, 0.47))
 
 # Координаты глаз считаются один раз за запуск приложения.
 AVATAR_EYES_CACHE = None
+
+# Сколько огоньков падает на фоне образа модели.
+AVATAR_SPARK_COUNT = 40
+
+# Зерно рисунка огоньков: картинка одна и та же между запусками.
+AVATAR_SPARK_SEED = 20261025
+
+
+@dataclass
+class AvatarSpark:
+    """Один огонёк, медленно падающий на фоне образа."""
+
+    x: float
+    y: float
+    speed: float
+    size: float
+    phase: float
 
 
 class AvatarMixin:
@@ -68,6 +87,19 @@ class AvatarMixin:
         self.avatar_lid_colors = []
         self.avatar_animated = False
 
+        # Режим глаз: у Гипериона веки, у моделей — медленный пульс.
+        self.avatar_eye_mode = "lid"
+        self.avatar_eye_radius = 0.085
+        self.avatar_eye_period = 4.6
+
+        # Свечение слоя линий: постоянное и бегущая волна.
+        self.avatar_lines_glow = 0.20
+        self.avatar_lines_band = 0.85
+
+        # Огоньки на фоне: живут только у моделей со своей анимацией.
+        self.avatar_sparks: list[AvatarSpark] = []
+        self.avatar_spark_sprite = QPixmap()
+
         # При изменении размера панели образ пересчитывается.
         avatar.resizeEvent = self._on_avatar_resize
 
@@ -92,6 +124,14 @@ class AvatarMixin:
         self.avatar_eyes = []
         self.avatar_lid_colors = []
         self.avatar_animated = False
+
+        self.avatar_eye_mode = "lid"
+        self.avatar_eye_radius = 0.085
+        self.avatar_eye_period = 4.6
+        self.avatar_lines_glow = 0.20
+        self.avatar_lines_band = 0.85
+        self.avatar_sparks = []
+        self.avatar_spark_sprite = QPixmap()
 
         avatar.setPixmap(QPixmap())
         avatar.setText("")
@@ -151,7 +191,7 @@ class AvatarMixin:
 
             return
 
-        # Внешняя модель: свой портрет, если он есть.
+        # Внешняя модель: свой портрет и, если задано, своя анимация.
         avatar_path = model.get("avatar", "")
 
         if avatar_path:
@@ -162,11 +202,58 @@ class AvatarMixin:
 
                 if not pixmap.isNull():
                     self.avatar_pixmap = pixmap
+
+                    animation = model.get("avatar_animation") or {}
+
+                    self._apply_avatar_animation(animation)
                     self.update_avatar_pixmap()
+
+                    if self.avatar_animated:
+                        self.avatar_timer.start()
 
                     return
 
         # Портрета нет — остаётся пустая рамка.
+
+    def _apply_avatar_animation(self, animation: dict) -> None:
+        """Настраивает живой образ внешней модели по каталогу."""
+
+        self.avatar_eye_mode = "pulse"
+
+        self.avatar_eyes = [
+            (float(point[0]), float(point[1]))
+            for point in animation.get("eyes") or []
+        ]
+
+        self.avatar_eye_radius = float(
+            animation.get("eye_radius") or 0.085
+        )
+        self.avatar_eye_period = float(
+            animation.get("eye_period") or 4.6
+        )
+        self.avatar_lines_glow = float(
+            animation.get("lines_glow") or 0.20
+        )
+        self.avatar_lines_band = float(
+            animation.get("lines_band") or 0.85
+        )
+
+        lines_path = animation.get("lines") or ""
+
+        if lines_path:
+            layer = QPixmap(str(BASE_DIR / lines_path))
+
+            if not layer.isNull():
+                self.avatar_lines = layer
+
+        if animation.get("particles"):
+            self._build_avatar_sparks()
+
+        self.avatar_animated = bool(
+            self.avatar_eyes
+            or not self.avatar_lines.isNull()
+            or self.avatar_sparks
+        )
 
     def _on_avatar_resize(self, event) -> None:
         """Пересчитывает образ под новый размер панели."""
@@ -237,6 +324,11 @@ class AvatarMixin:
             self._draw_avatar_lines(painter, target, size, time)
 
         self._draw_avatar_eyes(painter, target, time)
+        self._draw_avatar_sparks(
+            painter,
+            target,
+            AVATAR_FRAME_MS / 1000.0,
+        )
         self._draw_avatar_vignette(painter, size)
 
         painter.end()
@@ -312,7 +404,7 @@ class AvatarMixin:
 
         # Постоянное слабое свечение поверх портрета.
         painter.setCompositionMode(QPainter.CompositionMode_Plus)
-        painter.setOpacity(0.20)
+        painter.setOpacity(self.avatar_lines_glow)
         painter.drawPixmap(
             target,
             self.avatar_lines,
@@ -360,7 +452,7 @@ class AvatarMixin:
         )
         layer_painter.end()
 
-        painter.setOpacity(0.85)
+        painter.setOpacity(self.avatar_lines_band)
         painter.drawPixmap(0, 0, layer)
 
         painter.restore()
@@ -372,6 +464,11 @@ class AvatarMixin:
         time: float,
     ) -> None:
         """Пульс свечения глаз и редкое мигание."""
+
+        if self.avatar_eye_mode == "pulse":
+            self._draw_avatar_pulse(painter, target, time)
+
+            return
 
         blink = self._avatar_blink(time)
 
@@ -413,6 +510,70 @@ class AvatarMixin:
                 self._draw_avatar_eyelid(
                     painter, center, target, index, blink
                 )
+
+    def _draw_avatar_pulse(
+        self,
+        painter: QPainter,
+        target: QRectF,
+        time: float,
+    ) -> None:
+        """Медленно разжигает и гасит глаз киборга."""
+
+        if not self.avatar_eyes:
+            return
+
+        period = max(1.0, self.avatar_eye_period)
+        radius = max(4.0, target.width() * self.avatar_eye_radius)
+
+        wave = 0.5 + 0.5 * math.sin(
+            time * 2 * math.pi / period - math.pi / 2
+        )
+
+        # Разгорается резче, чем гаснет: у глаза живой, неровный ритм.
+        intensity = 0.22 + 0.78 * wave ** 1.7
+        glow_radius = radius * (0.86 + 0.22 * intensity)
+
+        painter.save()
+        painter.setCompositionMode(QPainter.CompositionMode_Plus)
+        painter.setPen(Qt.NoPen)
+
+        for eye_u, eye_v in self.avatar_eyes:
+            center = QPointF(
+                target.x() + eye_u * target.width(),
+                target.y() + eye_v * target.height(),
+            )
+
+            halo = QRadialGradient(center, glow_radius)
+            halo.setColorAt(
+                0.0,
+                QColor(240, 255, 255, int(135 * intensity)),
+            )
+            halo.setColorAt(
+                0.18,
+                QColor(150, 238, 255, int(105 * intensity)),
+            )
+            halo.setColorAt(
+                0.50,
+                QColor(45, 160, 245, int(48 * intensity)),
+            )
+            halo.setColorAt(1.0, QColor(8, 50, 120, 0))
+
+            painter.setBrush(QBrush(halo))
+            painter.drawEllipse(center, glow_radius, glow_radius)
+
+            core = max(1.2, radius * 0.13)
+
+            painter.setBrush(
+                QColor(255, 255, 255, int(235 * intensity))
+            )
+            painter.drawEllipse(center, core, core)
+
+            painter.setBrush(
+                QColor(190, 245, 255, int(110 * intensity))
+            )
+            painter.drawEllipse(center, core * 0.5, core * 0.5)
+
+        painter.restore()
 
     def _draw_avatar_eyelid(
         self,
@@ -487,6 +648,102 @@ class AvatarMixin:
         progress = (phase - (period - duration)) / duration
 
         return math.sin(progress * math.pi)
+
+    def _build_avatar_sparks(self) -> None:
+        """Готовит огоньки, которые медленно падают на фоне."""
+
+        rng = random.Random(AVATAR_SPARK_SEED)
+
+        self.avatar_sparks = [
+            AvatarSpark(
+                x=rng.random(),
+                y=rng.random(),
+                speed=rng.uniform(0.012, 0.034),
+                size=rng.uniform(2.6, 7.0),
+                phase=rng.uniform(0.0, math.tau),
+            )
+            for _ in range(AVATAR_SPARK_COUNT)
+        ]
+
+        self.avatar_spark_sprite = self._avatar_spark_sprite()
+
+    @staticmethod
+    def _avatar_spark_sprite() -> QPixmap:
+        """Рисует мягкий огонёк один раз, чтобы не строить градиент в кадре."""
+
+        size = 32
+        sprite = QPixmap(size, size)
+        sprite.fill(Qt.transparent)
+
+        painter = QPainter(sprite)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        gradient = QRadialGradient(size / 2, size / 2, size / 2)
+        gradient.setColorAt(0.0, QColor(238, 255, 255, 235))
+        gradient.setColorAt(0.30, QColor(135, 228, 255, 145))
+        gradient.setColorAt(1.0, QColor(30, 120, 220, 0))
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(gradient))
+        painter.drawEllipse(0, 0, size, size)
+        painter.end()
+
+        return sprite
+
+    def _advance_sparks(self, dt: float) -> None:
+        """Сдвигает огоньки вниз; ушедшие возвращаются наверх."""
+
+        for spark in self.avatar_sparks:
+            spark.y += spark.speed * dt
+
+            if spark.y > 1.0:
+                spark.y -= 1.0
+
+    def _draw_avatar_sparks(
+        self,
+        painter: QPainter,
+        target: QRectF,
+        dt: float,
+    ) -> None:
+        """Рисует падающие огоньки — только у моделей со своей анимацией."""
+
+        if not self.avatar_sparks or self.avatar_spark_sprite.isNull():
+            return
+
+        self._advance_sparks(dt)
+
+        scale = max(0.6, target.width() / 300.0)
+
+        painter.save()
+        painter.setCompositionMode(QPainter.CompositionMode_Plus)
+
+        for spark in self.avatar_sparks:
+            # Ближе к лицу — тише: огоньки остаются фоном.
+            dx = spark.x - 0.5
+            dy = spark.y - 0.42
+            distance = math.hypot(dx, dy)
+            edge = min(1.0, distance / 0.42)
+
+            flicker = 0.7 + 0.3 * math.sin(
+                self.avatar_time * 1.6 + spark.phase
+            )
+            alpha = 0.75 * (0.2 + 0.8 * edge) * flicker
+
+            if alpha <= 0.03:
+                continue
+
+            size = spark.size * scale
+            x = target.x() + spark.x * target.width() - size / 2
+            y = target.y() + spark.y * target.height() - size / 2
+
+            painter.setOpacity(alpha)
+            painter.drawPixmap(
+                QRectF(x, y, size, size),
+                self.avatar_spark_sprite,
+                QRectF(0, 0, 32, 32),
+            )
+
+        painter.restore()
 
     def _find_avatar_eyes(self) -> list[tuple[float, float]]:
         """Находит центры светящихся глаз на портрете."""

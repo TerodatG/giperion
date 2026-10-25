@@ -1,6 +1,6 @@
 # Giperion/tools/prepare_model_avatar.py                            v001
 # Готовит слой светящихся линий для анимации аватара модели.
-# Последнее изменение: первый вариант — линии и поиск глаза.
+# Последнее изменение: первый вариант — выделение линий в отдельный слой.
 
 import argparse
 import os
@@ -66,46 +66,6 @@ def extract_lines(image: QImage) -> QImage:
     ).copy()
 
 
-def find_eye(image: QImage) -> tuple[float, float] | None:
-    """Ищет самый яркий холодный блик — глаз киборга.
-
-    Возвращает нормированные координаты (0…1). Фон с боке тоже светится,
-    поэтому берём верхнюю половину кадра и считаем центр ярчайшего пятна.
-    """
-
-    pixels = _pixels(image)
-
-    height, width = pixels.shape[:2]
-
-    red = pixels[:, :, 0].astype(np.int32)
-    green = pixels[:, :, 1].astype(np.int32)
-    blue = pixels[:, :, 2].astype(np.int32)
-
-    score = green + blue - red
-
-    # Верхняя половина: там голова, а не броня и не нижние огни.
-    top = int(height * 0.10)
-    bottom = int(height * 0.55)
-
-    region = score[top:bottom, :]
-
-    if region.size == 0:
-        return None
-
-    threshold = float(np.percentile(region, 99.98))
-    rows, columns = np.where(region >= threshold)
-
-    if len(columns) == 0:
-        return None
-
-    weights = region[rows, columns].astype(np.float64)
-
-    x = float(np.average(columns, weights=weights)) / width
-    y = float(np.average(rows + top, weights=weights)) / height
-
-    return (round(x, 4), round(y, 4))
-
-
 def prepare(
     image_path,
     lines_path,
@@ -138,7 +98,6 @@ def prepare(
     return {
         "source": (source.width(), source.height()),
         "lines": (lines.width(), lines.height()),
-        "eye": find_eye(source),
     }
 
 
@@ -166,10 +125,10 @@ def main(argv: list[str] | None = None) -> int:
     result = prepare(image_path, lines_path, arguments.size)
 
     print(f"Исходник: {result['source'][0]}x{result['source'][1]}")
-    print(f"Слой линий: {result['lines'][0]}x{result['lines'][1]} -> {lines_path}")
-
-    if result["eye"]:
-        print(f"Глаз: {result['eye'][0]}, {result['eye'][1]}")
+    print(
+        f"Слой линий: {result['lines'][0]}x{result['lines'][1]}"
+        f" -> {lines_path}"
+    )
 
     return 0
 

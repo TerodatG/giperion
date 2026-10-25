@@ -1,8 +1,8 @@
 {
   "_meta": {
     "path": "Giperion/data/models.json",
-    "version": "v011",
-    "description": "Каталог моделей для окна «Модель»: группа (закладка), сильные стороны (0–5, что модель реально умеет делать), функции capabilities (модальности, инструменты, рассуждения, лимиты), бюджет токенов, сайт, способ подключения и цена. Внешние модели — OpenCode Zen: все бесплатны, контекст, функции и идентификаторы взяты из /api/model. Гиперион работает локально. v006: добавлены платные модели подписки OpenCode Go (группа «Другие», id с префиксом go-, лимиты — $/мес из docs/opencode_go_limits.md). v006: добавлены платные модели подписки OpenCode Go (группа «Другие», id с префиксом go-, лимиты — $/мес из docs/opencode_go_limits.md). v007: удалены модели, недоступные в России: Beam и Beam (Go), Muse Spark 1.2/1.3, GPT-5.6 Luna (Go), GPT-6 Luna (Go). v008: удалены нерабочие модели: MiMo-V2.5, MiMo-V2.5-Pro, Grok 4.7 и Gemini 4 Argon Contributor (все Go). v009: у каждой модели появился короткий ник для чата. v010: у моделей DeepSeek появился аватар (карточка и главный экран). v011: у моделей DeepSeek исходное изображение аватара (assets/deepseek_face.png).",
+    "version": "v013",
+    "description": "Каталог моделей для окна «Модель»: группа (закладка), сильные стороны (0–5, что модель реально умеет делать), функции capabilities (модальности, инструменты, рассуждения, лимиты), бюджет токенов, сайт, способ подключения и цена. Внешние модели — OpenCode Zen: все бесплатны, контекст, функции и идентификаторы взяты из /api/model. Гиперион работает локально. v006: добавлены платные модели подписки OpenCode Go (группа «Другие», id с префиксом go-, лимиты — $/мес из docs/opencode_go_limits.md). v006: добавлены платные модели подписки OpenCode Go (группа «Другие», id с префиксом go-, лимиты — $/мес из docs/opencode_go_limits.md). v007: удалены модели, недоступные в России: Beam и Beam (Go), Muse Spark 1.2/1.3, GPT-5.6 Luna (Go), GPT-6 Luna (Go). v008: удалены нерабочие модели: MiMo-V2.5, MiMo-V2.5-Pro, Grok 4.7 и Gemini 4 Argon Contributor (все Go). v009: у каждой модели появился короткий ник для чата. v010: у моделей DeepSeek появился аватар (карточка и главный экран). v011: у моделей DeepSeek исходное изображение аватара (assets/deepseek_face.png). v012: у DeepSeek появилась живая анимация аватара (avatar_animation: пульс глаза, линии, огоньки). v013: у анимации аватара появились яркость линий и сила волны.",
     "created": "2026-10-22"
   },
   "models": [
@@ -58,6 +58,20 @@
       "available": true,
       "group": "popular",
       "avatar": "assets/deepseek_face.png",
+      "avatar_animation": {
+        "eyes": [
+          [
+            0.5441,
+            0.2759
+          ]
+        ],
+        "eye_radius": 0.1,
+        "eye_period": 4.6,
+        "lines": "assets/deepseek_face_lines.png",
+        "particles": true,
+        "lines_glow": 0.08,
+        "lines_band": 1.0
+      },
       "url": "https://www.deepseek.com",
       "api": "opencode",
       "price": "бесплатно",
@@ -464,6 +478,20 @@
       "available": true,
       "group": "other",
       "avatar": "assets/deepseek_face.png",
+      "avatar_animation": {
+        "eyes": [
+          [
+            0.5441,
+            0.2759
+          ]
+        ],
+        "eye_radius": 0.1,
+        "eye_period": 4.6,
+        "lines": "assets/deepseek_face_lines.png",
+        "particles": true,
+        "lines_glow": 0.08,
+        "lines_band": 1.0
+      },
       "url": "https://www.deepseek.com",
       "api": "opencode-go",
       "price": "$80/мес · Go",
@@ -1102,6 +1130,20 @@
       "available": true,
       "group": "other",
       "avatar": "assets/deepseek_face.png",
+      "avatar_animation": {
+        "eyes": [
+          [
+            0.5441,
+            0.2759
+          ]
+        ],
+        "eye_radius": 0.1,
+        "eye_period": 4.6,
+        "lines": "assets/deepseek_face_lines.png",
+        "particles": true,
+        "lines_glow": 0.08,
+        "lines_band": 1.0
+      },
       "url": "https://www.deepseek.com",
       "api": "opencode-go",
       "price": "$15/мес · Go",

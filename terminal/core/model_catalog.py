@@ -1,6 +1,6 @@
-# Giperion/app/core/model_catalog.py                              v006
+# Giperion/app/core/model_catalog.py                              v007
 # Каталог моделей: чтение, проверка полей и поиск по идентификатору.
-# Последнее изменение: короткий ник модели для чата.
+# Последнее изменение: настройки живой анимации аватара модели.
 
 from terminal.core import model_files
 from terminal.core.model_availability import is_model_unavailable
@@ -135,6 +135,8 @@ def _clean_animation(value: object) -> dict:
         "eye_radius": number("eye_radius", 0.085, 0.02, 0.35),
         "eye_period": number("eye_period", 4.6, 1.0, 30.0),
         "lines": lines if isinstance(lines, str) else "",
+        "lines_glow": number("lines_glow", 0.20, 0.02, 0.60),
+        "lines_band": number("lines_band", 0.85, 0.20, 1.0),
         "particles": bool(value.get("particles", False)),
     }
 
