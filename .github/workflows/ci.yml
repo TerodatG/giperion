@@ -43,4 +43,4 @@ jobs:
         run: python -m pytest -q
 
       - name: Structure report
-        run: python -m tools.check_structure
+        run: python -m tools.check_structure --strict
