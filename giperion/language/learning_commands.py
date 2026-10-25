@@ -74,207 +74,209 @@ def _stage(
         pending(action, **params)
 
 
-def get_learning_response(
-    user_message: str,
-    pending: PendingAction | None = None,
-) -> str | None:
-    """Обрабатывает команды обучения и управления категориями."""
+def _show_categories(message: str) -> str | None:
+    """Показывает список категорий."""
 
-    message = normalize_message(user_message)
-    original_message = user_message.strip()
-
-    if message in SHOW_CATEGORIES_COMMANDS:
-        try:
-            categories = get_available_categories()
-        except (OSError, ValueError):
-            return (
-                "Не удалось прочитать категории "
-                "из intents.json."
-            )
-
-        if not categories:
-            return "В intents.json пока нет категорий."
-
-        return get_categories_response(categories)
-
-    show_match = SHOW_CATEGORY_PATTERN.fullmatch(
-        original_message
-    )
-
-    if show_match:
-        try:
-            return get_category_details(
-                show_match.group(1)
-            )
-        except (OSError, ValueError):
-            return (
-                "Не удалось прочитать категорию. "
-                "Проверь файл intents.json."
-            )
-
-    create_match = CREATE_CATEGORY_PATTERN.fullmatch(
-        original_message
-    )
-
-    if create_match:
-        category = create_match.group(1).strip()
-        phrase = " ".join(create_match.group(2).split())
-        response = " ".join(create_match.group(3).split())
-
-        try:
-            error = validate_new_category(
-                category,
-                phrase,
-                response,
-            )
-        except (OSError, ValueError):
-            return (
-                "Не удалось проверить данные. "
-                "Проверь файл intents.json."
-            )
-
-        if error:
-            return error
-
-        _stage(
-            pending,
-            "create_category",
-            category=category,
-            phrase=phrase,
-            response=response,
-        )
-
-        return (
-            f"Будет создана категория «{category}» "
-            f"с фразой «{phrase}» и ответом «{response}». "
-            "Для выполнения напиши: подтверждаю. "
-            "Для отмены напиши: отмена."
-        )
-
-    change_match = CHANGE_ANSWER_PATTERN.fullmatch(
-        original_message
-    )
-
-    if change_match:
-        category = change_match.group(1)
-        response = " ".join(change_match.group(2).split())
-
-        try:
-            error = validate_answer_change(
-                category,
-                response,
-            )
-        except (OSError, ValueError):
-            return (
-                "Не удалось проверить категорию. "
-                "Проверь файл intents.json."
-            )
-
-        if error:
-            return error
-
-        _stage(
-            pending,
-            "change_category_answer",
-            category=category,
-            response=response,
-        )
-
-        return (
-            f"Первый ответ категории «{category}» "
-            f"будет заменён на «{response}». "
-            "Для выполнения напиши: подтверждаю. "
-            "Для отмены напиши: отмена."
-        )
-
-    remove_phrase_match = REMOVE_PHRASE_PATTERN.fullmatch(
-        original_message
-    )
-
-    if remove_phrase_match:
-        category = remove_phrase_match.group(1)
-        phrase = " ".join(
-            remove_phrase_match.group(2).split()
-        )
-
-        try:
-            error = validate_phrase_removal(
-                category,
-                phrase,
-            )
-        except (OSError, ValueError):
-            return (
-                "Не удалось проверить фразу. "
-                "Проверь файл intents.json."
-            )
-
-        if error:
-            return error
-
-        _stage(
-            pending,
-            "remove_category_phrase",
-            category=category,
-            phrase=phrase,
-        )
-
-        return (
-            f"Фраза «{phrase}» будет удалена "
-            f"из категории «{category}». "
-            "Для выполнения напиши: подтверждаю. "
-            "Для отмены напиши: отмена."
-        )
-
-    remove_category_match = (
-        REMOVE_CATEGORY_PATTERN.fullmatch(
-            original_message
-        )
-    )
-
-    if remove_category_match:
-        category = remove_category_match.group(1)
-
-        try:
-            error = validate_category_removal(
-                category
-            )
-        except (OSError, ValueError):
-            return (
-                "Не удалось проверить категорию. "
-                "Проверь файл intents.json."
-            )
-
-        if error:
-            return error
-
-        _stage(
-            pending,
-            "remove_category",
-            category=category,
-        )
-
-        return (
-            f"Категория «{category}» и все её фразы "
-            "и ответы будут удалены. "
-            "Для выполнения напиши: подтверждаю. "
-            "Для отмены напиши: отмена."
-        )
-
-    teach_match = TEACH_PHRASE_PATTERN.fullmatch(
-        original_message
-    )
-
-    if not teach_match:
+    if message not in SHOW_CATEGORIES_COMMANDS:
         return None
 
-    phrase = teach_match.group(1)
-    category = teach_match.group(2)
+    try:
+        categories = get_available_categories()
+    except (OSError, ValueError):
+        return "Не удалось прочитать категории из intents.json."
+
+    if not categories:
+        return "В intents.json пока нет категорий."
+
+    return get_categories_response(categories)
+
+
+def _show_category(message: str) -> str | None:
+    """Показывает фразы одной категории."""
+
+    match = SHOW_CATEGORY_PATTERN.fullmatch(message)
+
+    if not match:
+        return None
 
     try:
-        result = add_phrase_to_category(
-            phrase,
-            category,
+        return get_category_details(match.group(1))
+    except (OSError, ValueError):
+        return (
+            "Не удалось прочитать категорию. "
+            "Проверь файл intents.json."
         )
+
+
+def _create_category(
+    message: str,
+    pending: PendingAction | None,
+) -> str | None:
+    """Готовит создание категории."""
+
+    match = CREATE_CATEGORY_PATTERN.fullmatch(message)
+
+    if not match:
+        return None
+
+    category = match.group(1).strip()
+    phrase = " ".join(match.group(2).split())
+    response = " ".join(match.group(3).split())
+
+    try:
+        error = validate_new_category(category, phrase, response)
+    except (OSError, ValueError):
+        return (
+            "Не удалось проверить данные. "
+            "Проверь файл intents.json."
+        )
+
+    if error:
+        return error
+
+    _stage(
+        pending,
+        "create_category",
+        category=category,
+        phrase=phrase,
+        response=response,
+    )
+
+    return (
+        f"Будет создана категория «{category}» "
+        f"с фразой «{phrase}» и ответом «{response}». "
+        "Для выполнения напиши: подтверждаю. "
+        "Для отмены напиши: отмена."
+    )
+
+
+def _change_answer(
+    message: str,
+    pending: PendingAction | None,
+) -> str | None:
+    """Готовит замену первого ответа категории."""
+
+    match = CHANGE_ANSWER_PATTERN.fullmatch(message)
+
+    if not match:
+        return None
+
+    category = match.group(1)
+    response = " ".join(match.group(2).split())
+
+    try:
+        error = validate_answer_change(category, response)
+    except (OSError, ValueError):
+        return (
+            "Не удалось проверить категорию. "
+            "Проверь файл intents.json."
+        )
+
+    if error:
+        return error
+
+    _stage(
+        pending,
+        "change_category_answer",
+        category=category,
+        response=response,
+    )
+
+    return (
+        f"Первый ответ категории «{category}» "
+        f"будет заменён на «{response}». "
+        "Для выполнения напиши: подтверждаю. "
+        "Для отмены напиши: отмена."
+    )
+
+
+def _remove_phrase(
+    message: str,
+    pending: PendingAction | None,
+) -> str | None:
+    """Готовит удаление фразы из категории."""
+
+    match = REMOVE_PHRASE_PATTERN.fullmatch(message)
+
+    if not match:
+        return None
+
+    category = match.group(1)
+    phrase = " ".join(match.group(2).split())
+
+    try:
+        error = validate_phrase_removal(category, phrase)
+    except (OSError, ValueError):
+        return (
+            "Не удалось проверить фразу. "
+            "Проверь файл intents.json."
+        )
+
+    if error:
+        return error
+
+    _stage(
+        pending,
+        "remove_category_phrase",
+        category=category,
+        phrase=phrase,
+    )
+
+    return (
+        f"Фраза «{phrase}» будет удалена "
+        f"из категории «{category}». "
+        "Для выполнения напиши: подтверждаю. "
+        "Для отмены напиши: отмена."
+    )
+
+
+def _remove_category(
+    message: str,
+    pending: PendingAction | None,
+) -> str | None:
+    """Готовит удаление категории целиком."""
+
+    match = REMOVE_CATEGORY_PATTERN.fullmatch(message)
+
+    if not match:
+        return None
+
+    category = match.group(1)
+
+    try:
+        error = validate_category_removal(category)
+    except (OSError, ValueError):
+        return (
+            "Не удалось проверить категорию. "
+            "Проверь файл intents.json."
+        )
+
+    if error:
+        return error
+
+    _stage(pending, "remove_category", category=category)
+
+    return (
+        f"Категория «{category}» и все её фразы "
+        "и ответы будут удалены. "
+        "Для выполнения напиши: подтверждаю. "
+        "Для отмены напиши: отмена."
+    )
+
+
+def _teach_phrase(message: str) -> str | None:
+    """Добавляет готовую фразу в категорию."""
+
+    match = TEACH_PHRASE_PATTERN.fullmatch(message)
+
+    if not match:
+        return None
+
+    phrase = match.group(1)
+    category = match.group(2)
+
+    try:
+        result = add_phrase_to_category(phrase, category)
     except (OSError, ValueError):
         return (
             "Не удалось сохранить фразу. "
@@ -288,3 +290,31 @@ def get_learning_response(
         )
 
     return result
+
+
+def get_learning_response(
+    user_message: str,
+    pending: PendingAction | None = None,
+) -> str | None:
+    """Обрабатывает команды обучения и управления категориями."""
+
+    message = normalize_message(user_message)
+    original_message = user_message.strip()
+
+    handlers = (
+        lambda: _show_categories(message),
+        lambda: _show_category(original_message),
+        lambda: _create_category(original_message, pending),
+        lambda: _change_answer(original_message, pending),
+        lambda: _remove_phrase(original_message, pending),
+        lambda: _remove_category(original_message, pending),
+        lambda: _teach_phrase(original_message),
+    )
+
+    for handler in handlers:
+        result = handler()
+
+        if result is not None:
+            return result
+
+    return None
