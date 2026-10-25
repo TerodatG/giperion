@@ -81,6 +81,125 @@ def test_fatal_provider_errors() -> None:
     assert not eval_agent.is_fatal("тесты упали: 3 failed")
 
 
+def test_summarize_stability() -> None:
+    """Повторы дают стабильные, плавающие и падающие задачи."""
+
+    def item(task_id, attempt, ok):
+        return {
+            "id": task_id,
+            "ok": ok,
+            "steps": 3,
+            "duration_s": 2.0,
+            "context_chars": 100,
+            "attempt": attempt,
+        }
+
+    summary = eval_agent.summarize(
+        [
+            item("stable", 1, True),
+            item("stable", 2, True),
+            item("flaky", 1, False),
+            item("flaky", 2, True),
+            item("broken", 1, False),
+            item("broken", 2, False),
+        ]
+    )
+
+    assert summary["runs"] == 2
+    assert summary["stable_tasks"] == 1
+    assert summary["flaky_tasks"] == 1
+    assert summary["per_task"]["stable"]["passed"] == 2
+    assert summary["per_task"]["flaky"]["passed"] == 1
+    assert summary["per_task"]["broken"]["passed"] == 0
+
+
+def test_regression_note_respects_threshold() -> None:
+    """Регрессия замечается только при падении сильнее порога."""
+
+    previous = {
+        "success_rate": 1.0,
+        "total": 16,
+        "task_ids": ["a", "b"],
+    }
+    summary = {
+        "success_rate": 0.8,
+        "total": 16,
+        "task_ids": ["a", "b"],
+    }
+
+    assert "РЕГРЕССИЯ" in eval_agent.regression_note(
+        previous, summary, 10
+    )
+    assert eval_agent.regression_note(previous, summary, 25) == ""
+    assert eval_agent.regression_note({}, summary, 10) == ""
+    assert eval_agent.regression_note(
+        previous,
+        {"success_rate": 1.0, "total": 16, "task_ids": ["a", "b"]},
+        10,
+    ) == ""
+
+
+def test_regression_skips_other_task_set() -> None:
+    """Разные наборы задач не сравниваются."""
+
+    previous = {
+        "success_rate": 1.0,
+        "total": 16,
+        "task_ids": ["a", "b"],
+    }
+    summary = {
+        "success_rate": 0.5,
+        "total": 4,
+        "task_ids": ["a"],
+    }
+
+    assert eval_agent.regression_note(previous, summary, 10) == ""
+
+
+def test_history_roundtrip(tmp_path, monkeypatch) -> None:
+    """История прогонов пишется и читается."""
+
+    monkeypatch.setattr(
+        eval_agent,
+        "HISTORY",
+        tmp_path / "history.jsonl",
+    )
+
+    summary = eval_agent.summarize(
+        [
+            {
+                "id": "a",
+                "ok": True,
+                "steps": 2,
+                "duration_s": 1.0,
+                "context_chars": 50,
+                "attempt": 1,
+            }
+        ]
+    )
+
+    eval_agent.append_history("test-model", summary)
+
+    records = eval_agent.read_history(5)
+
+    assert len(records) == 1
+    assert records[0]["model"] == "test-model"
+    assert records[0]["passed"] == 1
+    assert records[0]["runs"] == 1
+
+
+def test_history_empty(tmp_path, monkeypatch) -> None:
+    """Пустая история не падает."""
+
+    monkeypatch.setattr(
+        eval_agent,
+        "HISTORY",
+        tmp_path / "missing.jsonl",
+    )
+
+    assert eval_agent.read_history(5) == []
+
+
 def test_summarize() -> None:
     results = [
         {"ok": True, "steps": 4, "duration_s": 2.0, "context_chars": 100},

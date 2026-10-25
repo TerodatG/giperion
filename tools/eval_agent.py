@@ -245,7 +245,7 @@ TASKS = (
         "docs-plugins",
         "Плагины в документации",
         "Прочитай docs/agent_tools.md и скажи, из каких двух файлов "
-        "состоит плагин.",
+        "состоит плагин. Назови расширения файлов.",
         lambda root, answer: (
             ".json" in str(answer).casefold()
             and ".py" in str(answer).casefold(),
@@ -254,7 +254,7 @@ TASKS = (
             and ".py" in str(answer).casefold()
             else "расширения не названы",
         ),
-        max_steps=4,
+        max_steps=6,
     ),
     EvalTask(
         "create-two-lines",
@@ -384,7 +384,7 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
 
 
 def summarize(results: list[dict]) -> dict:
-    """Считает сводные метрики прогона."""
+    """Считает сводные метрики прогона и стабильность по задачам."""
 
     total = len(results)
 
@@ -398,9 +398,53 @@ def summarize(results: list[dict]) -> dict:
             "max_context": 0,
             "tokens": 0,
             "cost": 0.0,
+            "runs": 0,
+            "stable_tasks": 0,
+            "flaky_tasks": 0,
+            "task_ids": [],
+            "per_task": {},
         }
 
     passed = sum(1 for item in results if item["ok"])
+    groups: dict[str, list[dict]] = {}
+
+    for number, item in enumerate(results):
+        key = str(item.get("id") or f"#{number}")
+        groups.setdefault(key, []).append(item)
+
+    per_task = {}
+    stable_tasks = 0
+    flaky_tasks = 0
+
+    for key, items in groups.items():
+        ok_count = sum(1 for item in items if item["ok"])
+        count = len(items)
+
+        per_task[key] = {
+            "attempts": count,
+            "passed": ok_count,
+            "avg_steps": round(
+                sum(item["steps"] for item in items) / count,
+                1,
+            ),
+            "avg_duration_s": round(
+                sum(item["duration_s"] for item in items) / count,
+                1,
+            ),
+            "tokens": sum(int(item.get("tokens") or 0) for item in items),
+            "cost": round(
+                sum(float(item.get("cost") or 0.0) for item in items),
+                6,
+            ),
+        }
+
+        if count > 1:
+            if ok_count == count:
+                stable_tasks += 1
+            elif ok_count:
+                flaky_tasks += 1
+
+    runs = max(int(item.get("attempt") or 1) for item in results)
 
     return {
         "total": total,
@@ -420,6 +464,11 @@ def summarize(results: list[dict]) -> dict:
             sum(float(item.get("cost") or 0.0) for item in results),
             6,
         ),
+        "runs": runs,
+        "stable_tasks": stable_tasks,
+        "flaky_tasks": flaky_tasks,
+        "task_ids": sorted(groups),
+        "per_task": per_task,
     }
 
 
@@ -434,6 +483,93 @@ def load_previous() -> dict:
     summary = document.get("summary")
 
     return summary if isinstance(summary, dict) else {}
+
+
+HISTORY = OUTPUT_DIR / "history.jsonl"
+
+
+def append_history(model_name: str, summary: dict) -> None:
+    """Добавляет строку в историю прогонов."""
+
+    record = {
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "model": model_name,
+        "passed": int(summary.get("passed") or 0),
+        "total": int(summary.get("total") or 0),
+        "success_rate": float(summary.get("success_rate") or 0.0),
+        "avg_steps": float(summary.get("avg_steps") or 0.0),
+        "avg_duration_s": float(summary.get("avg_duration_s") or 0.0),
+        "runs": int(summary.get("runs") or 1),
+        "stable_tasks": int(summary.get("stable_tasks") or 0),
+        "flaky_tasks": int(summary.get("flaky_tasks") or 0),
+    }
+
+    try:
+        HISTORY.parent.mkdir(parents=True, exist_ok=True)
+
+        with HISTORY.open("a", encoding="utf-8") as file:
+            file.write(
+                json.dumps(record, ensure_ascii=False) + "\n"
+            )
+    except OSError:
+        pass
+
+
+def read_history(limit: int = 10) -> list[dict]:
+    """Последние записи истории прогонов."""
+
+    try:
+        lines = HISTORY.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+
+    records = []
+
+    for line in lines[-max(1, limit):]:
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        if isinstance(value, dict):
+            records.append(value)
+
+    return records
+
+
+def regression_note(
+    previous: dict,
+    summary: dict,
+    threshold: float = 10.0,
+) -> str:
+    """Предупреждение, если успех упал сильнее порога."""
+
+    if not previous or not summary.get("total"):
+        return ""
+
+    old_ids = previous.get("task_ids")
+    new_ids = summary.get("task_ids")
+
+    if (
+        isinstance(old_ids, list)
+        and isinstance(new_ids, list)
+        and old_ids
+        and new_ids
+        and sorted(old_ids) != sorted(new_ids)
+    ):
+        return ""
+
+    old_rate = float(previous.get("success_rate") or 0.0)
+    new_rate = float(summary.get("success_rate") or 0.0)
+    delta = (new_rate - old_rate) * 100
+
+    if delta < -abs(threshold):
+        return (
+            f"РЕГРЕССИЯ: успех ниже прошлого на {abs(delta):.0f} п.п. "
+            f"(порог {abs(threshold):.0f})."
+        )
+
+    return ""
 
 
 def save_report(
@@ -475,7 +611,56 @@ def main() -> None:
     parser.add_argument("--only", default="")
     parser.add_argument("--full", action="store_true")
     parser.add_argument("--max-steps", type=int, default=0)
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        help="сколько раз прогнать набор задач (стабильность)",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=10.0,
+        help="порог регрессии в процентных пунктах",
+    )
+    parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="вернуть код 2, если успех упал ниже порога",
+    )
+    parser.add_argument(
+        "--history",
+        action="store_true",
+        help="показать историю прогонов и выйти",
+    )
     args = parser.parse_args()
+
+    if args.history:
+        records = read_history(10)
+
+        if not records:
+            print("История пуста: прогонов ещё не было.")
+
+            return
+
+        print("=== История прогонов ===")
+
+        for record in records:
+            print(
+                f"{record.get('created_at', '—')} · "
+                f"{record.get('model', '—')} · "
+                f"{record.get('passed', 0)}/{record.get('total', 0)} "
+                f"({float(record.get('success_rate') or 0) * 100:.0f} %) · "
+                f"{record.get('avg_steps', 0)} шагов · "
+                f"{record.get('avg_duration_s', 0)} с"
+                + (
+                    f" · стабильно {record['stable_tasks']}"
+                    if record.get("runs", 1) > 1
+                    else ""
+                )
+            )
+
+        return
 
     tasks = [
         task for task in TASKS
@@ -486,66 +671,108 @@ def main() -> None:
     if not tasks:
         raise SystemExit("Нет задач под такие фильтры.")
 
+    attempts = max(1, int(args.repeat))
     brain, model_name = build_brain(args.model, args.provider)
     previous = load_previous()
 
     print("=== Оценка агента ===")
     print("Модель:", model_name)
+
+    if attempts > 1:
+        print(f"Повторов: {attempts}")
+
     print()
 
-    results = []
+    results: list[dict] = []
+    stopped = False
 
-    for index, task in enumerate(tasks, start=1):
-        print(f"[{index}/{len(tasks)}] {task.title}…")
+    for attempt in range(1, attempts + 1):
+        if attempts > 1:
+            print(f"--- прогон {attempt}/{attempts} ---")
 
-        if args.max_steps:
-            task = EvalTask(
-                task.id,
-                task.title,
-                task.task,
-                task.check,
-                task.setup,
-                args.max_steps,
-                task.slow,
-                task.notes,
-            )
+        for index, task in enumerate(tasks, start=1):
+            print(f"[{index}/{len(tasks)}] {task.title}…")
 
-        try:
-            result = run_task(task, brain, BASE_DIR)
-        except WorktreeError as error:
-            result = {
-                "id": task.id,
-                "title": task.title,
-                "ok": False,
-                "note": f"worktree: {error}",
-                "steps": 0,
-                "approvals": 0,
-                "duration_s": 0.0,
-                "context_chars": 0,
-                "tokens": 0,
-                "cost": 0.0,
-                "answer": "",
-                "error": str(error),
-            }
+            current = task
 
-        results.append(result)
+            if args.max_steps:
+                current = EvalTask(
+                    task.id,
+                    task.title,
+                    task.task,
+                    task.check,
+                    task.setup,
+                    args.max_steps,
+                    task.slow,
+                    task.notes,
+                )
 
-        mark = "OK" if result["ok"] else "FAIL"
+            try:
+                result = run_task(current, brain, BASE_DIR)
+            except WorktreeError as error:
+                result = {
+                    "id": task.id,
+                    "title": task.title,
+                    "ok": False,
+                    "note": f"worktree: {error}",
+                    "steps": 0,
+                    "approvals": 0,
+                    "duration_s": 0.0,
+                    "context_chars": 0,
+                    "tokens": 0,
+                    "cost": 0.0,
+                    "answer": "",
+                    "error": str(error),
+                }
 
-        print(
-            f"    {mark} · шагов {result['steps']} · "
-            f"{result['duration_s']} с · {result['note']}"
-        )
+            result["attempt"] = attempt
+            results.append(result)
 
-        if is_fatal(result.get("error", "")):
+            mark = "OK" if result["ok"] else "FAIL"
+
             print(
-                "    Стоп: провайдер исчерпал лимит или отклонил ключ — "
-                "остальные задачи не запускаю."
+                f"    {mark} · шагов {result['steps']} · "
+                f"{result['duration_s']} с · {result['note']}"
             )
+
+            if is_fatal(result.get("error", "")):
+                print(
+                    "    Стоп: провайдер исчерпал лимит или отклонил "
+                    "ключ — остальные задачи не запускаю."
+                )
+                stopped = True
+
+                break
+
+        if stopped:
             break
 
     summary = summarize(results)
     path = save_report(model_name, results, summary)
+    append_history(model_name, summary)
+
+    if attempts > 1:
+        print()
+        print("=== Стабильность ===")
+
+        for task in tasks:
+            stats = summary["per_task"].get(task.id)
+
+            if not stats:
+                continue
+
+            passed = stats["passed"]
+            total = stats["attempts"]
+            mark = (
+                "стабильно"
+                if passed == total
+                else ("плавает" if passed else "падает")
+            )
+
+            print(
+                f"  {task.id:24} {passed}/{total} · {mark} · "
+                f"{stats['avg_duration_s']} с"
+            )
 
     print()
     print("=== Итог ===")
@@ -559,6 +786,12 @@ def main() -> None:
         f"контекст до {summary['max_context']} символов"
     )
 
+    if attempts > 1:
+        print(
+            f"Задачи: стабильных {summary['stable_tasks']}, "
+            f"плавающих {summary['flaky_tasks']}"
+        )
+
     if summary.get("tokens"):
         money = (
             f", ${summary['cost']:.4f}"
@@ -567,25 +800,54 @@ def main() -> None:
         )
         print(f"Расход: {summary['tokens']} токенов{money}")
 
-    if len(results) < len(tasks):
+    expected = len(tasks) * attempts
+
+    if len(results) < expected:
         print(
-            f"Прогон остановлен на {len(results)} из {len(tasks)} задач: "
+            f"Прогон остановлен на {len(results)} из {expected} попыток: "
             "провайдер исчерпал лимит."
         )
 
     if previous:
-        delta = summary["passed"] - int(
-            previous.get("passed", 0)
-        )
-        sign = "+" if delta >= 0 else ""
-        print(
-            "Прошлый прогон: "
-            f"{previous.get('passed', 0)}/"
-            f"{previous.get('total', 0)} "
-            f"({sign}{delta})"
+        old_ids = previous.get("task_ids")
+        new_ids = summary.get("task_ids")
+        same_set = (
+            not isinstance(old_ids, list)
+            or not isinstance(new_ids, list)
+            or not old_ids
+            or not new_ids
+            or sorted(old_ids) == sorted(new_ids)
         )
 
+        if not same_set:
+            print(
+                "Прошлый прогон: другой набор задач — сравнение пропущено."
+            )
+        else:
+            old_total = int(previous.get("total") or 0)
+            old_passed = int(previous.get("passed") or 0)
+            old_rate = float(previous.get("success_rate") or 0.0)
+            delta_points = (
+                summary["success_rate"] - old_rate
+            ) * 100
+            sign = "+" if delta_points >= 0 else ""
+
+            print(
+                "Прошлый прогон: "
+                f"{old_passed}/{old_total} "
+                f"({old_rate * 100:.0f} %) · "
+                f"{sign}{delta_points:.0f} п.п."
+            )
+
+    note = regression_note(previous, summary, args.threshold)
+
+    if note:
+        print(note)
+
     print("Отчёт:", path)
+
+    if note and args.fail_on_regression:
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
