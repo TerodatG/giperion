@@ -4964,6 +4964,18 @@ un_tests и write_file).
   - `AgentControls.__init__` — 162 → **11 строк**;
   - сборка разбита на `_build_task`, `_build_model_row`,
     `_build_limits_row`, `_build_buttons_row`.
+- **Длинные функции разобраны**:
+  - `get_learning_response` — 214 → **26 строк**, обработчики команд;
+  - `get_confirmation_response` — 198 → **37 строк**;
+  - `show_conference_dialog` — 249 → **92**;
+  - `show_personalities_dialog` — 347 → **120**;
+  - `GiperionWindow.__init__` — 213 → **7**, сборка по шагам;
+  - `build_about_page` — 191 → **54**;
+  - `ProviderDialog._build` — 203 → **48**;
+  - `paintEvent` в `SparkChart` — 156 → **29**;
+  - `ModuleButton._draw_icon` — 164 → **25**;
+  - `passport_sections` — 160 → **42**;
+  - `train_charcnn.train` — 192 → **41**.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
@@ -5000,7 +5012,7 @@ un_tests и write_file).
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
 - `python -m tools.check_structure` — файлов >600 строк: **0**,
-  функций >150: 12, функций C>20: 16 (было 16/16/20).
+  функций >150: **0**, функций C>20: 15 (было 16/16/21).
 
 **Ограничения**
 
