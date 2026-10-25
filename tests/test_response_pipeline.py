@@ -4,12 +4,12 @@
 
 import pytest
 
-from terminal.core import chatbot, chat_pipeline
-from terminal.core.chat_pipeline import STAGES
+from giperion import api
 from giperion.identity_matrix import IDENTITY_MATRIX
 from giperion.language.intent_handler import find_intent_response
+from terminal.core import chat_pipeline, chatbot
+from terminal.core.chat_pipeline import STAGES
 from terminal.memory import memory, system_handler
-from giperion import api
 
 
 @pytest.fixture()

@@ -26,17 +26,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from terminal.core.help_handler import get_system_command_lines
 from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
     DEFAULT_RESPONSE_SETTINGS,
     DEFAULT_STYLES,
 )
-from terminal.core.help_handler import get_system_command_lines
-from terminal.ui.dialogs_base import SkinDialog
 from terminal.ui.dialog_text import (
     build_help_html,
     format_release_date,
 )
+from terminal.ui.dialogs_base import SkinDialog
 from terminal.ui.theme import (
     MAX_CHAT_FONT_SIZE,
     MIN_CHAT_FONT_SIZE,

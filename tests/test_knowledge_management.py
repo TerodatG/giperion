@@ -6,12 +6,12 @@ import json
 
 import pytest
 
-from shared import action_log
-from terminal.core.chatbot import get_response
 from giperion.language import (
     intent_handler,
     learning_service,
 )
+from shared import action_log
+from terminal.core.chatbot import get_response
 from terminal.memory import system_handler
 
 

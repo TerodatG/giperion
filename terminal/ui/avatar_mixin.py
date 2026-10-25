@@ -7,7 +7,6 @@ import random
 from dataclasses import dataclass
 
 import numpy as np
-
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QBrush,
@@ -22,8 +21,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSizePolicy
 
-from terminal.core.model_registry import DEFAULT_MODEL_ID, get_active_model
 from config import BASE_DIR
+from terminal.core.model_registry import DEFAULT_MODEL_ID, get_active_model
 
 AVATAR_FILE = BASE_DIR / "assets" / "hyperion_face.png"
 AVATAR_LINES_FILE = BASE_DIR / "assets" / "hyperion_face_lines.png"

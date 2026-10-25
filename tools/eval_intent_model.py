@@ -7,15 +7,15 @@ from collections import Counter
 
 import torch
 
-from giperion.language.intent_handler import load_intents
-from shared.text_tools import normalize_message
 from config import DATA_DIR, LOGS_DIR, MODELS_DIR
+from giperion.language.intent_handler import load_intents
 from giperion.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
 )
 from giperion.training.model_charcnn import HybridTextClassifier
 from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+from shared.text_tools import normalize_message
 
 EVAL_FILE = DATA_DIR / "eval_set.json"
 CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"

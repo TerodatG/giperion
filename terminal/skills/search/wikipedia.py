@@ -6,12 +6,12 @@ import json
 import urllib.parse
 import urllib.request
 
-from terminal.skills.search.html_tools import clean_html
 from terminal.skills.search.constants import (
     LIVE_QUERY_WORDS,
     SEARCH_TIMEOUT,
     WIKIPEDIA_API,
 )
+from terminal.skills.search.html_tools import clean_html
 
 
 def search_wikipedia(

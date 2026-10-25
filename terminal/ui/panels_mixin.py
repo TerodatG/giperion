@@ -20,6 +20,11 @@ from PySide6.QtWidgets import (
 )
 
 from shared.action_log import add_action
+from terminal.core.agent_stats import (
+    format_cost,
+    format_duration,
+    read_agent_stats,
+)
 from terminal.core.conference_catalog import (
     get_conference_members,
     get_mode,
@@ -28,11 +33,6 @@ from terminal.core.conference_catalog import (
 from terminal.core.conference_roster import (
     MAX_CONFERENCE_MODELS,
     select_conference_models,
-)
-from terminal.core.agent_stats import (
-    format_cost,
-    format_duration,
-    read_agent_stats,
 )
 from terminal.core.model_registry import (
     get_current_model_id,
@@ -43,9 +43,9 @@ from terminal.core.model_registry import (
 from terminal.core.module_state import set_module
 from terminal.core.system_info import format_bytes, get_system_info
 from terminal.core.window_settings import save_window_settings
-from terminal.ui.value_text import format_tokens
-from terminal.ui.tab_strip import TabStrip
 from terminal.ui.chat_list_widgets import ChatItemDelegate, ChatListWidget
+from terminal.ui.tab_strip import TabStrip
+from terminal.ui.value_text import format_tokens
 from terminal.ui.widgets import (
     FuturisticGrip,
     LedMeter,

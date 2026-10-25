@@ -1,0 +1,44 @@
+# Giperion/pyproject.toml                                          v001
+# Настройки инструментов: pytest и ruff. Сам проект запускается из папки.
+
+[project]
+name = "giperion"
+version = "1.0.0"
+description = "Локальный ИИ-собеседник с собственной моделью и агентом"
+requires-python = ">=3.13"
+dependencies = [
+    "torch>=2.9,<3",
+    "PySide6>=6.8,<7",
+    "numpy>=2.0,<3",
+    "colorama>=0.4.6,<1",
+    "psutil>=5.9,<8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+python_files = ["test_*.py"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 79
+extend-exclude = [
+    ".git",
+    ".agent_worktrees",
+    "archive",
+    "data",
+    "logs",
+    "models",
+    "updates",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Скрипты tools/ правят sys.path перед импортами проекта.
+"tools/*.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["giperion", "terminal", "shared", "tools", "config", "gui"]

@@ -8,9 +8,8 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np
-
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication, QImage
+from PySide6.QtGui import QImage
 
 from config import BASE_DIR
 

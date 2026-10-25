@@ -2,17 +2,17 @@
 # Исполнение и отмена системных действий, ожидающих подтверждения.
 # Последнее изменение: выделено из system_handler.
 
-from shared.action_log import add_action
-from terminal.core.pending_state import (
-    clear_pending_action,
-    get_pending_action,
-)
 from giperion.language.knowledge_service import (
     change_category_answer,
     remove_category,
     remove_phrase,
 )
 from giperion.language.learning_service import create_category
+from shared.action_log import add_action
+from terminal.core.pending_state import (
+    clear_pending_action,
+    get_pending_action,
+)
 from terminal.core.phrases import (
     CANCEL_COMMANDS,
     CONFIRM_COMMANDS,

@@ -13,7 +13,7 @@ from config import MODELS_DIR
 from giperion.training.build_dataset import PAIRS_FILE
 from giperion.training.model_classifier import parameter_count
 from giperion.training.model_seq2seq import Seq2Seq
-from giperion.training.tokenizer import WordTokenizer, TOKENIZER_FILE
+from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CHECKPOINT_FILE = MODELS_DIR / "seq2seq.pt"
 
@@ -202,7 +202,7 @@ def generation_score(
 
     exact = 0
 
-    for sample, ids in zip(samples, generated):
+    for sample, ids in zip(samples, generated, strict=False):
         text = ids_to_text(tokenizer, ids.tolist())
 
         reference = tokenizer.decode(
@@ -258,7 +258,7 @@ def print_examples(
             max_len=MAX_TGT_LEN,
         )
 
-    for sample, ids in zip(selected, generated):
+    for sample, ids in zip(selected, generated, strict=False):
         answer = ids_to_text(tokenizer, ids.tolist())
 
         print(f"Вопрос:  {sample['input']}")
@@ -290,12 +290,6 @@ def train() -> None:
         _SampleList(train_samples),
         batch_size=BATCH_SIZE,
         shuffle=True,
-        pin_memory=True,
-    )
-
-    val_loader = DataLoader(
-        _SampleList(val_samples),
-        batch_size=BATCH_SIZE,
         pin_memory=True,
     )
 

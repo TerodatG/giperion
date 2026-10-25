@@ -5,8 +5,8 @@
 import json
 from pathlib import Path
 
-from shared.text_tools import normalize_message
 from config import MODELS_DIR
+from shared.text_tools import normalize_message
 
 CHAR_TOKENIZER_FILE = MODELS_DIR / "char_tokenizer.json"
 

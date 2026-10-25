@@ -2,9 +2,9 @@
 # Каталог моделей: чтение, проверка полей и поиск по идентификатору.
 # Последнее изменение: настройки живой анимации аватара модели.
 
+from shared.storage.json_store import read_json_object
 from terminal.core import model_files
 from terminal.core.model_availability import is_model_unavailable
-from shared.storage.json_store import read_json_object
 
 # Модель по умолчанию — собственное ядро проекта.
 DEFAULT_MODEL_ID = "giperion"

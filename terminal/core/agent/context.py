@@ -3,15 +3,14 @@
 # Последнее изменение: первый вариант — строгий JSON без function calling.
 
 import json
-from dataclasses import dataclass
 
 from terminal.core.agent.protocol import (
     AgentDecision,
     ToolCall,
     ToolResult,
 )
-from terminal.core.agent.registry import tools_prompt
 from terminal.core.agent.redact import redact
+from terminal.core.agent.registry import tools_prompt
 
 MAX_OBSERVATION = 4000
 MAX_HISTORY = 24000

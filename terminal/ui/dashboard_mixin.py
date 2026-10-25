@@ -77,7 +77,7 @@ class DashboardMixin:
 
         for (label_name, _), (title, _) in zip(
             CORE_FIELDS,
-            metrics,
+            metrics, strict=False,
         ):
             label = self.window.findChild(object, label_name)
 
@@ -86,7 +86,7 @@ class DashboardMixin:
 
         for value_name, (_, value) in zip(
             CORE_VALUE_LABELS,
-            metrics,
+            metrics, strict=False,
         ):
             value_label = self.window.findChild(
                 object,
@@ -161,13 +161,13 @@ class DashboardMixin:
             ("Что умеет", strengths),
         )
 
-        for (label_name, _), (title, _) in zip(CORE_FIELDS, values):
+        for (label_name, _), (title, _) in zip(CORE_FIELDS, values, strict=False):
             label = self.window.findChild(object, label_name)
 
             if label is not None:
                 label.setText(f"{title}:")
 
-        for value_name, (_, value) in zip(CORE_VALUE_LABELS, values):
+        for value_name, (_, value) in zip(CORE_VALUE_LABELS, values, strict=False):
             value_label = self.window.findChild(
                 object,
                 value_name,

@@ -7,9 +7,9 @@ import time
 from pathlib import Path
 
 from config import DATA_DIR
+from shared.storage.json_store import read_json_object, write_json
 from terminal.core.agent import tools
 from terminal.core.agent.protocol import ToolResult
-from shared.storage.json_store import read_json_object, write_json
 
 INDEX_FILE = DATA_DIR / "agent_index.json"
 TTL_SECONDS = 300

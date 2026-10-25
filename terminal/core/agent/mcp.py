@@ -12,9 +12,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from config import BASE_DIR, DATA_DIR
-from terminal.core.agent import sandbox
-from terminal.core.agent.protocol import ToolSpec, ToolResult
 from shared.storage.json_store import read_json_object
+from terminal.core.agent import sandbox
+from terminal.core.agent.protocol import ToolResult, ToolSpec
 
 CONFIG_FILE = DATA_DIR / "agent_mcp.json"
 TIMEOUT = 20

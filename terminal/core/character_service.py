@@ -2,6 +2,7 @@
 # Сбор характеристик ИИ-ядра Giperion (персонаж и его развитие).
 # Последнее изменение: уровень, тип и версия ядра стали динамическими.
 
+from giperion.identity_matrix import IDENTITY_MATRIX
 from terminal.core.evolution_service import (
     get_core_version,
     get_experience_breakdown,
@@ -10,7 +11,6 @@ from terminal.core.evolution_service import (
     get_system_type,
     get_total_experience,
 )
-from giperion.identity_matrix import IDENTITY_MATRIX
 from terminal.memory.memory import (
     get_messages_count,
     get_unknown_messages,

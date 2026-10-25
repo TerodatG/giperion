@@ -5,11 +5,16 @@
 from dataclasses import dataclass
 from typing import Callable
 
+from giperion.api import generate as generate_answer
+from giperion.api import match_intent
+from giperion.identity_matrix import IDENTITY_MATRIX
+from giperion.language.intent_handler import find_close_pattern
+from giperion.language.learning_handler import get_learning_response
 from terminal.core.character_handler import (
     get_characteristics_command_response,
 )
+from terminal.core.help_handler import get_help_response
 from terminal.core.helper_model import ask_helper
-from giperion.identity_matrix import IDENTITY_MATRIX
 from terminal.core.model_errors import describe_model_error
 from terminal.core.module_state import is_module_enabled
 from terminal.core.opencode_client import OpenCodeError
@@ -17,9 +22,6 @@ from terminal.core.pending_state import (
     set_pending_action,
     set_pending_clarification,
 )
-from terminal.core.help_handler import get_help_response
-from giperion.language.intent_handler import find_close_pattern
-from giperion.language.learning_handler import get_learning_response
 from terminal.core.phrases import (
     CLEAN_LEARNED_MESSAGES_COMMANDS,
     CLEAR_VARIABLES_COMMANDS,
@@ -27,13 +29,13 @@ from terminal.core.phrases import (
     SHOW_VARIABLES_COMMANDS,
 )
 from terminal.memory.memory import add_unknown_message
-from terminal.memory.system_handler import (
-    get_confirmation_response,
-    get_system_command_response,
-)
 from terminal.memory.profile_handler import (
     get_name_response,
     get_profile_response,
+)
+from terminal.memory.system_handler import (
+    get_confirmation_response,
+    get_system_command_response,
 )
 from terminal.memory.unknown_messages_handler import (
     clean_learned_unknown_messages,
@@ -51,8 +53,6 @@ from terminal.skills.web_search import (
     format_search_results,
     search_web,
 )
-from giperion.api import generate as generate_answer
-from giperion.api import match_intent
 
 # Вопросы, на которые ядро отвечает собственным самоописанием.
 IDENTITY_PATTERNS = {

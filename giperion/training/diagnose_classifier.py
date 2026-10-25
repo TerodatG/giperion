@@ -8,8 +8,8 @@ import torch
 from giperion.training.build_dataset import CLASSIFICATION_FILE
 from giperion.training.model_classifier import TextClassifier
 from giperion.training.tokenizer import (
-    WordTokenizer,
     TOKENIZER_FILE,
+    WordTokenizer,
     tokenize_text,
 )
 from giperion.training.train_classifier import (

@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
 
 from shared.action_log import add_action
 from terminal.skills.file_reader import (
-    FileReadError,
     TEXT_FILE_FILTER,
+    FileReadError,
     read_text_file,
 )
 from terminal.ui.theme import DATA_COLOR, STAMP_COLOR

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication
 
+from config import BASE_DIR
 from shared.action_log import add_action
 from terminal.core.conference_catalog import get_conference_members
 from terminal.core.model_registry import (
@@ -35,7 +36,6 @@ from terminal.ui.panels_mixin import PanelsMixin
 from terminal.ui.performance_mixin import PerformanceMixin
 from terminal.ui.pets_mixin import PetsMixin
 from terminal.ui.settings_mixin import SettingsMixin
-from terminal.ui.update_mixin import UpdateMixin
 from terminal.ui.theme import (
     BOT_NAME,
     BOT_NICKNAME,
@@ -46,9 +46,9 @@ from terminal.ui.theme import (
     TYPING_STEP_MS,
 )
 from terminal.ui.transcript_mixin import TranscriptMixin
+from terminal.ui.update_mixin import UpdateMixin
 from terminal.ui.window_chrome_mixin import WindowChromeMixin
 from terminal.ui.window_style import WINDOW_STYLE
-from config import BASE_DIR
 
 WINDOW_FILE = BASE_DIR / "main_window.ui"
 

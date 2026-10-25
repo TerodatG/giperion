@@ -8,8 +8,8 @@ from shared.action_log import (
     add_action,
     get_recent_actions,
 )
-from terminal.core.pending_state import set_pending_action
 from terminal.core.help_handler import get_help_response
+from terminal.core.pending_state import set_pending_action
 from terminal.core.phrases import (
     CLEAR_CONVERSATIONS_COMMANDS,
     CLEAR_UNKNOWN_MESSAGES_COMMANDS,

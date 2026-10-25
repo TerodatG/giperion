@@ -5,7 +5,6 @@ import json
 import time
 
 from terminal.core.agent import watch
-
 from terminal.core.agent.watch import Changes, Watcher, diff, snapshot
 
 

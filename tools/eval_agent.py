@@ -6,7 +6,7 @@ import argparse
 import json
 import time
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -234,8 +234,8 @@ def _mcp_prepare():
     """Поднимает локальный MCP-стаб на время задачи."""
 
     def prepare(folder: Path):
-        from contextlib import contextmanager
         import sys
+        from contextlib import contextmanager
 
         from terminal.core.agent import mcp, settings
 

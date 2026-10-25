@@ -4,12 +4,12 @@
 
 from datetime import datetime
 
-from shared.storage.json_store import read_json, write_json
 from config import (
     CONVERSATIONS_FILE,
     UNKNOWN_MESSAGES_FILE,
     USER_PROFILE_FILE,
 )
+from shared.storage.json_store import read_json, write_json
 
 DEFAULT_USER_PROFILE = {
     "name": None,

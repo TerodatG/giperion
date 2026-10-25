@@ -5,8 +5,8 @@
 import copy
 from pathlib import Path
 
-from shared.storage.json_store import read_json, write_json
 from config import DATA_DIR
+from shared.storage.json_store import read_json, write_json
 
 WINDOW_SETTINGS_FILE = DATA_DIR / "window_settings.json"
 

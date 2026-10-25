@@ -5,7 +5,7 @@
 import time
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import (
     QCloseEvent,
     QColor,
@@ -32,11 +32,12 @@ from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
 from terminal.core.agent.diff_marks import (
     LineSpan,
+)
+from terminal.core.agent.diff_marks import (
     diff_marks as build_marks,
 )
-from terminal.core.agent.rollback import rollback_run
-from terminal.core.agent.summary import format_changes
 from terminal.core.agent.providers import NativeBrain
+from terminal.core.agent.rollback import rollback_run
 from terminal.core.agent.settings import (
     approval_policy,
     budget_limits,
@@ -49,6 +50,7 @@ from terminal.core.agent.settings import (
     set_max_steps,
     set_model_choice,
 )
+from terminal.core.agent.summary import format_changes
 from terminal.core.agent.tasks import (
     deserialize_history,
     deserialize_steps,
@@ -62,10 +64,10 @@ from terminal.core.agent.worktrees import (
     remove_worktree,
 )
 from terminal.ui.agent_job import AgentJob
-from terminal.ui.dialogs_base import SkinDialog, show_tool_window
-from terminal.ui.watch_dialog import show_watch_dialog
 from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
+from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.provider_dialog import show_provider_dialog
+from terminal.ui.watch_dialog import show_watch_dialog
 
 POLL_MS = 120
 

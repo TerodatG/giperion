@@ -1,7 +1,9 @@
 # Giperion/terminal/ui/agent_runs_dialog.py                          v001
 # Окно «Журнал агента»: последние прогоны, шаги, время, итог.
 
-from pathlib import Path# Последнее изменение: первый вариант — читает data/agent_runs.jsonl.
+from pathlib import (
+    Path,  # Последнее изменение: первый вариант — читает data/agent_runs.jsonl.
+)
 
 from PySide6.QtWidgets import (
     QComboBox,

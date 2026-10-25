@@ -4,8 +4,8 @@
 
 from pathlib import Path
 
-from shared.storage.json_store import read_json, write_json
 from config import DATA_DIR
+from shared.storage.json_store import read_json, write_json
 
 PERSONALITIES_FILE = DATA_DIR / "personality_matrices.json"
 SETTINGS_FILE = DATA_DIR / "personality_settings.json"

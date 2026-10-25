@@ -4,9 +4,9 @@
 
 from datetime import datetime
 
+from giperion.identity_matrix import IDENTITY_MATRIX
 from terminal.core.agent import mcp, registry
 from terminal.core.agent.runs import read_all_runs
-from giperion.identity_matrix import IDENTITY_MATRIX
 
 # Опыт за разные виды работы агента.
 XP_PER_RUN = 10

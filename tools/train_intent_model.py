@@ -18,13 +18,11 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import LinearSVC
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from shared.text_tools import normalize_message
 from config import DATA_DIR
-
+from shared.text_tools import normalize_message
 
 INTENTS_FILE = DATA_DIR / "intents.json"
 TEST_SIZE = 0.25
@@ -198,7 +196,7 @@ def count_false_greetings(
 
     return sum(
         actual != "greeting" and guess == "greeting"
-        for actual, guess in zip(expected, predicted)
+        for actual, guess in zip(expected, predicted, strict=False)
     )
 
 
@@ -234,7 +232,7 @@ def compare_models(
             actual == guess
             for actual, guess in zip(
                 test_categories,
-                predictions,
+                predictions, strict=False,
             )
         )
         accuracy = accuracy_score(

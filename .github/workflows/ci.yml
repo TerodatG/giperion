@@ -1,0 +1,46 @@
+# Giperion/.github/workflows/ci.yml                                  v001
+# Проверки на каждый push и pull request: тесты, компиляция, линтер.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-dev.txt
+          python -m pip install "ruff>=0.6,<1"
+
+      - name: Lint
+        run: python -m ruff check .
+
+      - name: Compile
+        run: python -m compileall -q giperion terminal shared tools tests gui.py main.py config.py
+
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+
+      - name: Structure report
+        run: python -m tools.check_structure

@@ -9,8 +9,8 @@ from giperion.training.build_dataset import CLASSIFICATION_FILE
 from giperion.training.char_tokenizer import CharTokenizer
 from giperion.training.model_charcnn import HybridTextClassifier
 from giperion.training.tokenizer import (
-    WordTokenizer,
     TOKENIZER_FILE,
+    WordTokenizer,
     tokenize_text,
 )
 from giperion.training.train_classifier import (

@@ -4,8 +4,8 @@
 
 import json
 
-from terminal.memory import memory
 from giperion.training import build_dataset
+from terminal.memory import memory
 
 
 def test_add_message_remembers_model(

@@ -59,6 +59,7 @@ __all__ = [
     "load_models",
     "load_stats",
     "record_model_request",
+    "remove_custom_model",
     "save_companion_ids",
     "save_conference_ids",
     "save_stats",

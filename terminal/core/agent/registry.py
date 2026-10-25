@@ -2,7 +2,6 @@
 # Реестр инструментов агента, их схемы, риски и плагины.
 # Последнее изменение: плагины из data/agent_tools по явному разрешению.
 
-import importlib.util
 import json
 import re
 import threading
@@ -617,7 +616,7 @@ def approval_payload(
                 old_text,
                 new_text,
             )
-    except (ToolError, ValueError, OSError):
+    except (tools.ToolError, ValueError, OSError):
         return "", "", None
 
     return "", "", None

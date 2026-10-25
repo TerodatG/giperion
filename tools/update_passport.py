@@ -74,7 +74,7 @@ def macro_f1(
     fp = Counter()
     fn = Counter()
 
-    for true_label, guess in zip(expected, predicted):
+    for true_label, guess in zip(expected, predicted, strict=False):
         if true_label == guess:
             tp[true_label] += 1
         else:
@@ -227,7 +227,7 @@ def main() -> None:
 
     correct = sum(
         1
-        for true_label, guess in zip(expected, predicted)
+        for true_label, guess in zip(expected, predicted, strict=False)
         if true_label == guess
     )
     accuracy = correct / len(examples) if examples else 0.0

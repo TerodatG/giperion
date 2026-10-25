@@ -3,12 +3,10 @@
 
 import json
 import sys
-from pathlib import Path
 
 import pytest
 
-from terminal.core.agent import container
-from terminal.core.agent import plugin_runner
+from terminal.core.agent import container, plugin_runner
 
 
 def test_child_env_filters_secrets(monkeypatch) -> None:

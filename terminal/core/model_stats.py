@@ -2,9 +2,9 @@
 # Обращения к моделям, расход токенов, репутация и лимиты.
 # Последнее изменение: выделено из model_registry.
 
+from shared.storage.json_store import read_json_object, write_json
 from terminal.core import model_files
 from terminal.core.model_catalog import get_model
-from shared.storage.json_store import read_json_object, write_json
 
 
 def load_stats() -> dict[str, dict[str, int]]:

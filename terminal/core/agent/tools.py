@@ -2,11 +2,11 @@
 # Read-only инструменты агента: список, чтение и поиск по проекту.
 # Последнее изменение: первый вариант — только чтение, без записи.
 
+import difflib
 import os
 import shutil
 import subprocess
 import sys
-import difflib
 from datetime import datetime
 from pathlib import Path
 

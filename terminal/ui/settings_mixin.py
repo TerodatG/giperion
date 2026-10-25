@@ -7,8 +7,8 @@ from terminal.core.window_settings import (
     DEFAULT_RESPONSE_SETTINGS,
     DEFAULT_STYLES,
 )
-from terminal.ui.settings_dialog import SettingsDialog
 from terminal.ui.dialogs_base import show_tool_window
+from terminal.ui.settings_dialog import SettingsDialog
 from terminal.ui.theme import DEFAULT_COLORS
 
 

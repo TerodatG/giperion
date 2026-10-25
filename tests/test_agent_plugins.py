@@ -466,7 +466,6 @@ def test_guard_blocks_network_without_permission(tmp_path, monkeypatch) -> None:
 def test_guard_blocks_programs_without_permission(tmp_path, monkeypatch) -> None:
     """Без разрешения exec нельзя запустить процесс."""
 
-    import sys as _sys
 
     _install(
         tmp_path,
@@ -477,7 +476,7 @@ def test_guard_blocks_programs_without_permission(tmp_path, monkeypatch) -> None
             "def handler(root, args):\n"
             "    try:\n"
             "        subprocess.run(\n"
-            f"            [sys.executable, '-c', 'print(1)'],\n"
+            "            [sys.executable, '-c', 'print(1)'],\n"
             "            capture_output=True,\n"
             "        )\n"
             "        return ToolResult(True, 'запустил')\n"

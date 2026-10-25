@@ -179,8 +179,8 @@ def test_job_journal_contains_files_and_times(tmp_path, monkeypatch) -> None:
 def test_git_commit_allows_several_paths(tmp_path) -> None:
     """Инструмент git_commit принимает массив путей."""
 
-    from terminal.core.agent.protocol import ToolCall
     from terminal.core.agent import registry
+    from terminal.core.agent.protocol import ToolCall
 
     spec = registry.get_spec("git_commit")
     assert spec is not None

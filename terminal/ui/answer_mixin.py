@@ -5,8 +5,9 @@
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from terminal.core import pending_state
 from shared.action_log import add_action
+from shared.text_tools import normalize_message
+from terminal.core import pending_state
 from terminal.core.character_service import get_characteristics
 from terminal.core.chatbot import get_response
 from terminal.core.conference_catalog import get_selected_mode_id
@@ -26,7 +27,6 @@ from terminal.core.session_commands import (
     is_confirmation_command,
     is_exit_command,
 )
-from shared.text_tools import normalize_message
 from terminal.memory.memory import add_message
 from terminal.ui.answer_job import AnswerJob
 from terminal.ui.conference_job import ConferenceJob

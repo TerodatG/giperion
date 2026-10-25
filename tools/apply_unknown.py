@@ -5,9 +5,9 @@
 import json
 from pathlib import Path
 
+from config import DATA_DIR
 from giperion.language.learning_service import add_phrase_to_category
 from terminal.memory.memory import remove_unknown_messages
-from config import DATA_DIR
 
 LABELS_FILE = DATA_DIR / "unknown_labels.json"
 

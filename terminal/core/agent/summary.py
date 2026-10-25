@@ -6,7 +6,6 @@ import difflib
 from pathlib import Path
 
 from terminal.core.agent.rollback import plan_rollback
-from terminal.core.agent import tools
 
 MAX_DIFF_LINES = 120
 MAX_TOTAL_DIFF = 4000

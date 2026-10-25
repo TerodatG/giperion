@@ -17,7 +17,7 @@ from giperion.training.char_tokenizer import (
 )
 from giperion.training.model_charcnn import HybridTextClassifier
 from giperion.training.model_classifier import parameter_count
-from giperion.training.tokenizer import WordTokenizer, TOKENIZER_FILE
+from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 from giperion.training.train_classifier import (
     BATCH_SIZE,
     DEVICE,

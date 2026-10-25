@@ -9,7 +9,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
-from pathlib import Path
 
 from terminal.core.agent.protocol import ToolResult
 

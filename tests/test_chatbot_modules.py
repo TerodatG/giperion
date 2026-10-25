@@ -2,7 +2,7 @@
 # Проверки связи модулей «Интернет» и «Помощь моделей» с чатботом.
 # Последнее изменение: заглушки ставятся в этапы chat_pipeline.
 
-from terminal.core import chatbot, chat_pipeline
+from terminal.core import chat_pipeline, chatbot
 from terminal.core.opencode_client import OpenCodeError
 
 

@@ -5,10 +5,10 @@
 import subprocess
 from pathlib import Path
 
+from shared.action_log import add_action
 from terminal.core.agent.commands import _git_executable
 from terminal.core.agent.protocol import ToolResult
 from terminal.core.agent.tools import ToolError, safe_path
-from shared.action_log import add_action
 
 TIMEOUT = 60
 MAX_OUTPUT = 4000

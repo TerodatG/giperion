@@ -22,6 +22,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from config import BASE_DIR
+from terminal.core.conference_roster import (
+    MAX_CONFERENCE_MODELS,
+    order_models_by_reputation,
+    senator_title,
+)
 from terminal.core.model_registry import (
     COMPANION_GROUP,
     CONFERENCE_GROUP,
@@ -46,11 +52,6 @@ from terminal.core.model_settings import (
     model_group_key,
     set_model_group_enabled,
 )
-from terminal.core.conference_roster import (
-    MAX_CONFERENCE_MODELS,
-    order_models_by_reputation,
-    senator_title,
-)
 from terminal.ui.add_model_dialog import show_add_model_dialog
 from terminal.ui.dialogs_base import (
     ConfirmDialog,
@@ -73,7 +74,6 @@ from terminal.ui.value_text import (
     model_modalities_text,
     tokens_word,
 )
-from config import BASE_DIR
 
 
 def show_models_dialog(parent, on_activate=None) -> None:

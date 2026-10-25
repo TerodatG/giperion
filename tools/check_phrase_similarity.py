@@ -9,7 +9,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import StratifiedKFold
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -18,7 +17,6 @@ from train_intent_model import (
     RANDOM_STATE,
     load_training_examples,
 )
-
 
 FOLD_COUNT = 5
 THRESHOLDS = (
@@ -116,7 +114,7 @@ def collect_out_of_fold_results(
         for phrase, expected, match in zip(
             test_phrases,
             test_categories,
-            matches,
+            matches, strict=False,
         ):
             nearest_phrase, predicted, similarity = match
 

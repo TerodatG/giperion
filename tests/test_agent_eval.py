@@ -4,7 +4,6 @@
 import json
 
 from terminal.core.agent.protocol import AgentDecision
-
 from tools import eval_agent
 
 

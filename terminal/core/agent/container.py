@@ -7,7 +7,6 @@ import os
 import shutil
 import subprocess
 import sys
-import time
 import uuid
 from ctypes import wintypes
 from pathlib import Path

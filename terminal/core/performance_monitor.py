@@ -8,8 +8,8 @@ import re
 import shutil
 import subprocess
 import time
-from dataclasses import dataclass, field
 from ctypes import wintypes as wt
+from dataclasses import dataclass, field
 
 from config import BASE_DIR
 from shared.process_tools import hidden_process_options
@@ -229,13 +229,6 @@ def _volumes() -> list[VolumeUsage]:
 
     return found
 
-
-def read_gpu_details() -> dict:
-    """Читает сведения NVIDIA (память, температура, мощность).
-
-    Вызов nvidia-smi занимает сотни миллисекунд, поэтому результат
-    недолго живёт в кеше: окно опрашивает его из фонового потока.
-    """
 
 def read_gpu_details_list() -> list[dict]:
     """Читает сведения обо всех видеокартах NVIDIA.

@@ -7,13 +7,11 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from shared.text_tools import normalize_message
 from config import DATA_DIR
-
+from shared.text_tools import normalize_message
 
 INTENTS_FILE = DATA_DIR / "intents.json"
 

@@ -208,8 +208,8 @@ def test_unusable_personal_model_leaves_lists(
 ) -> None:
     """Если своя модель уже была в списках, она из них исчезает."""
 
-    from terminal.core import model_custom
     from shared.storage.json_store import write_json
+    from terminal.core import model_custom
 
     monkeypatch.setattr(
         model_files,

@@ -118,7 +118,7 @@ class TextClassifier(nn.Module):
 
         pooled = []
 
-        for width, conv in zip(CONV_WIDTHS, self.convs):
+        for width, conv in zip(CONV_WIDTHS, self.convs, strict=False):
             # (batch, channels, seq') → (batch, channels)
             feature = F.relu(conv(embedded))
 

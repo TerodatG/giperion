@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
-    QVBoxLayout,
 )
 
 from config import BASE_DIR

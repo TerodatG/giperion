@@ -2,6 +2,7 @@
 # Окно «Задачи агента»: сохранённые задачи и продолжение.
 # Последнее изменение: первый вариант — список, детали, resume.
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDialogButtonBox,
@@ -14,11 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from PySide6.QtCore import Qt
-
 from terminal.core.agent.tasks import (
-    STATUS_DONE,
-    STATUS_RUNNING,
     list_states,
     remove_state,
 )

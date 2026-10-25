@@ -263,7 +263,6 @@ class Watcher:
         pending = Changes()
         last_change = 0.0
         cooldown_until = 0.0
-        now = time.monotonic()
 
         while not self._stop.wait(self.interval_s):
             try:

@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSpinBox,
-    QVBoxLayout,
 )
 
 from terminal.core.agent.providers import (

@@ -2,8 +2,8 @@
 # Сбор обучающего датасета из намерений и истории диалогов.
 # Последнее изменение: общий слой чтения и записи JSON.
 
-from shared.storage.json_store import read_json, write_json
 from config import CONVERSATIONS_FILE, DATA_DIR, UNKNOWN_MESSAGES_FILE
+from shared.storage.json_store import read_json, write_json
 
 INTENTS_FILE = DATA_DIR / "intents.json"
 

@@ -8,7 +8,6 @@ import random
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np
-
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (
     QColor,
@@ -19,6 +18,7 @@ from PySide6.QtGui import (
     QPen,
     QRadialGradient,
 )
+
 from config import BASE_DIR
 
 UI_DIR = BASE_DIR / "assets" / "ui"

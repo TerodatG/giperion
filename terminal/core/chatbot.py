@@ -2,13 +2,13 @@
 # Координация ответов Гипериона на сообщения пользователя.
 # Последнее изменение: необязательная личность дрона.
 
-from terminal.core.chat_pipeline import ChatContext, STAGES
+from shared.text_tools import normalize_message
+from terminal.core.chat_pipeline import STAGES, ChatContext
 from terminal.core.pending_state import (
     clear_pending_clarification,
     get_pending_clarification,
-    set_pending_clarification,
+    set_pending_clarification,  # noqa: F401 — точка подмены в тестах
 )
-from shared.text_tools import normalize_message
 
 YES_ANSWERS = {
     "да",

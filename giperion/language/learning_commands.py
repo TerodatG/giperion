@@ -5,7 +5,6 @@
 import re
 from typing import Callable
 
-from shared.action_log import add_action
 from giperion.language.knowledge_service import (
     get_category_details,
     validate_answer_change,
@@ -18,6 +17,7 @@ from giperion.language.learning_service import (
     get_available_categories,
     validate_new_category,
 )
+from shared.action_log import add_action
 from shared.text_tools import normalize_message
 
 TEACH_PHRASE_PATTERN = re.compile(

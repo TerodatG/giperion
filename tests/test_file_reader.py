@@ -5,8 +5,8 @@
 import pytest
 
 from terminal.skills.file_reader import (
-    FileReadError,
     MAX_TEXT_CHARS,
+    FileReadError,
     read_text_file,
 )
 

@@ -131,7 +131,7 @@ class HybridTextClassifier(nn.Module):
 
         pooled = []
 
-        for width, conv in zip(widths, convs):
+        for width, conv in zip(widths, convs, strict=False):
             feature = F.relu(conv(embedded))
 
             pooled.append(

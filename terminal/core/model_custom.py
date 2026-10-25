@@ -2,12 +2,12 @@
 # Свои модели пользователя: добавление и удаление в отдельном файле.
 # Последнее изменение: удаление своей модели из каталога.
 
+from shared.storage.json_store import read_json_object, write_json
 from terminal.core import model_files
 from terminal.core.model_catalog import (
     DEFAULT_STRENGTHS,
     _parse_model,
 )
-from shared.storage.json_store import read_json_object, write_json
 
 
 def remove_custom_model(model_id: str) -> bool:

@@ -5,9 +5,9 @@
 import json
 import re
 
-from shared.text_tools import normalize_message
-from shared.storage.json_store import write_json
 from config import DATA_DIR
+from shared.storage.json_store import write_json
+from shared.text_tools import normalize_message
 
 INTENTS_FILE = DATA_DIR / "intents.json"
 

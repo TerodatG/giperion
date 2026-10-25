@@ -249,7 +249,7 @@ def show_tool_window(
 
     if not isinstance(windows, dict):
         windows = {}
-        setattr(owner, "_tool_windows", windows)
+        owner._tool_windows = windows
 
     if key:
         existing = windows.get(key)

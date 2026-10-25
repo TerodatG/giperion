@@ -9,6 +9,9 @@ from colorama import (
 )
 
 from shared.action_log import add_action
+from shared.text_tools import (
+    normalize_message,
+)
 from terminal.core.character_handler import (
     get_characteristics_response,
 )
@@ -19,11 +22,7 @@ from terminal.core.session_commands import (
     is_confirmation_command,
     is_exit_command,
 )
-from shared.text_tools import (
-    normalize_message,
-)
 from terminal.memory.memory import add_message
-
 
 BOT_NAME = "Гиперион"
 

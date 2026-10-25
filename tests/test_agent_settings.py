@@ -1,9 +1,9 @@
 # Giperion/tests/test_agent_settings.py                              v001
 # Настройки провайдера: файл, окружение, маска ключа.
 
-from terminal.core.agent import settings
-
 import pytest
+
+from terminal.core.agent import settings
 
 
 def test_save_and_load(tmp_path, monkeypatch) -> None:

@@ -5,7 +5,7 @@ import json
 
 from terminal.core.agent import registry
 from terminal.core.agent.loop import render_plan, run_agent
-from terminal.core.agent.protocol import AgentDecision, ToolCall
+from terminal.core.agent.protocol import ToolCall
 from terminal.core.agent.providers import (
     NativeBrain,
     OpenAICompatibleProvider,

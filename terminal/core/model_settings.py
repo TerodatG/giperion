@@ -2,6 +2,7 @@
 # Активная модель, компаньоны, сенат и группировка каталога.
 # Последнее изменение: своя модель без канала считается недоступной.
 
+from shared.storage.json_store import read_json_object, write_json
 from terminal.core import model_files
 from terminal.core.model_catalog import (
     COMPANION_GROUP,
@@ -10,7 +11,6 @@ from terminal.core.model_catalog import (
     get_model,
     load_models,
 )
-from shared.storage.json_store import read_json_object, write_json
 
 # Группы моделей, которые включаются и выключаются в окне «Модель».
 MODEL_GROUP_FLAGS = ("free", "go")

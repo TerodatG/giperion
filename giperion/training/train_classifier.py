@@ -15,7 +15,7 @@ from giperion.training.model_classifier import (
     TextClassifier,
     parameter_count,
 )
-from giperion.training.tokenizer import WordTokenizer, TOKENIZER_FILE
+from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CHECKPOINT_FILE = MODELS_DIR / "classifier.pt"
 LABELS_FILE = MODELS_DIR / "classifier_labels.json"

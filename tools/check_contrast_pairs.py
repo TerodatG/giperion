@@ -14,9 +14,9 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from shared.text_tools import normalize_message
 from train_intent_model import load_training_examples
 
+from shared.text_tools import normalize_message
 
 CONTRAST_PAIRS = (
     (
@@ -86,7 +86,7 @@ def validate_pairs_not_in_training(
                 duplicates_in_pairs.append(phrase)
 
             if normalized in known_phrases:
-                duplicates_in_giperion.training.append(phrase)
+                duplicates_in_training.append(phrase)
 
             seen_phrases.add(normalized)
 
