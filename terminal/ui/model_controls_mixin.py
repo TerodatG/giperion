@@ -15,6 +15,7 @@ from terminal.ui.conference_dialog import show_conference_dialog
 from terminal.ui.models_dialog import show_models_dialog
 from terminal.ui.personalities_dialog import show_personalities_dialog
 from terminal.ui.skills_dialog import show_skills_dialog
+from terminal.ui.workshop_dialog import show_workshop_dialog
 
 
 class ModelControlsMixin:
@@ -37,6 +38,11 @@ class ModelControlsMixin:
         """Открывает настройки режимов сената."""
 
         show_conference_dialog(self.window)
+
+    def open_workshop_dialog(self) -> None:
+        """Открывает «Мастерскую» — сборку моделей и умений."""
+
+        show_workshop_dialog(self.window, self)
 
     def open_personalities_dialog(self) -> None:
         """Открывает каталог личностных матриц."""

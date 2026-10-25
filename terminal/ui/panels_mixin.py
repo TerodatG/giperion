@@ -505,6 +505,11 @@ class PanelsMixin:
             "Модель",
             container,
         )
+        self.workshop_button = SideIconButton(
+            "workshop",
+            "Мастерская",
+            container,
+        )
         self.conference_button = SideIconButton(
             "conference",
             "Вид сената",
@@ -524,6 +529,7 @@ class PanelsMixin:
         buttons = (
             self.skills_button,
             self.models_button,
+            self.workshop_button,
             self.conference_button,
             self.personalities_button,
             self.settings_button,
@@ -537,6 +543,9 @@ class PanelsMixin:
         )
         self.models_button.clicked.connect(
             self.open_models_dialog
+        )
+        self.workshop_button.clicked.connect(
+            self.open_workshop_dialog
         )
         self.conference_button.clicked.connect(
             self.open_conference_dialog

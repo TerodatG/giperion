@@ -819,6 +819,28 @@ QPushButton#aiParamsButton:disabled {
     color: #5a4f45;
 }
 
+QPushButton#workshopAction {
+    border-image: none;
+    background-color: #10281a;
+    border: 1px solid #23421f;
+    border-radius: 3px;
+    color: #b8f0b0;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    padding: 5px 10px;
+}
+
+QPushButton#workshopAction:hover {
+    background-color: #123d1f;
+    border: 1px solid #5ce07a;
+    color: #eaffea;
+}
+
+QPushButton#workshopAction:pressed {
+    background-color: #1d5a2a;
+    border: 1px solid #7cf58f;
+}
+
 QWidget#paramsContent {
     background: transparent;
 }

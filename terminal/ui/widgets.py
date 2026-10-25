@@ -82,6 +82,12 @@ class SideIconButton(QPushButton):
                 center_x,
                 center_y,
             )
+        elif self.icon_name == "workshop":
+            self._paint_workshop(
+                painter,
+                center_x,
+                center_y,
+            )
         else:
             self._paint_skills(painter, center_x, center_y)
 
@@ -98,6 +104,32 @@ class SideIconButton(QPushButton):
 
         painter.drawEllipse(QPointF(center_x, center_y), 8, 8)
         painter.drawEllipse(QPointF(center_x, center_y), 3, 3)
+
+    @staticmethod
+    def _paint_workshop(painter, center_x: float, center_y: float) -> None:
+        """Рисует скрещённые молоток и гаечный ключ."""
+
+        # Молоток: рукоять и повёрнутая голова.
+        painter.drawLine(
+            QPointF(center_x - 8, center_y + 8),
+            QPointF(center_x + 4, center_y - 4),
+        )
+        painter.save()
+        painter.translate(center_x + 6, center_y - 6)
+        painter.rotate(45)
+        painter.drawRect(QRectF(-2.5, -6, 5, 12))
+        painter.restore()
+
+        # Гаечный ключ: рукоять и раскрытая пасть.
+        painter.drawLine(
+            QPointF(center_x + 8, center_y + 8),
+            QPointF(center_x - 4, center_y - 4),
+        )
+        painter.drawArc(
+            QRectF(center_x - 13, center_y - 13, 9, 9),
+            30 * 16,
+            300 * 16,
+        )
 
     @staticmethod
     def _paint_people(painter, center_x: float, center_y: float) -> None:

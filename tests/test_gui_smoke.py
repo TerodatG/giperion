@@ -489,6 +489,7 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
     )
     assert window.skills_button.toolTip() == "Умения"
     assert window.models_button.toolTip() == "Модель"
+    assert window.workshop_button.toolTip() == "Мастерская"
     assert (
         window.conference_button.toolTip()
         == "Вид сената"
@@ -497,6 +498,42 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
         window.personalities_button.toolTip()
         == "Личностные матрицы"
     )
+
+
+def test_workshop_dialog_lists_tools(window, monkeypatch) -> None:
+    """«Мастерская» открывается и предлагает четыре инструмента."""
+
+    from PySide6.QtWidgets import QPushButton
+
+    from terminal.ui import workshop_dialog
+
+    captured = []
+
+    monkeypatch.setattr(
+        workshop_dialog.SkinDialog,
+        "exec",
+        lambda self: captured.append(self) or 0,
+    )
+
+    window.open_workshop_dialog()
+
+    assert captured
+    dialog = captured[0]
+
+    assert dialog.windowTitle() == "Мастерская"
+
+    actions = [
+        button.text()
+        for button in dialog.findChildren(QPushButton)
+        if button.objectName() == "workshopAction"
+    ]
+
+    assert actions == [
+        "Открыть «Модель»",
+        "Открыть личности",
+        "Открыть умения",
+        "Добавить модель",
+    ]
     assert window.settings_button.toolTip() == "Настройки"
 
 
