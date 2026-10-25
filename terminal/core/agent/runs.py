@@ -1,6 +1,6 @@
-# Giperion/terminal/core/agent/runs.py                               v001
+# Giperion/terminal/core/agent/runs.py                               v002
 # Журнал прогонов агента: шаги, время, подтверждения, итог.
-# Последнее изменение: первый вариант — JSONL в data/.
+# Последнее изменение: чтение всего журнала для показателей развития.
 
 import json
 from datetime import datetime
@@ -59,7 +59,7 @@ def record_run(
 
 
 def read_runs(limit: int = 20) -> list[dict]:
-    """Читает последние записи журнала."""
+    """Читает записи журнала; `limit` <= 0 — весь журнал."""
 
     if not Path(RUNS_FILE).exists():
         return []
@@ -71,9 +71,10 @@ def read_runs(limit: int = 20) -> list[dict]:
     except OSError:
         return []
 
+    selected = lines if limit <= 0 else lines[-max(1, limit):]
     records = []
 
-    for line in lines[-max(1, limit):]:
+    for line in selected:
         try:
             value = json.loads(line)
 
@@ -83,3 +84,9 @@ def read_runs(limit: int = 20) -> list[dict]:
             continue
 
     return records
+
+
+def read_all_runs() -> list[dict]:
+    """Читает весь журнал прогонов."""
+
+    return read_runs(limit=0)

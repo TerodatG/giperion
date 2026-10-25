@@ -1,12 +1,11 @@
-# Giperion/terminal/ui/dashboard_mixin.py                            v002
+# Giperion/terminal/ui/dashboard_mixin.py                            v003
 # Панели состояния: параметры модели ИИ и карточка активной модели.
-# Последнее изменение: левая вкладка «ИИ» показывает паспорт модели.
+# Последнее изменение: обновление чисел агента вместе с панелью ядра.
 
 from terminal.core.model_passport import (
     compact_metrics,
     get_passport,
     passport_accuracy,
-    passport_level_code,
 )
 from terminal.core.model_registry import (
     DEFAULT_MODEL_ID,
@@ -54,6 +53,7 @@ class DashboardMixin:
 
         if model is not None and model["id"] != DEFAULT_MODEL_ID:
             self._update_model_panel(model)
+            self._refresh_executive_panel()
 
             return
 
@@ -73,13 +73,6 @@ class DashboardMixin:
                 round(accuracy * 100)
                 if accuracy is not None
                 else 0
-            )
-
-        if hasattr(self, "title_status") and model is not None:
-            level = passport_level_code(passport)
-            suffix = f" · {level}" if level else ""
-            self.title_status.setText(
-                f"модель: {model['name']}{suffix}"
             )
 
         for (label_name, _), (title, _) in zip(
@@ -102,6 +95,8 @@ class DashboardMixin:
 
             if value_label is not None:
                 value_label.setText(str(value))
+
+        self._refresh_executive_panel()
 
     def _update_model_panel(self, model: dict) -> None:
         """Показывает в левой панели личное дело внешней модели."""
@@ -190,5 +185,8 @@ class DashboardMixin:
         if hasattr(self, "led_meter"):
             self.led_meter.set_level(reputation["percent"])
 
-        if hasattr(self, "title_status"):
-            self.title_status.setText(f"модель: {model['name']}")
+    def _refresh_executive_panel(self) -> None:
+        """Обновляет числовые показатели агента, если панель собрана."""
+
+        if hasattr(self, "update_executive_panel"):
+            self.update_executive_panel()
