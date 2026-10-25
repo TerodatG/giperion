@@ -156,6 +156,7 @@ def test_registry_has_read_write_and_exec_tools() -> None:
         "git_restore": "write",
         "run_command": "exec",
         "ask_subagent": "read",
+        "update_plan": "read",
     }
 
 

@@ -159,6 +159,42 @@ TOOL_SPECS = (
         risk="read",
         required=("task",),
     ),
+    ToolSpec(
+        name="update_plan",
+        description=(
+            "Составить или обновить план задачи. Вызывай в начале "
+            "многошаговой задачи и обновляй статусы по ходу."
+        ),
+        args={"steps": "пункты плана со статусами"},
+        risk="read",
+        required=("steps",),
+        schema={
+            "type": "object",
+            "properties": {
+                "steps": {
+                    "type": "array",
+                    "description": "пункты плана по порядку",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "что сделать",
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "doing", "done"],
+                                "description": "состояние пункта",
+                            },
+                        },
+                        "required": ["text", "status"],
+                    },
+                }
+            },
+            "required": ["steps"],
+            "additionalProperties": False,
+        },
+    ),
 )
 
 PLUGIN_PERMISSIONS = {"fs:read", "fs:write", "net", "exec"}

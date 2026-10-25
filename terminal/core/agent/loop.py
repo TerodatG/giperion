@@ -207,6 +207,28 @@ def budget_state(budget, brain: "Brain") -> tuple[int, float, str]:
     return tokens, cost, exceeded(budget, tokens, cost)
 
 
+PLAN_MARKS = {
+    "done": "[x]",
+    "doing": "[>]",
+    "pending": "[ ]",
+}
+
+
+def render_plan(steps: list[dict]) -> str:
+    """План в виде чек-листа для трейса и ответа модели."""
+
+    lines = []
+
+    for number, item in enumerate(steps, start=1):
+        status = str(item.get("status") or "pending")
+        mark = PLAN_MARKS.get(status, "[ ]")
+        text = str(item.get("text") or "")
+
+        lines.append(f"{number}. {mark} {text}")
+
+    return "\n".join(lines)
+
+
 def _observation_block(
     call: ToolCall,
     result: ToolResult,
@@ -726,6 +748,71 @@ def run_agent(
                     )
                 )
                 remember(call, invalid)
+
+                continue
+
+            if call.tool == "update_plan":
+                steps_raw = call.args.get("steps")
+
+                if not isinstance(steps_raw, list) or not steps_raw:
+                    remember(
+                        call,
+                        ToolResult(
+                            False,
+                            "План пуст: нужен непустой список шагов "
+                            'со статусами "pending"/"doing"/"done".',
+                        ),
+                    )
+
+                    continue
+
+                normalized = []
+
+                for item in steps_raw[:12]:
+                    if not isinstance(item, dict):
+                        continue
+
+                    text = str(item.get("text") or "").strip()
+                    status = str(item.get("status") or "pending").strip()
+
+                    if not text:
+                        continue
+
+                    if status not in ("pending", "doing", "done"):
+                        status = "pending"
+
+                    normalized.append(
+                        {"text": text[:200], "status": status}
+                    )
+
+                if not normalized:
+                    remember(
+                        call,
+                        ToolResult(
+                            False,
+                            "В плане нет ни одного пункта с текстом.",
+                        ),
+                    )
+
+                    continue
+
+                plan = normalized
+
+                emit(
+                    AgentStep(
+                        index,
+                        "plan",
+                        f"План · {len(plan)} пунктов",
+                        render_plan(plan),
+                    )
+                )
+                remember(
+                    call,
+                    ToolResult(
+                        True,
+                        "План обновлён:\n" + render_plan(plan),
+                    ),
+                )
 
                 continue
 

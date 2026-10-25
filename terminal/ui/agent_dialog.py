@@ -75,6 +75,7 @@ STEP_MARKS = {
     "secret": "▤",
     "budget": "Σ",
     "security": "⚠",
+    "plan": "☑",
 }
 
 REMEMBER_TITLES = {
