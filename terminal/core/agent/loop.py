@@ -9,6 +9,8 @@ from typing import Callable, Protocol
 
 from terminal.core.agent import registry
 from terminal.core.agent.context import (
+    DATA_CLOSE,
+    DATA_OPEN,
     MAX_PROMPT,
     DecisionError,
     build_native_prompt,
@@ -205,6 +207,114 @@ def budget_state(budget, brain: "Brain") -> tuple[int, float, str]:
     return tokens, cost, exceeded(budget, tokens, cost)
 
 
+def _observation_block(
+    call: ToolCall,
+    result: ToolResult,
+    limit: int = 3000,
+) -> str:
+    """Наблюдение в виде блока данных для переписки."""
+
+    text = str(result.text or "")
+
+    if len(text) > limit:
+        text = text[:limit] + "\n… обрезано"
+
+    return f"{DATA_OPEN} {call.tool}>>>\n{text}\n{DATA_CLOSE}"
+
+
+def _chat_chars(messages: list[dict]) -> int:
+    """Грубая оценка размера переписки в символах."""
+
+    total = 0
+
+    for message in messages:
+        total += len(str(message.get("content") or ""))
+        total += len(json.dumps(message.get("tool_calls") or []))
+
+    return total
+
+
+def _trim_chat(messages: list[dict], max_chars: int) -> list[dict]:
+    """Выбрасывает старые шаги, сохраняя систему, задачу и порядок ролей."""
+
+    trimmed = list(messages)
+
+    while len(trimmed) > 4 and _chat_chars(trimmed) > max_chars:
+        del trimmed[2]
+
+        while len(trimmed) > 2 and trimmed[2].get("role") == "tool":
+            del trimmed[2]
+
+    return trimmed
+
+
+def _compact_chat(
+    messages: list[dict],
+    recent_steps: int = 2,
+    limit: int = 900,
+) -> None:
+    """Сжимает давние результаты инструментов, не ломая пары ролей."""
+
+    starts = [
+        index
+        for index, message in enumerate(messages)
+        if message.get("role") == "assistant"
+    ]
+
+    if len(starts) <= recent_steps:
+        return
+
+    boundary = starts[-recent_steps]
+
+    for index in range(2, boundary):
+        message = messages[index]
+
+        if message.get("role") != "tool":
+            continue
+
+        content = str(message.get("content") or "")
+
+        if len(content) <= limit:
+            continue
+
+        messages[index] = {
+            **message,
+            "content": content[:limit] + "\n… старый результат сжат",
+        }
+
+
+def _append_chat_step(
+    chat: list[dict],
+    assistant: dict,
+    entries: list[tuple[ToolCall, ToolResult]],
+) -> None:
+    """Добавляет в переписку ответ ассистента и результаты инструментов."""
+
+    message = dict(assistant or {})
+    message.setdefault("role", "assistant")
+    message["content"] = message.get("content") or ""
+
+    raw_calls = message.get("tool_calls") or []
+
+    chat.append(message)
+
+    for position, (call, result) in enumerate(entries):
+        call_id = ""
+
+        if position < len(raw_calls):
+            call_id = str(
+                (raw_calls[position] or {}).get("id") or ""
+            )
+
+        chat.append(
+            {
+                "role": "tool",
+                "tool_call_id": call_id or f"call_{position}",
+                "content": _observation_block(call, result, 4000),
+            }
+        )
+
+
 def _run_subagent(
     call: ToolCall,
     brain: "Brain",
@@ -359,6 +469,21 @@ def run_agent(
 
             remember(call, result)
 
+    chat_mode = bool(
+        getattr(brain, "messages_mode", False)
+        and callable(getattr(brain, "decide_chat", None))
+    )
+    chat: list[dict] = []
+
+    if chat_mode:
+        chat = brain.begin(
+            clean_task,
+            [
+                _observation_block(call, result)
+                for call, result in history[-4:]
+            ],
+        )
+
     for index in range(1, max(max_steps, 1) + 1):
         position = index
 
@@ -386,68 +511,107 @@ def run_agent(
                 )
             )
 
-        prompt = prompt_builder(
-            clean_task,
-            history,
-            max_chars=max_prompt_chars,
-            final_note=final_note,
-        )
-        context_peak = max(context_peak, len(prompt))
+        assistant_raw: dict = {}
 
-        if not is_within_budget(prompt, max_prompt_chars):
-            return AgentResult(
-                steps=steps,
-                error=(
-                    "Контекст превысил бюджет "
-                    f"{max_prompt_chars} символов."
-                ),
-                context_chars=context_peak,
-            )
+        if chat_mode:
+            _compact_chat(chat)
+            context_peak = max(context_peak, _chat_chars(chat))
 
-        try:
-            raw = brain.decide(prompt)
-        except Exception as error:  # noqa: BLE001 — покажем в трейсе
-            emit(
-                AgentStep(
-                    index,
-                    "error",
-                    "Модель не ответила",
-                    f"{type(error).__name__}: {error}",
+            if _chat_chars(chat) > max_prompt_chars:
+                chat = _trim_chat(chat, max_prompt_chars)
+                context_peak = max(context_peak, _chat_chars(chat))
+
+            if _chat_chars(chat) > max_prompt_chars:
+                return AgentResult(
+                    steps=steps,
+                    error=(
+                        "Контекст превысил бюджет "
+                        f"{max_prompt_chars} символов."
+                    ),
+                    context_chars=context_peak,
                 )
-            )
 
-            return AgentResult(
-                steps=steps,
-                error=f"Модель не ответила: {error}",
-                context_chars=context_peak,
-            )
-
-        try:
-            decision = (
-                raw
-                if isinstance(raw, AgentDecision)
-                else parse_decision(raw)
-            )
-        except DecisionError as error:
-            emit(
-                AgentStep(
-                    index,
-                    "error",
-                    "Некорректное решение",
-                    str(error),
+            try:
+                decision, assistant_raw = brain.decide_chat(chat)
+            except Exception as error:  # noqa: BLE001 — покажем в трейсе
+                emit(
+                    AgentStep(
+                        index,
+                        "error",
+                        "Модель не ответила",
+                        f"{type(error).__name__}: {error}",
+                    )
                 )
-            )
 
-            remember(
-                ToolCall(tool="format", args={}),
-                ToolResult(
-                    False,
-                    "Ответ не разобрался: "
-                    f"{error}. Верни только JSON по схеме.",
-                ),
+                return AgentResult(
+                    steps=steps,
+                    error=f"Модель не ответила: {error}",
+                    context_chars=context_peak,
+                )
+        else:
+            prompt = prompt_builder(
+                clean_task,
+                history,
+                max_chars=max_prompt_chars,
+                final_note=final_note,
             )
+            context_peak = max(context_peak, len(prompt))
 
-            continue
+            if not is_within_budget(prompt, max_prompt_chars):
+                return AgentResult(
+                    steps=steps,
+                    error=(
+                        "Контекст превысил бюджет "
+                        f"{max_prompt_chars} символов."
+                    ),
+                    context_chars=context_peak,
+                )
+
+            try:
+                raw = brain.decide(prompt)
+            except Exception as error:  # noqa: BLE001 — покажем в трейсе
+                emit(
+                    AgentStep(
+                        index,
+                        "error",
+                        "Модель не ответила",
+                        f"{type(error).__name__}: {error}",
+                    )
+                )
+
+                return AgentResult(
+                    steps=steps,
+                    error=f"Модель не ответила: {error}",
+                    context_chars=context_peak,
+                )
+
+        if not chat_mode:
+            try:
+                decision = (
+                    raw
+                    if isinstance(raw, AgentDecision)
+                    else parse_decision(raw)
+                )
+            except DecisionError as error:
+                emit(
+                    AgentStep(
+                        index,
+                        "error",
+                        "Некорректное решение",
+                        str(error),
+                    )
+                )
+
+                remember(
+                    ToolCall(tool="format", args={}),
+                    ToolResult(
+                        False,
+                        "Ответ не разобрался: "
+                        f"{error}. Верни только JSON по схеме.",
+                    ),
+                )
+
+                continue
 
         tokens, cost, budget_error = budget_state(budget, brain)
 
@@ -512,6 +676,8 @@ def run_agent(
 
         if not calls:
             continue
+
+        step_start = len(history)
 
         for call in calls:
             repeated = _repeated_call(history, call)
@@ -748,11 +914,43 @@ def run_agent(
 
             remember(call, result)
 
+        if chat_mode:
+            _append_chat_step(
+                chat,
+                assistant_raw,
+                history[step_start:],
+            )
+
     # Шаги кончились: просим итог без инструментов, чтобы пользователь
     # получил ответ, а не только «достигнут лимит».
     summarize = getattr(brain, "summarize", None)
 
-    if callable(summarize) and history:
+    if chat_mode and callable(getattr(brain, "finish_chat", None)):
+        try:
+            text = str(brain.finish_chat(chat) or "").strip()
+        except Exception as error:  # noqa: BLE001 — покажем в трейсе
+            text = ""
+            emit(
+                AgentStep(
+                    index,
+                    "error",
+                    "Итог не получен",
+                    f"{type(error).__name__}: {error}",
+                )
+            )
+
+        if text:
+            emit(
+                AgentStep(index, "answer", "Ответ по итогам", text[:500])
+            )
+
+            return AgentResult(
+                steps=steps,
+                answer=text,
+                context_chars=context_peak,
+            )
+
+    if callable(summarize) and history and not chat_mode:
         final_prompt = prompt_builder(
             clean_task,
             history,
