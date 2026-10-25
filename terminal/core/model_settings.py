@@ -2,6 +2,8 @@
 # Активная модель, компаньоны, сенат и группировка каталога.
 # Последнее изменение: своя модель без канала считается недоступной.
 
+from dataclasses import dataclass
+
 from shared.storage.json_store import read_json_object, write_json
 from terminal.core import model_files
 from terminal.core.model_catalog import (
@@ -85,33 +87,25 @@ def set_model_group_enabled(group: str, enabled: bool) -> bool:
     return True
 
 
-def is_model_enabled(model: dict | None) -> bool:
+def is_model_enabled(
+    model: dict | None,
+    flags: dict[str, bool] | None = None,
+) -> bool:
     """Разрешена ли группа модели (без проверки канала)."""
 
-    if not isinstance(model, dict):
-        return False
-
-    group = model_group_key(model)
-
-    if group not in MODEL_GROUP_FLAGS:
-        return True
-
-    return load_model_group_flags().get(group, True)
+    return ModelPolicy(flags).enabled(model)
 
 
 def model_has_channel(model: dict | None) -> bool:
     """Есть ли у модели рабочий канал: ядро или подключённый API."""
 
-    if not isinstance(model, dict):
-        return False
-
-    return (
-        bool(model.get("available"))
-        or str(model.get("api") or "") == "local"
-    )
+    return ModelPolicy().has_channel(model)
 
 
-def is_model_usable(model: dict | None) -> bool:
+def is_model_usable(
+    model: dict | None,
+    flags: dict[str, bool] | None = None,
+) -> bool:
     """Можно ли пользоваться моделью.
 
     Внешние модели работают через OpenCode даже без подключённого ключа —
@@ -119,34 +113,63 @@ def is_model_usable(model: dict | None) -> bool:
     без канала (`api: ""`) бесполезна, пока канал не настроен.
     """
 
-    if not isinstance(model, dict):
-        return False
-
-    if not is_model_enabled(model):
-        return False
-
-    return _has_core_channel(model)
+    return ModelPolicy(flags).usable(model)
 
 
-def _has_core_channel(model: dict) -> bool:
-    """У ядра и своих моделей канал должен быть настоящим."""
+@dataclass(frozen=True)
+class ModelPolicy:
+    """Правила доступности без чтения файла на каждую проверку.
 
-    if model_group_key(model) != "core":
-        return True
+    Окно «Модель» загружает флаги один раз и дальше спрашивает политику;
+    это убирает повторение правил в UI и лишние чтения JSON.
+    """
 
-    return model_has_channel(model)
+    flags: dict[str, bool] | None = None
 
+    def __post_init__(self) -> None:
+        if self.flags is None:
+            object.__setattr__(self, "flags", load_model_group_flags())
 
-def _is_enabled_with(model: dict, flags: dict[str, bool]) -> bool:
-    """Проверка группы без чтения файла: флаги уже прочитаны."""
+    def enabled(self, model: dict | None) -> bool:
+        """Включена ли группа модели."""
 
-    return flags.get(model_group_key(model), True)
+        if not isinstance(model, dict):
+            return False
+
+        group = model_group_key(model)
+
+        if group not in MODEL_GROUP_FLAGS:
+            return True
+
+        return bool((self.flags or {}).get(group, True))
+
+    def has_channel(self, model: dict | None) -> bool:
+        """Есть ли у модели настоящий канал."""
+
+        if not isinstance(model, dict):
+            return False
+
+        return (
+            bool(model.get("available"))
+            or str(model.get("api") or "") == "local"
+        )
+
+    def usable(self, model: dict | None) -> bool:
+        """Модель включена и у неё есть канал."""
+
+        if not isinstance(model, dict) or not self.enabled(model):
+            return False
+
+        if model_group_key(model) != "core":
+            return True
+
+        return self.has_channel(model)
 
 
 def _is_usable_with(model: dict, flags: dict[str, bool]) -> bool:
     """Проверка «включена и можно пользоваться» без чтения файла."""
 
-    return _is_enabled_with(model, flags) and _has_core_channel(model)
+    return ModelPolicy(flags).usable(model)
 
 
 def _stored_ids(key: str) -> list[str]:
@@ -199,6 +222,59 @@ def _visible_ids(key: str) -> list[str]:
     return visible
 
 
+def _save_members(key: str, model_ids: list[str]) -> list[str]:
+    """Сохраняет список участия: только известные модели, без повторов."""
+
+    known_ids = {model["id"] for model in load_models()}
+    members = []
+
+    for model_id in model_ids:
+        if (
+            isinstance(model_id, str)
+            and model_id in known_ids
+            and model_id not in members
+        ):
+            members.append(model_id)
+
+    document = read_json_object(model_files.SETTINGS_FILE)
+    document[key] = members
+    write_json(model_files.SETTINGS_FILE, document)
+
+    return members
+
+
+def _set_member(key: str, model_id: str, enabled: bool) -> bool:
+    """Добавляет или убирает модель из списка участия."""
+
+    model = get_model(model_id)
+
+    if model is None:
+        return False
+
+    # Добавлять можно только рабочую модель; убрать — любую.
+    if enabled and not is_model_usable(model):
+        return False
+
+    # Берём сохранённый список без фильтра: выключенные группы не теряются.
+    members = _stored_ids(key)
+
+    if enabled:
+        if model_id not in members:
+            members.append(model_id)
+    elif model_id in members:
+        members.remove(model_id)
+
+    _save_members(key, members)
+
+    return True
+
+
+def _is_member(key: str, model_id: str) -> bool:
+    """Есть ли модель в видимом списке участия."""
+
+    return model_id in _visible_ids(key)
+
+
 def load_companion_ids() -> list[str]:
     """Идентификаторы моделей, отмеченных компаньонами.
 
@@ -212,60 +288,21 @@ def load_companion_ids() -> list[str]:
 
 
 def save_companion_ids(model_ids: list[str]) -> list[str]:
-    """Сохраняет список компаньонов, оставляя активную модель.
+    """Сохраняет список компаньонов, оставляя активную модель."""
 
-    Возвращает очищенный список: только известные модели каталога,
-    без повторов.
-    """
-
-    known_ids = {model["id"] for model in load_models()}
-    companions = []
-
-    for model_id in model_ids:
-        if (
-            isinstance(model_id, str)
-            and model_id in known_ids
-            and model_id not in companions
-        ):
-            companions.append(model_id)
-
-    document = read_json_object(model_files.SETTINGS_FILE)
-    document["companions"] = companions
-    write_json(model_files.SETTINGS_FILE, document)
-
-    return companions
+    return _save_members("companions", model_ids)
 
 
 def set_companion(model_id: str, enabled: bool = True) -> bool:
     """Включает или выключает модель в списке компаньонов."""
 
-    model = get_model(model_id)
-
-    if model is None:
-        return False
-
-    # Добавлять можно только рабочую модель; убрать — любую.
-    if enabled and not is_model_usable(model):
-        return False
-
-    # Берём сохранённый список без фильтра: выключенные группы не теряются.
-    companions = _stored_ids("companions")
-
-    if enabled:
-        if model_id not in companions:
-            companions.append(model_id)
-    elif model_id in companions:
-        companions.remove(model_id)
-
-    save_companion_ids(companions)
-
-    return True
+    return _set_member("companions", model_id, enabled)
 
 
 def is_companion(model_id: str) -> bool:
     """Отмечена ли модель компаньоном Гипериона."""
 
-    return model_id in load_companion_ids()
+    return _is_member("companions", model_id)
 
 
 def load_conference_ids() -> list[str]:
@@ -281,22 +318,7 @@ def load_conference_ids() -> list[str]:
 def save_conference_ids(model_ids: list[str]) -> list[str]:
     """Сохраняет участников сената, не теряя выбор модели."""
 
-    known_ids = {model["id"] for model in load_models()}
-    members = []
-
-    for model_id in model_ids:
-        if (
-            isinstance(model_id, str)
-            and model_id in known_ids
-            and model_id not in members
-        ):
-            members.append(model_id)
-
-    document = read_json_object(model_files.SETTINGS_FILE)
-    document["conference"] = members
-    write_json(model_files.SETTINGS_FILE, document)
-
-    return members
+    return _save_members("conference", model_ids)
 
 
 def set_conference_member(
@@ -305,32 +327,13 @@ def set_conference_member(
 ) -> bool:
     """Добавляет или убирает модель из участников сената."""
 
-    model = get_model(model_id)
-
-    if model is None:
-        return False
-
-    # Добавлять можно только рабочую модель; убрать — любую.
-    if enabled and not is_model_usable(model):
-        return False
-
-    members = _stored_ids("conference")
-
-    if enabled:
-        if model_id not in members:
-            members.append(model_id)
-    elif model_id in members:
-        members.remove(model_id)
-
-    save_conference_ids(members)
-
-    return True
+    return _set_member("conference", model_id, enabled)
 
 
 def is_conference_member(model_id: str) -> bool:
     """Участвует ли модель в сенате."""
 
-    return model_id in load_conference_ids()
+    return _is_member("conference", model_id)
 
 
 def get_models_by_group(group: str) -> list[dict]:

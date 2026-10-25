@@ -22,6 +22,7 @@ from terminal.core.model_registry import (
     get_usage,
 )
 from terminal.core.model_settings import GROUP_LABELS, model_group_key
+from terminal.ui.rating_bars import clear_layout, fill_rating_bars
 from terminal.ui.value_text import (
     CAPABILITY_FEATURES,
     capability_score,
@@ -425,70 +426,27 @@ class ModelCard(QWidget):
 
         return status
 
-    def _clear_layout(self, layout) -> None:
-        """Убирает старые строки до следующей отрисовки карточки."""
-
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-
-            if widget is not None:
-                widget.hide()
-                widget.setParent(None)
-                widget.deleteLater()
-
     def _fill_strengths(self, model: dict | None) -> None:
         """Перерисовывает шкалы сильных сторон модели."""
 
-        self._clear_layout(self.strengths_layout)
+        ratings = (model.get("strengths") or {}) if model else {}
 
-        if model is None:
-            return
-
-        strengths = model.get("strengths") or {}
-
-        if not strengths:
-            empty = QLabel(
-                "Сильные стороны не указаны",
-                self.strengths_widget,
-            )
-            empty.setObjectName("strengthName")
-            self.strengths_layout.addWidget(empty)
-
-            return
-
-        for strength_name, value in strengths.items():
-            row = QWidget(self.strengths_widget)
-
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(6)
-
-            name = QLabel(strength_name, row)
-            name.setObjectName("strengthName")
-            name.setFixedWidth(92)
-
-            bar = QProgressBar(row)
-            bar.setObjectName("strengthBar")
-            bar.setRange(0, 5)
-            bar.setValue(value)
-            bar.setTextVisible(False)
-            bar.setFixedHeight(10)
-
-            score = QLabel(str(value), row)
-            score.setObjectName("strengthValue")
-            score.setFixedWidth(14)
-
-            row_layout.addWidget(name)
-            row_layout.addWidget(bar, 1)
-            row_layout.addWidget(score)
-
-            self.strengths_layout.addWidget(row)
+        fill_rating_bars(
+            self.strengths_layout,
+            self.strengths_widget,
+            ratings,
+            name_width=92,
+            empty_text=(
+                "Сильные стороны не указаны"
+                if model is not None
+                else ""
+            ),
+        )
 
     def _fill_capabilities(self, model: dict | None) -> None:
         """Перерисовывает таблицу функций и сравнение с другими моделями."""
 
-        self._clear_layout(self.capabilities_layout)
+        clear_layout(self.capabilities_layout)
 
         if model is None:
             return

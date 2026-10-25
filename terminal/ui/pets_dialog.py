@@ -35,6 +35,7 @@ from terminal.ui.dialogs_base import (
     SkinDialog,
     show_tool_window,
 )
+from terminal.ui.rating_bars import fill_rating_bars
 
 
 def _ask_new_pet(parent) -> dict | None:
@@ -436,45 +437,14 @@ def show_pets_dialog(parent, on_change=None) -> None:
     def fill_traits(pet: dict | None) -> None:
         """Перерисовывает шкалы характера."""
 
-        while traits_layout.count():
-            item = traits_layout.takeAt(0)
-            widget = item.widget()
+        ratings = (pet.get("traits") or {}) if pet is not None else {}
 
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
-
-        if pet is None:
-            return
-
-        traits = pet.get("traits") or {}
-
-        for trait_name, value in traits.items():
-            row = QWidget(traits_widget)
-
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(6)
-
-            name = QLabel(str(trait_name), row)
-            name.setObjectName("strengthName")
-            name.setFixedWidth(120)
-
-            bar = QProgressBar(row)
-            bar.setObjectName("strengthBar")
-            bar.setRange(0, 5)
-            bar.setValue(int(value))
-            bar.setTextVisible(False)
-            bar.setFixedHeight(10)
-
-            score = QLabel(str(value), row)
-            score.setObjectName("strengthValue")
-            score.setFixedWidth(14)
-
-            row_layout.addWidget(name)
-            row_layout.addWidget(bar, 1)
-            row_layout.addWidget(score)
-            traits_layout.addWidget(row)
+        fill_rating_bars(
+            traits_layout,
+            traits_widget,
+            ratings,
+            name_width=120,
+        )
 
     def show_card() -> None:
         """Заполняет карточку выбранного дрона."""

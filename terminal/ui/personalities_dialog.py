@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
-    QProgressBar,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -24,6 +23,7 @@ from giperion.personality_catalog import (
     set_selected_personality_id,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.rating_bars import fill_rating_bars
 
 
 def show_personalities_dialog(parent, on_select=None) -> None:
@@ -246,53 +246,15 @@ def show_personalities_dialog(parent, on_select=None) -> None:
     def fill_traits(matrix: dict | None) -> None:
         """Перерисовывает шкалы характера выбранной матрицы."""
 
-        while traits_layout.count():
-            item = traits_layout.takeAt(0)
-            widget = item.widget()
+        ratings = (matrix.get("traits") or {}) if matrix else {}
 
-            if widget is not None:
-                widget.hide()
-                widget.setParent(None)
-                widget.deleteLater()
-
-        if matrix is None:
-            return
-
-        traits = matrix.get("traits") or {}
-
-        if not traits:
-            empty = QLabel("Черты не указаны", traits_widget)
-            empty.setObjectName("strengthName")
-            traits_layout.addWidget(empty)
-
-            return
-
-        for trait_name, value in traits.items():
-            row = QWidget(traits_widget)
-
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(6)
-
-            name = QLabel(trait_name, row)
-            name.setObjectName("strengthName")
-            name.setFixedWidth(92)
-
-            bar = QProgressBar(row)
-            bar.setObjectName("strengthBar")
-            bar.setRange(0, 5)
-            bar.setValue(value)
-            bar.setTextVisible(False)
-            bar.setFixedHeight(10)
-
-            score = QLabel(str(value), row)
-            score.setObjectName("strengthValue")
-            score.setFixedWidth(14)
-
-            row_layout.addWidget(name)
-            row_layout.addWidget(bar, 1)
-            row_layout.addWidget(score)
-            traits_layout.addWidget(row)
+        fill_rating_bars(
+            traits_layout,
+            traits_widget,
+            ratings,
+            name_width=92,
+            empty_text="Черты не указаны",
+        )
 
     def show_card() -> None:
         """Заполняет карточку выбранной личности."""

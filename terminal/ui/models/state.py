@@ -14,8 +14,8 @@ from terminal.core.model_registry import (
     load_models,
 )
 from terminal.core.model_settings import (
+    ModelPolicy,
     load_model_group_flags,
-    model_group_key,
 )
 
 
@@ -56,24 +56,12 @@ class ModelsState:
     def model_enabled(self, model: dict | None) -> bool:
         """Включена ли группа модели (флаги уже в памяти окна)."""
 
-        if model is None:
-            return False
-
-        return self.groups.get(model_group_key(model), True)
+        return ModelPolicy(self.groups).enabled(model)
 
     def model_usable(self, model: dict | None) -> bool:
         """Можно ли задействовать модель: группа и канал."""
 
-        if model is None or not self.model_enabled(model):
-            return False
-
-        if model_group_key(model) == "core" and not (
-            bool(model.get("available"))
-            or str(model.get("api") or "") == "local"
-        ):
-            return False
-
-        return True
+        return ModelPolicy(self.groups).usable(model)
 
     def visible(self, group: str) -> list[dict]:
         """Модели текущей закладки."""
