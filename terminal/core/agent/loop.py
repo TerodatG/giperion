@@ -92,6 +92,7 @@ def _approval_title(call: ToolCall) -> str:
         "run_command": "Выполнить команду",
         "git_commit": "Коммит",
         "git_restore": "Откатить файл",
+        "fetch_url": "Открыть страницу",
     }
 
     return titles.get(call.tool, "Изменить файл")
@@ -121,7 +122,13 @@ WRITE_TOOLS = {"apply_patch", "write_file", "git_restore"}
 
 # Что можно разрешить до конца задачи одним нажатием. Коммит и откат
 # остаются отдельными решениями: они меняют историю репозитория.
-REMEMBERABLE = {"apply_patch", "write_file", "run_tests", "run_command"}
+REMEMBERABLE = {
+    "apply_patch",
+    "write_file",
+    "run_tests",
+    "run_command",
+    "fetch_url",
+}
 
 
 def approval_key(call: ToolCall) -> str:
@@ -139,6 +146,13 @@ def approval_key(call: ToolCall) -> str:
         command = str(call.args.get("command") or "").strip()
 
         return "command:" + command if command else ""
+
+    if call.tool == "fetch_url":
+        from terminal.core.agent import web
+
+        host = web.host_of(str(call.args.get("url") or ""))
+
+        return "web:" + host if host else ""
 
     return call.tool
 

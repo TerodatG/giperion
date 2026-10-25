@@ -183,6 +183,22 @@ def set_mcp_enabled(enabled: bool) -> None:
     write_json(SETTINGS_FILE, document)
 
 
+def browser_enabled() -> bool:
+    """Разрешено ли агенту читать веб-страницы (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("browser_enabled") is True
+
+
+def set_browser_enabled(enabled: bool) -> None:
+    """Включает или выключает чтение веб-страниц."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["browser_enabled"] = bool(enabled)
+    write_json(SETTINGS_FILE, document)
+
+
 POLICIES = ("read", "confirm", "trust")
 
 def approval_policy() -> str:

@@ -25,6 +25,7 @@ from terminal.core.agent.providers import (
 from terminal.core.agent.registry import reload_plugins
 from terminal.core.agent.settings import (
     allow_unsafe_plugins,
+    browser_enabled,
     budget_limits,
     context_limit_chars,
     load_settings,
@@ -35,6 +36,7 @@ from terminal.core.agent.settings import (
     save_budget_limits,
     save_settings,
     set_allow_unsafe_plugins,
+    set_browser_enabled,
     set_context_limit_chars,
     set_mcp_enabled,
     set_plugins_enabled,
@@ -206,6 +208,18 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("MCP", self.mcp_check)
 
+        self.browser_check = QCheckBox(
+            "Разрешить чтение веб-страниц",
+            self,
+        )
+        self.browser_check.setChecked(browser_enabled())
+        self.browser_check.setToolTip(
+            "Инструмент fetch_url: один GET на http/https, текст без "
+            "разметки. Локальные и приватные адреса запрещены. "
+            "Каждый новый сайт требует подтверждения."
+        )
+        form.addRow("Веб", self.browser_check)
+
         self.stream_check = QCheckBox(
             "Показывать ответ по мере генерации",
             self,
@@ -325,6 +339,7 @@ class ProviderDialog(SkinDialog):
         set_allow_unsafe_plugins(self.unsafe_check.isChecked())
         set_stream_enabled(self.stream_check.isChecked())
         set_mcp_enabled(self.mcp_check.isChecked())
+        set_browser_enabled(self.browser_check.isChecked())
 
         from terminal.core.agent import mcp
 

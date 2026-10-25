@@ -200,6 +200,16 @@ TOOL_SPECS = (
             "additionalProperties": False,
         },
     ),
+    ToolSpec(
+        name="fetch_url",
+        description=(
+            "Прочитать веб-страницу по http/https и получить текст без "
+            "разметки. Требует подтверждения; локальные адреса запрещены."
+        ),
+        args={"url": "адрес страницы"},
+        risk="exec",
+        required=("url",),
+    ),
 )
 
 PLUGIN_PERMISSIONS = {"fs:read", "fs:write", "net", "exec"}
@@ -699,6 +709,11 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
             tokens = validate_command(command)
 
             return ToolResult(True, " ".join(tokens))
+
+        if call.tool == "fetch_url":
+            from terminal.core.agent import web
+
+            return web.preview(_string_arg(call, "url"))
     except CommandError as error:
         return ToolResult(False, str(error))
     except ValueError as error:
@@ -874,6 +889,18 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
                 root,
                 _string_arg(call, "command"),
             )
+
+        if call.tool == "fetch_url":
+            from terminal.core.agent import settings, web
+
+            if not settings.browser_enabled():
+                return ToolResult(
+                    False,
+                    "Чтение веб-страниц выключено: включи «Разрешить "
+                    "чтение веб-страниц» в окне «Провайдер…».",
+                )
+
+            return web.fetch(_string_arg(call, "url"))
     except ValueError as error:
         return ToolResult(False, str(error))
     except Exception as error:  # noqa: BLE001 — ошибку увидит модель
