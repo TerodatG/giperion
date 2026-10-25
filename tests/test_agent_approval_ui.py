@@ -170,14 +170,15 @@ def test_task_controls_show_saved_model(qapp, monkeypatch) -> None:
     from types import SimpleNamespace
 
     from terminal.ui import agent_dialog
+    from terminal.ui.agent import controls
 
     monkeypatch.setattr(
-        agent_dialog,
+        controls,
         "provider_from_settings",
         lambda: SimpleNamespace(model="local-model"),
     )
     monkeypatch.setattr(
-        agent_dialog,
+        controls,
         "_available_models",
         lambda: [
             {
@@ -188,7 +189,7 @@ def test_task_controls_show_saved_model(qapp, monkeypatch) -> None:
             }
         ],
     )
-    monkeypatch.setattr(agent_dialog, "model_choice", lambda: "m1")
+    monkeypatch.setattr(controls, "model_choice", lambda: "m1")
 
     dialog = agent_dialog.AgentDialog(None)
 
