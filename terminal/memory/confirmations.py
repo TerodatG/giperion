@@ -141,6 +141,74 @@ def _archive_reply(action: str, archive_id) -> str | None:
     return None
 
 
+def _create_category_reply(category, phrase, response) -> str:
+    """Создаёт категорию."""
+
+    try:
+        result = create_category(category, phrase, response)
+    except (OSError, ValueError):
+        return (
+            "Не удалось создать категорию. "
+            "Проверь файл intents.json."
+        )
+
+    if result.endswith("создана."):
+        add_action(f"Создана категория {category}")
+
+    return result
+
+
+def _change_answer_reply(category, response) -> str:
+    """Меняет первый ответ категории."""
+
+    try:
+        result = change_category_answer(category, response)
+    except (OSError, ValueError):
+        return (
+            "Не удалось изменить ответ. "
+            "Проверь файл intents.json."
+        )
+
+    if result.endswith("изменён."):
+        add_action(f"Изменён ответ категории {category}")
+
+    return result
+
+
+def _remove_phrase_reply(category, phrase) -> str:
+    """Удаляет фразу из категории."""
+
+    try:
+        result = remove_phrase(category, phrase)
+    except (OSError, ValueError):
+        return (
+            "Не удалось удалить фразу. "
+            "Проверь файл intents.json."
+        )
+
+    if result.startswith("Фраза удалена"):
+        add_action(f"Удалена фраза из категории {category}")
+
+    return result
+
+
+def _remove_category_reply(category) -> str:
+    """Удаляет категорию целиком."""
+
+    try:
+        result = remove_category(category)
+    except (OSError, ValueError):
+        return (
+            "Не удалось удалить категорию. "
+            "Проверь файл intents.json."
+        )
+
+    if result.endswith("удалена."):
+        add_action(f"Удалена категория {category}")
+
+    return result
+
+
 def _category_reply(
     action: str,
     category,
@@ -155,72 +223,24 @@ def _category_reply(
         and phrase is not None
         and response is not None
     ):
-        try:
-            result = create_category(category, phrase, response)
-        except (OSError, ValueError):
-            return (
-                "Не удалось создать категорию. "
-                "Проверь файл intents.json."
-            )
-
-        if result.endswith("создана."):
-            add_action(f"Создана категория {category}")
-
-        return result
+        return _create_category_reply(category, phrase, response)
 
     if (
         action == "change_category_answer"
         and category is not None
         and response is not None
     ):
-        try:
-            result = change_category_answer(category, response)
-        except (OSError, ValueError):
-            return (
-                "Не удалось изменить ответ. "
-                "Проверь файл intents.json."
-            )
-
-        if result.endswith("изменён."):
-            add_action(
-                f"Изменён ответ категории {category}"
-            )
-
-        return result
+        return _change_answer_reply(category, response)
 
     if (
         action == "remove_category_phrase"
         and category is not None
         and phrase is not None
     ):
-        try:
-            result = remove_phrase(category, phrase)
-        except (OSError, ValueError):
-            return (
-                "Не удалось удалить фразу. "
-                "Проверь файл intents.json."
-            )
-
-        if result.startswith("Фраза удалена"):
-            add_action(
-                f"Удалена фраза из категории {category}"
-            )
-
-        return result
+        return _remove_phrase_reply(category, phrase)
 
     if action == "remove_category" and category is not None:
-        try:
-            result = remove_category(category)
-        except (OSError, ValueError):
-            return (
-                "Не удалось удалить категорию. "
-                "Проверь файл intents.json."
-            )
-
-        if result.endswith("удалена."):
-            add_action(f"Удалена категория {category}")
-
-        return result
+        return _remove_category_reply(category)
 
     return None
 

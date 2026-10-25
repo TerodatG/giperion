@@ -297,10 +297,26 @@ class AgentRunnerMixin:
 
             return
 
+        self._append_steps(job)
+        self._sync_approval(job)
+
+        if not job.done:
+            self._show_progress(job)
+
+            return
+
+        self._finish_job(job)
+
+    def _append_steps(self, job) -> None:
+        """Добавляет новые шаги в ленту."""
+
         while self._shown < len(job.steps):
             step = job.steps[self._shown]
             self._shown += 1
             self.trace.append_step(step)
+
+    def _sync_approval(self, job) -> None:
+        """Показывает или скрывает панель подтверждения."""
 
         pending = job.pending
 
@@ -309,19 +325,22 @@ class AgentRunnerMixin:
         elif pending is None and self.approval.isVisible():
             self.approval.hide_panel()
 
-        if not job.done:
-            spend = job.live_tokens
-            tail = job.partial.replace("\n", " ").strip()
+    def _show_progress(self, job) -> None:
+        """Статус во время работы."""
 
-            self.status_label.setText(
-                f"Работаю… шаг {len(job.steps)} из "
-                f"{getattr(job, 'max_steps', 0)}"
-                + (f" · {spend // 1000}k токенов" if spend else "")
-                + (f" · «{tail[-70:]}»" if tail else "")
-                + "."
-            )
+        spend = job.live_tokens
+        tail = job.partial.replace("\n", " ").strip()
 
-            return
+        self.status_label.setText(
+            f"Работаю… шаг {len(job.steps)} из "
+            f"{getattr(job, 'max_steps', 0)}"
+            + (f" · {spend // 1000}k токенов" if spend else "")
+            + (f" · «{tail[-70:]}»" if tail else "")
+            + "."
+        )
+
+    def _finish_job(self, job) -> None:
+        """Показывает итог и готовит откат изменений."""
 
         self._timer.stop()
         self.approval.hide_panel()
@@ -345,28 +364,7 @@ class AgentRunnerMixin:
             if job.error not in self.trace.toPlainText():
                 self.trace.appendPlainText("\n! " + job.error)
         else:
-            allowed = (
-                f" · разрешено до конца: {len(job.allowed)}"
-                if job.allowed
-                else ""
-            )
-
-            spend = (
-                f" · {job.tokens // 1000}k токенов"
-                + (f" · ${job.cost:.4f}" if job.cost > 0 else "")
-                if job.tokens
-                else ""
-            )
-
-            self.status_label.setText(
-                f"Готово за {len(job.steps)} шаг(ов)"
-                f" · {job.duration_s:.1f} с"
-                f" · подтверждений: {job.approvals}"
-                f" · контекст {job.context_chars // 1000}k"
-                + spend
-                + allowed
-                + branch_note
-            )
+            self._show_success(job, branch_note)
 
         if job.answer:
             self.trace.appendPlainText("\nОТВЕТ:\n" + job.answer)
@@ -382,6 +380,31 @@ class AgentRunnerMixin:
             self.trace.appendPlainText(
                 "\nИЗМЕНЕНИЯ:\n" + format_changes(changes)
             )
+
+    def _show_success(self, job, branch_note: str) -> None:
+        """Статус успешного завершения."""
+
+        allowed = (
+            f" · разрешено до конца: {len(job.allowed)}"
+            if job.allowed
+            else ""
+        )
+        spend = (
+            f" · {job.tokens // 1000}k токенов"
+            + (" · " if job.cost > 0 else "")
+            if job.tokens
+            else ""
+        )
+
+        self.status_label.setText(
+            f"Готово за {len(job.steps)} шаг(ов)"
+            f" · {job.duration_s:.1f} с"
+            f" · подтверждений: {job.approvals}"
+            f" · контекст {job.context_chars // 1000}k"
+            + spend
+            + allowed
+            + branch_note
+        )
 
     def _undo_changes(self) -> None:
         """Возвращает файлы задачи к состоянию до запуска."""

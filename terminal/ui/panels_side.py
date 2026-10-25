@@ -265,94 +265,113 @@ class SidePanelMixin:
         set_module(key, enabled)
         self._save_window_settings()
 
-        if key == "voice":
-            if enabled:
-                self._schedule_voice()
-
-                note = (
-                    "Голос включён. Иногда я буду комментировать "
-                    "происходящее, шутить и насвистывать."
-                )
-            else:
-                self.voice_timer.stop()
-
-                note = "Голос выключен."
-        elif key == "internet":
-            note = (
-                "Сетевой модуль включён. Спроси: "
-                "«найди в интернете …»."
-                if enabled
-                else "Сетевой модуль выключен. Поиск недоступен."
-            )
-        elif key == "conference":
-            added_name = ""
-            pet_off = False
-
-            if enabled and getattr(self, "attached_pet", None):
-                self.detach_pet(announce=False)
-                pet_off = True
-
-            if enabled:
-                active_id = get_current_model_id()
-
-                if (
-                    active_id
-                    and active_id not in load_conference_ids()
-                    and set_conference_member(active_id, True)
-                ):
-                    active_model = get_model(active_id)
-
-                    if active_model is not None:
-                        added_name = active_model["name"]
-
-            mode = get_mode(get_selected_mode_id())
-            members = get_conference_members()
-
-            if not enabled:
-                note = "Сенат выключен. В чате отвечает одна модель."
-            elif mode is not None and mode["id"] != "council":
-                note = (
-                    f"Сенат включён. Режим «{mode['name']}» "
-                    "пока не реализован; сейчас работает только "
-                    "«Параллельный совет»."
-                )
-            elif not members:
-                note = (
-                    "Сенат включён, но участники не отмечены. "
-                    "Поставь галочки в карточках моделей."
-                )
-            else:
-                admitted = select_conference_models(members)
-                roster = ", ".join(
-                    f"Сенатор {index + 1}: "
-                    f"{model.get('nickname') or model['name']}"
-                    for index, model in enumerate(admitted)
-                )
-                note = (
-                    "Сенат включён. "
-                    f"Режим «{mode['name']}». Состав: {roster}."
-                )
-
-                if len(members) > MAX_CONFERENCE_MODELS:
-                    reserve = len(members) - MAX_CONFERENCE_MODELS
-                    note += (
-                        f" В резерве по репутации: {reserve}."
-                    )
-
-                if added_name:
-                    note += (
-                        f" Активная модель «{added_name}» "
-                        "добавлена в сенат."
-                    )
-
-            if pet_off:
-                note += " Дрон откреплён: включён сенат."
-        else:
-            note = (
-                "Помощь моделей включена. Если ядро будет "
-                "сомневаться, оно спросит внешнюю модель."
-                if enabled
-                else "Помощь моделей выключена."
-            )
+        note = {
+            "voice": self._voice_toggle_note,
+            "internet": self._internet_toggle_note,
+            "conference": self._conference_toggle_note,
+        }.get(key, self._models_toggle_note)(enabled)
 
         self.append_system(note)
+
+    def _voice_toggle_note(self, enabled: bool) -> str:
+        """Текст для голосового модуля."""
+
+        if enabled:
+            self._schedule_voice()
+
+            return (
+                "Голос включён. Иногда я буду комментировать "
+                "происходящее, шутить и насвистывать."
+            )
+
+        self.voice_timer.stop()
+
+        return "Голос выключен."
+
+    def _internet_toggle_note(self, enabled: bool) -> str:
+        """Текст для сетевого модуля."""
+
+        if enabled:
+            return (
+                "Сетевой модуль включён. Спроси: "
+                "«найди в интернете …»."
+            )
+
+        return "Сетевой модуль выключен. Поиск недоступен."
+
+    def _models_toggle_note(self, enabled: bool) -> str:
+        """Текст для помощи моделей."""
+
+        if enabled:
+            return (
+                "Помощь моделей включена. Если ядро будет "
+                "сомневаться, оно спросит внешнюю модель."
+            )
+
+        return "Помощь моделей выключена."
+
+    def _conference_toggle_note(self, enabled: bool) -> str:
+        """Текст для сената с составом и резервом."""
+
+        added_name = ""
+        pet_off = False
+
+        if enabled and getattr(self, "attached_pet", None):
+            self.detach_pet(announce=False)
+            pet_off = True
+
+        if enabled:
+            active_id = get_current_model_id()
+
+            if (
+                active_id
+                and active_id not in load_conference_ids()
+                and set_conference_member(active_id, True)
+            ):
+                active_model = get_model(active_id)
+
+                if active_model is not None:
+                    added_name = active_model["name"]
+
+        mode = get_mode(get_selected_mode_id())
+        members = get_conference_members()
+
+        if not enabled:
+            note = "Сенат выключен. В чате отвечает одна модель."
+        elif mode is not None and mode["id"] != "council":
+            note = (
+                f"Сенат включён. Режим «{mode['name']}» "
+                "пока не реализован; сейчас работает только "
+                "«Параллельный совет»."
+            )
+        elif not members:
+            note = (
+                "Сенат включён, но участники не отмечены. "
+                "Поставь галочки в карточках моделей."
+            )
+        else:
+            admitted = select_conference_models(members)
+            roster = ", ".join(
+                f"Сенатор {index + 1}: "
+                f"{model.get('nickname') or model['name']}"
+                for index, model in enumerate(admitted)
+            )
+            note = (
+                "Сенат включён. "
+                f"Режим «{mode['name']}». Состав: {roster}."
+            )
+
+            if len(members) > MAX_CONFERENCE_MODELS:
+                reserve = len(members) - MAX_CONFERENCE_MODELS
+                note += f" В резерве по репутации: {reserve}."
+
+            if added_name:
+                note += (
+                    f" Активная модель «{added_name}» "
+                    "добавлена в сенат."
+                )
+
+        if pet_off:
+            note += " Дрон откреплён: включён сенат."
+
+        return note

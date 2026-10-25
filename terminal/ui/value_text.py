@@ -118,6 +118,42 @@ def model_capabilities(model: dict) -> dict:
     return {}
 
 
+def _context_score(context: int) -> int:
+    """Оценка 0–5 по размеру контекста."""
+
+    if context >= 1_000_000:
+        return 5
+
+    if context >= 500_000:
+        return 4
+
+    if context >= 200_000:
+        return 3
+
+    if context >= 100_000:
+        return 2
+
+    return 1 if context > 0 else 0
+
+
+def _modality_score(inputs: list, key: str) -> int:
+    """Оценка модальности входа."""
+
+    if key == "vision":
+        return 5 if "image" in inputs else 0
+
+    if key == "pdf":
+        return 5 if "pdf" in inputs else 0
+
+    if key == "video":
+        return 4 if "video" in inputs else 0
+
+    if key == "audio":
+        return 4 if "audio" in inputs else 0
+
+    return 0
+
+
 def capability_score(model: dict, key: str) -> int:
     """Оценивает функцию модели по шкале 0–5 для сравнения."""
 
@@ -135,34 +171,13 @@ def capability_score(model: dict, key: str) -> int:
             or 0
         )
 
-        if context >= 1_000_000:
-            return 5
-
-        if context >= 500_000:
-            return 4
-
-        if context >= 200_000:
-            return 3
-
-        if context >= 100_000:
-            return 2
-
-        return 1 if context > 0 else 0
+        return _context_score(context)
 
     modalities = capabilities.get("modalities") or {}
     inputs = modalities.get("input") or []
 
-    if key == "vision":
-        return 5 if "image" in inputs else 0
-
-    if key == "pdf":
-        return 5 if "pdf" in inputs else 0
-
-    if key == "video":
-        return 4 if "video" in inputs else 0
-
-    if key == "audio":
-        return 4 if "audio" in inputs else 0
+    if key in ("vision", "pdf", "video", "audio"):
+        return _modality_score(inputs, key)
 
     flags = {
         "reasoning": "reasoning",
