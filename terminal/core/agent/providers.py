@@ -4,15 +4,55 @@
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Callable
 
 from terminal.core.agent.protocol import AgentDecision, ToolCall
-from terminal.core.agent.registry import tool_schemas
+from terminal.core.agent.registry import get_spec, tool_schemas
 
 TIMEOUT = 120
+
+TEXT_CALL = re.compile(
+    r"^([A-Za-z_]\w*)\s*\(\s*(\{.*\})\s*\)$",
+    re.DOTALL,
+)
+
+
+def _salvage_call(text: str) -> ToolCall | None:
+    """Достаёт вызов из текста, если провайдер не распарсил tool call.
+
+    Некоторые локальные серверы иногда печатают вызов прямо в content.
+    Если весь ответ — это «имя({...})» с известным инструментом, считаем
+    это вызовом, а не ответом.
+    """
+
+    clean = str(text or "").strip().strip("`").strip()
+
+    if len(clean) > 2000:
+        return None
+
+    match = TEXT_CALL.match(clean)
+
+    if not match:
+        return None
+
+    name = match.group(1)
+
+    if get_spec(name) is None:
+        return None
+
+    try:
+        args = json.loads(match.group(2))
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(args, dict):
+        return None
+
+    return ToolCall(tool=name, args=args)
 
 
 class ProviderError(RuntimeError):
@@ -25,6 +65,7 @@ class ProviderReply:
 
     text: str = ""
     calls: tuple[ToolCall, ...] = ()
+    usage: dict | None = None
 
 
 def _post_json(
@@ -126,6 +167,11 @@ class OpenAICompatibleProvider:
         text = message.get("content") or ""
         text = text if isinstance(text, str) else ""
 
+        usage = data.get("usage")
+
+        if not isinstance(usage, dict):
+            usage = None
+
         calls = []
 
         for item in message.get("tool_calls") or []:
@@ -153,14 +199,25 @@ class OpenAICompatibleProvider:
 
             calls.append(ToolCall(tool=name, args=args))
 
-        return ProviderReply(text=text, calls=tuple(calls))
+        return ProviderReply(text=text, calls=tuple(calls), usage=usage)
 
 
 class NativeBrain:
     """Мозг агента поверх провайдера с tool calls."""
 
+    native = True
+
     def __init__(self, provider: OpenAICompatibleProvider) -> None:
         self.provider = provider
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.calls = 0
+
+    @property
+    def total_tokens(self) -> int:
+        """Сколько токенов потрачено за всё время работы мозга."""
+
+        return self.prompt_tokens + self.completion_tokens
 
     def decide(self, prompt: str) -> AgentDecision:
         """Возвращает решение с настоящими вызовами инструментов."""
@@ -170,10 +227,35 @@ class NativeBrain:
             tool_schemas(),
         )
 
+        self.calls += 1
+
+        usage = reply.usage if isinstance(reply.usage, dict) else {}
+
+        for key, field in (
+            ("prompt_tokens", "prompt_tokens"),
+            ("completion_tokens", "completion_tokens"),
+        ):
+            value = usage.get(key)
+
+            if isinstance(value, (int, float)):
+                setattr(
+                    self,
+                    field,
+                    getattr(self, field) + int(value),
+                )
+
         if reply.calls:
             return AgentDecision(
                 action="tools",
                 calls=reply.calls,
+            )
+
+        salvaged = _salvage_call(reply.text)
+
+        if salvaged is not None:
+            return AgentDecision(
+                action="tools",
+                calls=(salvaged,),
             )
 
         if reply.text.strip():
@@ -183,6 +265,33 @@ class NativeBrain:
             )
 
         raise ProviderError("Провайдер вернул пустой ответ.")
+
+    def summarize(self, prompt: str) -> str:
+        """Итог без инструментов: когда шаги кончились."""
+
+        reply = self.provider.complete(
+            [{"role": "user", "content": prompt}],
+            None,
+        )
+
+        self.calls += 1
+
+        usage = reply.usage if isinstance(reply.usage, dict) else {}
+
+        for key, field in (
+            ("prompt_tokens", "prompt_tokens"),
+            ("completion_tokens", "completion_tokens"),
+        ):
+            value = usage.get(key)
+
+            if isinstance(value, (int, float)):
+                setattr(
+                    self,
+                    field,
+                    getattr(self, field) + int(value),
+                )
+
+        return reply.text.strip()
 
 
 def provider_from_env() -> OpenAICompatibleProvider | None:

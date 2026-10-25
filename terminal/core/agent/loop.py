@@ -11,6 +11,7 @@ from terminal.core.agent import registry
 from terminal.core.agent.context import (
     MAX_PROMPT,
     DecisionError,
+    build_native_prompt,
     build_prompt,
     is_within_budget,
     parse_decision,
@@ -33,44 +34,41 @@ PATH_TOKEN = re.compile(
     re.IGNORECASE,
 )
 
-STOPWORDS = {
-    "чтобы", "какой", "какая", "какие", "сколько", "почему", "зачем",
-    "можно", "нужно", "проект", "файл", "файлы", "прочитай", "найди",
-    "покажи", "скажи", "ответь", "внутри", "сначала", "потом",
-}
+QUOTED = re.compile(
+    r"«([^»]{3,80})»|\"([^\"]{3,80})\"|`([^`]{3,80})`"
+)
 
 
 def grounding_calls(task: str, root: Path) -> list[ToolCall]:
-    """Первый шаг без модели: дать ей реальные факты о проекте."""
+    """Первый шаг без модели: дать ей реальные факты о проекте.
+
+    Гадательных поисковых запросов здесь нет: если в задаче назван
+    файл — читаем его, иначе показываем корень и, при явной цитате,
+    выполняем точный поиск.
+    """
 
     match = PATH_TOKEN.search(task)
 
     if match:
         path = match.group(0).strip(" .,:;()[]\"'")
 
-        if path:
+        if path and (root / path).exists():
             return [ToolCall(tool="read_file", args={"path": path})]
-
-    words = [
-        word
-        for word in re.findall(r"[А-Яа-яЁёA-Za-z]{4,}", task)
-        if word.lower() not in STOPWORDS
-    ]
 
     calls = [ToolCall(tool="list_dir", args={"path": "."})]
 
-    if words:
-        query = max(
-            words,
-            key=lambda word: (
-                "_" in word,
-                word.isascii(),
-                len(word),
-            ),
-        )
-        calls.append(
-            ToolCall(tool="search_text", args={"query": query})
-        )
+    quoted = QUOTED.search(task)
+
+    if quoted:
+        query = next(
+            (group for group in quoted.groups() if group),
+            "",
+        ).strip()
+
+        if query:
+            calls.append(
+                ToolCall(tool="search_text", args={"query": query})
+            )
 
     return calls
 
@@ -113,6 +111,41 @@ def _call_detail(result: ToolResult) -> str:
         return first[:300]
 
     return "ошибка: " + first[:300]
+
+
+WRITE_TOOLS = {"apply_patch", "write_file", "git_restore"}
+
+
+def _repeated_call(
+    history: list[tuple[ToolCall, ToolResult]],
+    call: ToolCall,
+    window: int = 2,
+) -> ToolCall | None:
+    """Ищет такой же вызов недавно, если после него не было записи.
+
+    Повторять чтение после правки можно: файл мог измениться. Повторять
+    его подряд, ничего не сделав, — бесполезный шаг.
+    """
+
+    recent = history[-window:]
+
+    for offset in range(len(recent) - 1, -1, -1):
+        previous, result = recent[offset]
+
+        if previous.tool != call.tool or previous.args != call.args:
+            continue
+
+        if not result.ok:
+            return None
+
+        after = recent[offset + 1:]
+
+        if any(item[0].tool in WRITE_TOOLS for item in after):
+            return None
+
+        return previous
+
+    return None
 
 
 def _run_subagent(
@@ -193,6 +226,7 @@ def run_agent(
         initial_history or []
     )
     context_peak = 0
+    native = bool(getattr(brain, "native", False))
 
     def remember(call: ToolCall, result: ToolResult) -> None:
         history.append((call, result))
@@ -232,10 +266,28 @@ def run_agent(
                 context_chars=context_peak,
             )
 
-        prompt = build_prompt(
+        prompt_builder = build_native_prompt if native else build_prompt
+
+        final_note = ""
+
+        if index >= max(max_steps, 1):
+            final_note = (
+                "Это последний шаг, инструменты больше не выполняются. "
+                "Дай ответ по тому, что уже есть в истории, и честно "
+                "скажи, чего не хватило."
+                if native
+                else (
+                    "Это последний шаг, инструменты больше не выполняются. "
+                    'Верни {"action": "answer", "text": "..."} по тому, '
+                    "что уже есть в истории."
+                )
+            )
+
+        prompt = prompt_builder(
             clean_task,
             history,
             max_chars=max_prompt_chars,
+            final_note=final_note,
         )
         context_peak = max(context_peak, len(prompt))
 
@@ -339,6 +391,40 @@ def run_agent(
             continue
 
         for call in calls:
+            repeated = _repeated_call(history, call)
+
+            if repeated is not None:
+                previous = next(
+                    (
+                        result
+                        for call_item, result in reversed(history)
+                        if call_item.tool == call.tool
+                        and call_item.args == call.args
+                    ),
+                    None,
+                )
+                preview = str(previous.text if previous else "").strip()
+
+                emit(
+                    AgentStep(
+                        index,
+                        "error",
+                        "Повтор вызова",
+                        _call_title(call) + " — уже было, результат ниже.",
+                    )
+                )
+                remember(
+                    call,
+                    ToolResult(
+                        False,
+                        "Этот вызов уже был. Не повторяй его, а используй "
+                        "его результат:\n"
+                        + (preview[:1500] or "(результат пуст)"),
+                    ),
+                )
+
+                continue
+
             invalid = registry.validate_call(call)
 
             if invalid is not None:
@@ -508,6 +594,51 @@ def run_agent(
             )
 
             remember(call, result)
+
+    # Шаги кончились: просим итог без инструментов, чтобы пользователь
+    # получил ответ, а не только «достигнут лимит».
+    summarize = getattr(brain, "summarize", None)
+
+    if callable(summarize) and history:
+        final_prompt = prompt_builder(
+            clean_task,
+            history,
+            max_chars=max_prompt_chars,
+            final_note=(
+                "Шаги закончились, инструменты недоступны. Дай короткий "
+                "ответ по тому, что уже известно, и честно перечисли, "
+                "чего не хватило."
+            ),
+        )
+
+        try:
+            text = str(summarize(final_prompt) or "").strip()
+        except Exception as error:  # noqa: BLE001 — покажем в трейсе
+            text = ""
+            emit(
+                AgentStep(
+                    index,
+                    "error",
+                    "Итог не получен",
+                    f"{type(error).__name__}: {error}",
+                )
+            )
+
+        if text:
+            emit(
+                AgentStep(
+                    index,
+                    "answer",
+                    "Ответ по итогам",
+                    text[:500],
+                )
+            )
+
+            return AgentResult(
+                steps=steps,
+                answer=text,
+                context_chars=context_peak,
+            )
 
     return AgentResult(
         steps=steps,

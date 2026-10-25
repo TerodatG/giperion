@@ -429,10 +429,15 @@ def _backup(root: Path, path: Path) -> str:
 
 
 def _write_atomic(path: Path, text: str) -> None:
-    """Пишет через временный файл, чтобы не оставить половину."""
+    """Пишет через временный файл, чтобы не оставить половину.
+
+    Пишем байтами: текстовый режим на Windows превращает каждый «\\n» в
+    «\\r\\n», и в файле с CRLF после правки появлялись лишние пустые
+    строки.
+    """
 
     temp = path.with_name(path.name + ".agent-tmp")
-    temp.write_text(text, encoding="utf-8")
+    temp.write_bytes(str(text).encode("utf-8"))
 
     try:
         os.replace(temp, path)
@@ -495,6 +500,43 @@ def write_file(root: Path, path: str, content: str) -> ToolResult:
     return ToolResult(True, header + "\n" + diff)
 
 
+def _edge_newlines(value: str, at_start: bool) -> int:
+    """Сколько переводов строк идёт подряд с края строки."""
+
+    sequence = value if at_start else reversed(value)
+    count = 0
+
+    for char in sequence:
+        if char in "\r\n":
+            count += 1
+            continue
+
+        break
+
+    return count
+
+
+def _trim_insert(old: str, new: str) -> str:
+    """Убирает лишние пустые строки по краям вставки.
+
+    Модели часто добавляют перевод строки в начале или конце нового
+    фрагмента, хотя в оригинале его не было. Без этого файл расползается
+    пустыми строками после каждой правки.
+    """
+
+    head = _edge_newlines(new, True) - _edge_newlines(old, True)
+
+    if head > 0:
+        new = new[head:]
+
+    tail = _edge_newlines(new, False) - _edge_newlines(old, False)
+
+    if tail > 0:
+        new = new[:-tail]
+
+    return new
+
+
 def prepare_patch(
     root: Path,
     path: str,
@@ -512,7 +554,22 @@ def prepare_patch(
         raise ToolError("Файл не найден.")
 
     text = _read_text(target)
+    base_text, base_old, base_new = text, old, new
     count = text.count(old)
+
+    # Модель почти всегда присылает фрагменты с LF, а файлы на Windows
+    # хранятся с CRLF. Сравниваем ещё и в единых переводах строк.
+    if count == 0:
+        unified = text.replace("\r\n", "\n")
+        unified_old = old.replace("\r\n", "\n")
+
+        if unified_old:
+            count = unified.count(unified_old)
+
+            if count:
+                base_text = unified
+                base_old = unified_old
+                base_new = new.replace("\r\n", "\n")
 
     if count == 0:
         raise ToolError("Фрагмент не найден в файле — прочитай его заново.")
@@ -522,7 +579,12 @@ def prepare_patch(
             f"Фрагмент встречается {count} раз — нужен уникальный."
         )
 
-    new_text = text.replace(old, new, 1)
+    base_new = _trim_insert(base_old, base_new)
+    new_text = base_text.replace(base_old, base_new, 1)
+
+    if base_text is not text and "\r\n" in text:
+        new_text = new_text.replace("\n", "\r\n")
+
     diff = _diff(_relative(root, target), text, new_text)
 
     return target, text, new_text, diff

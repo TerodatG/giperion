@@ -605,3 +605,115 @@ def test_parse_decision_rejects_garbage() -> None:
         pass
     else:
         raise AssertionError("Ожидалась DecisionError")
+
+
+class NativeBrainStub:
+    """Мозг с настоящими вызовами и итогом без инструментов."""
+
+    native = True
+
+    def __init__(self, decisions, summary: str = "") -> None:
+        self.decisions = list(decisions)
+        self.prompts: list[str] = []
+        self.summary = summary
+
+    def decide(self, prompt: str):
+        self.prompts.append(prompt)
+
+        if not self.decisions:
+            raise AssertionError("Сценарий кончился раньше времени")
+
+        return self.decisions.pop(0)
+
+    def summarize(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+
+        return self.summary
+
+
+def test_native_prompt_has_no_json_protocol(tmp_path) -> None:
+    """Модель с tool calls не получает инструкцию про JSON."""
+
+    from terminal.core.agent.protocol import AgentDecision, ToolCall
+
+    brain = NativeBrainStub(
+        [
+            AgentDecision(
+                action="tools",
+                calls=(ToolCall("list_dir", {"path": "."}),),
+            ),
+            AgentDecision(action="answer", text="готово"),
+        ]
+    )
+
+    result = run_agent(
+        "посмотри проект",
+        brain,
+        tmp_path,
+        ground_first=False,
+    )
+
+    assert result.answer == "готово"
+    assert '"action"' not in brain.prompts[0]
+    assert "function calling" in brain.prompts[0]
+
+
+def test_repeated_call_is_refused_with_previous_result(tmp_path) -> None:
+    """Повтор того же вызова не выполняется, но отдаёт старый результат."""
+
+    (tmp_path / "a.txt").write_text("альфа", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("read_file", path="a.txt"),
+            _tool("read_file", path="a.txt"),
+            _answer("хватит"),
+        ]
+    )
+
+    result = run_agent(
+        "прочитай a.txt",
+        brain,
+        tmp_path,
+        ground_first=False,
+    )
+
+    titles = [step.title for step in result.steps]
+
+    assert "Повтор вызова" in titles
+    assert result.answer == "хватит"
+
+    repeated = next(
+        step for step in result.steps if step.title == "Повтор вызова"
+    )
+
+    assert "альфа" in repeated.detail or "уже было" in repeated.detail
+
+
+def test_step_limit_asks_for_summary(tmp_path) -> None:
+    """Когда шаги кончились, модель просят подвести итог."""
+
+    from terminal.core.agent.protocol import AgentDecision, ToolCall
+
+    brain = NativeBrainStub(
+        [
+            AgentDecision(
+                action="tools",
+                calls=(ToolCall("list_dir", {"path": "."}),),
+            )
+        ],
+        summary="прочитал только корень",
+    )
+
+    result = run_agent(
+        "посмотри проект",
+        brain,
+        tmp_path,
+        max_steps=1,
+        ground_first=False,
+    )
+
+    assert result.answer == "прочитал только корень"
+    assert result.error == ""
+    assert result.steps[-1].kind == "answer"
+    assert "Шаги закончились" in brain.prompts[-1]

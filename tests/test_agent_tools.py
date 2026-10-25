@@ -139,6 +139,68 @@ def test_apply_patch_rejects_ambiguous_fragment(project) -> None:
     assert (project / "dup.txt").read_text(encoding="utf-8") == "x\nx\n"
 
 
+def test_apply_patch_keeps_file_shape(project) -> None:
+    """Лишние пустые строки по краям вставки не попадают в файл."""
+
+    source = 'def greet():\n    return "Привет"\n'
+    (project / "greet.py").write_text(source, encoding="utf-8")
+
+    result = tools.apply_patch(
+        project,
+        "greet.py",
+        'return "Привет"',
+        '\nreturn "Здравствуйте"\n',
+    )
+
+    assert result.ok
+    assert (project / "greet.py").read_text(encoding="utf-8") == (
+        'def greet():\n    return "Здравствуйте"\n'
+    )
+
+
+def test_apply_patch_keeps_existing_blank_lines(project) -> None:
+    """Пустые строки из оригинала сохраняются, лишние по краям — нет."""
+
+    source = 'a = 1\n\nb = 2\n\n\nc = 3\n'
+    (project / "code.py").write_text(source, encoding="utf-8")
+
+    result = tools.apply_patch(
+        project,
+        "code.py",
+        "\n\nb = 2",
+        "\n\n\nb = 20",
+    )
+
+    assert result.ok
+    assert (project / "code.py").read_text(encoding="utf-8") == (
+        "a = 1\n\nb = 20\n\n\nc = 3\n"
+    )
+
+
+def test_apply_patch_matches_lf_fragment_in_crlf_file(project) -> None:
+    """Фрагмент с LF находится в файле с CRLF и не портит переводы строк."""
+
+    target = project / "crlf.py"
+    target.write_bytes(
+        b'def greet():\r\n\r\n    return "\xd0\x9f\xd1\x80\xd0\xb8\xd0\xb2'
+        b'\xd0\xb5\xd1\x82"\r\n'
+    )
+
+    result = tools.apply_patch(
+        project,
+        "crlf.py",
+        '\n\n    return "Привет"',
+        '\n\n    return "Здравствуйте"',
+    )
+
+    assert result.ok
+    assert target.read_bytes() == (
+        b'def greet():\r\n\r\n    return "\xd0\x97\xd0\xb4\xd1\x80\xd0\xb0'
+        b'\xd0\xb2\xd1\x81\xd1\x82\xd0\xb2\xd1\x83\xd0\xb9\xd1\x82\xd0\xb5"'
+        b"\r\n"
+    )
+
+
 def test_write_file_creates_new_file(project) -> None:
     """Новый файл создаётся, а не только перезаписывается."""
 

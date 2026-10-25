@@ -194,3 +194,98 @@ def test_loop_accepts_native_decisions(tmp_path) -> None:
         "tool",
         "answer",
     ]
+
+
+def _transport(message, usage=None):
+    def call(url, key, payload, timeout):
+        reply = {"choices": [{"message": message}]}
+
+        if usage is not None:
+            reply["usage"] = usage
+
+        return reply
+
+    return call
+
+
+def test_native_brain_salvages_call_from_text() -> None:
+    """Вызов, напечатанный текстом, не становится ответом."""
+
+    provider = OpenAICompatibleProvider(
+        "http://localhost/v1",
+        "secret",
+        "test-model",
+        transport=_transport(
+            {"content": 'list_dir({"path": "tests"})'}
+        ),
+    )
+
+    decision = NativeBrain(provider).decide("что в tests?")
+
+    assert decision.action == "tools"
+    assert decision.calls[0] == ToolCall(
+        "list_dir",
+        {"path": "tests"},
+    )
+
+
+def test_native_brain_keeps_plain_text_as_answer() -> None:
+    """Похожий на код текст без вызова остаётся ответом."""
+
+    provider = OpenAICompatibleProvider(
+        "http://localhost/v1",
+        "secret",
+        "test-model",
+        transport=_transport(
+            {"content": "Функция list_dir возвращает имена файлов."}
+        ),
+    )
+
+    decision = NativeBrain(provider).decide("что делает list_dir?")
+
+    assert decision.action == "answer"
+
+
+def test_native_brain_counts_usage() -> None:
+    """Расход токенов копится по ответам провайдера."""
+
+    provider = OpenAICompatibleProvider(
+        "http://localhost/v1",
+        "secret",
+        "test-model",
+        transport=_transport(
+            {"content": "готово"},
+            {"prompt_tokens": 120, "completion_tokens": 30},
+        ),
+    )
+
+    brain = NativeBrain(provider)
+    brain.decide("задача")
+    brain.decide("ещё")
+
+    assert brain.prompt_tokens == 240
+    assert brain.completion_tokens == 60
+    assert brain.total_tokens == 300
+    assert brain.calls == 2
+
+
+def test_native_brain_summarize_without_tools() -> None:
+    """Итог запрашивается без схем инструментов."""
+
+    seen = {}
+
+    def transport(url, key, payload, timeout):
+        seen["tools"] = payload.get("tools")
+        return {"choices": [{"message": {"content": "итог"}}]}
+
+    provider = OpenAICompatibleProvider(
+        "http://localhost/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+    )
+
+    text = NativeBrain(provider).summarize("подведи итог")
+
+    assert text == "итог"
+    assert seen["tools"] is None

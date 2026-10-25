@@ -51,6 +51,42 @@ SYSTEM_PROMPT = (
 )
 
 
+NATIVE_SYSTEM_PROMPT = (
+    "Ты — агент «Терминал» в проекте Giperion. Инструменты подключены к "
+    "тебе напрямую через function calling: вызывай их, а не описывай "
+    "вызов текстом. Любая запись, команда и коммит выполняются только "
+    "после подтверждения пользователя.\n\n"
+    "Карта проекта:\n"
+    "- giperion/ — сама модель (ядро, обучение, диалог);\n"
+    "- terminal/ — агент и интерфейс: terminal/core/agent — цикл, "
+    "инструменты, провайдер; terminal/ui — окна;\n"
+    "- shared/ — общий код и хранилища;\n"
+    "- tests/ — тесты, tools/ — служебные скрипты, docs/ — документы.\n\n"
+    "Правила:\n"
+    "- первые шаги — инструменты: сначала посмотри файлы, потом отвечай;\n"
+    "- если вызовы независимы, верни несколько за один шаг;\n"
+    "- не повторяй вызов с теми же аргументами: он уже есть в истории;\n"
+    "- ищи тем же языком, что и задача: по-русски — по документации, "
+    "по-английски — по именам функций, файлов и переменных;\n"
+    "- не выдумывай содержимое файлов: опирайся только на результаты "
+    "вызовов в истории;\n"
+    "- перед правкой прочитай файл и меняй точечно через apply_patch;\n"
+    "- не переписывай файл целиком, если хватает замены фрагмента;\n"
+    "- после правки запусти run_tests и посмотри на результат;\n"
+    "- если тесты упали — прочитай ошибку, исправь и запусти снова;\n"
+    "- для состояния репозитория используй git_status и git_diff;\n"
+    "- коммить только изменённый файл и только после успешных тестов;\n"
+    "- откат файла — git_restore, если правка его сломала;\n"
+    "- run_command — только для разрешённых команд из описания;\n"
+    "- ask_subagent — поручить чтение подзадачи помощнику, он не пишет;\n"
+    "- не трогай файлы, не относящиеся к задаче;\n"
+    "- если действие отклонили, не повторяй его, предложи другой путь;\n"
+    "- путь всегда относительный, внутри проекта;\n"
+    "- когда работа закончена, ответь обычным текстом по-русски;\n"
+    "- нельзя отвечать JSON-объектом и нельзя печатать вызовы как текст."
+)
+
+
 class DecisionError(Exception):
     """Ответ модели не разобрался как решение агента."""
 
@@ -93,18 +129,29 @@ def _step_line(
     )
 
 
-def build_prompt(
+LIMIT_LADDER = ((1200, 4000), (600, 1500), (300, 700), (150, 400))
+HARD_LIMIT = 300
+
+
+def _compose(
     task: str,
     history: list[tuple[ToolCall, ToolResult]],
-    max_chars: int = MAX_PROMPT,
+    system: str,
+    tools_block: str,
+    next_line: str,
+    final_note: str,
+    other_limit: int,
+    last_limit: int,
+    old_budget: int,
 ) -> str:
-    """Собирает промпт и сжимает старые шаги под бюджет."""
+    """Один вариант промпта с заданными лимитами на историю."""
 
-    parts = [
-        SYSTEM_PROMPT,
-        "Доступные инструменты:\n" + tools_prompt(),
-        f"Задача: {task.strip()}",
-    ]
+    parts = [system]
+
+    if tools_block:
+        parts.append(tools_block)
+
+    parts.append(f"Задача: {task.strip()}")
 
     if not history:
         parts.append("Выполненных шагов пока нет.")
@@ -123,7 +170,7 @@ def build_prompt(
             ]
             old_block = "\n".join(summaries)
 
-            if len(old_block) > MAX_HISTORY // 2:
+            if len(old_block) > old_budget:
                 old_block = (
                     f"[{len(old_steps)} старых шагов сжаты, "
                     "чтобы уложиться в контекст]"
@@ -137,34 +184,116 @@ def build_prompt(
             history[recent_start:],
             start=recent_start + 1,
         ):
-            recent_lines.append(
-                _step_line(number, call, result, 1200)
-            )
+            # Последний шаг показываем щедрее: по нему модель решает,
+            # что делать дальше, и обрезка ломает счёт и списки.
+            limit = last_limit if number == len(history) else other_limit
+
+            recent_lines.append(_step_line(number, call, result, limit))
 
         parts.append("\n".join(recent_lines))
 
-    parts.append("Следующий шаг — один JSON-объект:")
+    parts.append(next_line)
 
-    prompt = "\n\n".join(parts)
+    if final_note:
+        parts.append(final_note)
 
-    if len(prompt) <= max_chars:
-        return prompt
+    return "\n\n".join(parts)
+
+
+def _assemble(
+    task: str,
+    history: list[tuple[ToolCall, ToolResult]],
+    system: str,
+    tools_block: str,
+    next_line: str,
+    max_chars: int,
+    final_note: str = "",
+) -> str:
+    """Собирает промпт и сжимает историю ровно настолько, насколько нужно."""
+
+    old_budget = min(MAX_HISTORY // 2, max(400, max_chars // 3))
+
+    for other_limit, last_limit in LIMIT_LADDER:
+        prompt = _compose(
+            task,
+            history,
+            system,
+            tools_block,
+            next_line,
+            final_note,
+            other_limit,
+            last_limit,
+            old_budget,
+        )
+
+        if len(prompt) <= max_chars:
+            return prompt
 
     # Жёсткий бюджет: оставляем только последний шаг.
     if history:
         last_call, last_result = history[-1]
         parts = [
-            SYSTEM_PROMPT,
-            "Доступные инструменты:\n" + tools_prompt(),
+            system,
             f"Задача: {task.strip()}",
-            "[История сжата из-за лимита контекста]",
-            _step_line(len(history), last_call, last_result, 600),
-            "Следующий шаг — один JSON-объект:",
+            f"[{len(history)} шагов сжаты из-за лимита контекста]",
+            _step_line(len(history), last_call, last_result, HARD_LIMIT),
+            next_line,
         ]
 
-        prompt = "\n\n".join(parts)
+        if final_note:
+            parts.append(final_note)
 
-    return prompt
+        return "\n\n".join(parts)
+
+    return _compose(
+        task,
+        history,
+        system,
+        tools_block,
+        next_line,
+        final_note,
+        HARD_LIMIT,
+        HARD_LIMIT,
+        old_budget,
+    )
+
+
+def build_prompt(
+    task: str,
+    history: list[tuple[ToolCall, ToolResult]],
+    max_chars: int = MAX_PROMPT,
+    final_note: str = "",
+) -> str:
+    """Промпт для моделей, отвечающих JSON-решением."""
+
+    return _assemble(
+        task,
+        history,
+        SYSTEM_PROMPT,
+        "Доступные инструменты:\n" + tools_prompt(),
+        "Следующий шаг — один JSON-объект:",
+        max_chars,
+        final_note,
+    )
+
+
+def build_native_prompt(
+    task: str,
+    history: list[tuple[ToolCall, ToolResult]],
+    max_chars: int = MAX_PROMPT,
+    final_note: str = "",
+) -> str:
+    """Промпт для моделей с настоящими tool calls: без JSON и без схем."""
+
+    return _assemble(
+        task,
+        history,
+        NATIVE_SYSTEM_PROMPT,
+        "",
+        "Следующий шаг: вызови инструмент или дай ответ текстом.",
+        max_chars,
+        final_note,
+    )
 
 
 def is_within_budget(prompt: str, max_chars: int) -> bool:
