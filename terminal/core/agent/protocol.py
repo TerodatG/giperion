@@ -42,6 +42,15 @@ class AgentStep:
 
 
 @dataclass(frozen=True)
+class ApprovalRequest:
+    """Действие, которое нельзя выполнять без согласия пользователя."""
+
+    kind: str
+    title: str
+    detail: str
+
+
+@dataclass(frozen=True)
 class AgentDecision:
     """Разобранное решение модели."""
 

@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/widgets.py                                   v007
+# Giperion/terminal/ui/widgets.py                                   v008
 # Самодостаточные виджеты: кнопки, светодиоды, шкалы и рамки.
-# Последнее изменение: пиктограмма столбиков для «Производительности».
+# Последнее изменение: круговая стрелка для «Обновления».
 
 import math
 
@@ -327,9 +327,9 @@ class SideIconButton(QPushButton):
     ) -> None:
         """Рисует круговую стрелку — значок обновления."""
 
-        radius = 9.0
-        start_angle = 55
-        span_angle = 265
+        radius = 8.6
+        start_angle = 45.0
+        span_angle = 250.0
 
         painter.drawArc(
             QRectF(
@@ -338,23 +338,51 @@ class SideIconButton(QPushButton):
                 radius * 2,
                 radius * 2,
             ),
-            start_angle * 16,
-            span_angle * 16,
+            int(start_angle * 16),
+            int(span_angle * 16),
         )
 
-        # Наконечник на конце дуги: стрелка идёт по часовой.
-        end_angle = math.radians(start_angle + span_angle)
-        tip_x = center_x + radius * math.cos(end_angle)
-        tip_y = center_y - radius * math.sin(end_angle)
+        # Наконечник: залитый треугольник по касательной к дуге.
+        angle = math.radians(start_angle + span_angle)
+        tip_x = center_x + radius * math.cos(angle)
+        tip_y = center_y - radius * math.sin(angle)
 
-        painter.drawLine(
-            QPointF(tip_x, tip_y),
-            QPointF(tip_x - 6.0, tip_y + 0.8),
+        tangent_x = -math.sin(angle)
+        tangent_y = -math.cos(angle)
+        normal_x = -tangent_y
+        normal_y = tangent_x
+
+        base_x = tip_x - tangent_x * 2.0
+        base_y = tip_y - tangent_y * 2.0
+
+        arrow = QPainterPath()
+        arrow.moveTo(
+            QPointF(
+                tip_x + tangent_x * 3.0,
+                tip_y + tangent_y * 3.0,
+            )
         )
-        painter.drawLine(
-            QPointF(tip_x, tip_y),
-            QPointF(tip_x + 0.8, tip_y + 6.0),
+        arrow.lineTo(
+            QPointF(
+                base_x + normal_x * 3.2,
+                base_y + normal_y * 3.2,
+            )
         )
+        arrow.lineTo(
+            QPointF(
+                base_x - normal_x * 3.2,
+                base_y - normal_y * 3.2,
+            )
+        )
+        arrow.closeSubpath()
+
+        color = painter.pen().color()
+
+        painter.save()
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(color)
+        painter.drawPath(arrow)
+        painter.restore()
 
 
 class StatusLed(QWidget):

@@ -37,6 +37,9 @@ data/chat_contexts/
 updates/
 data/update_state.json
 
+# --- Резервные копии агента перед правкой файлов ---
+data/agent_backups/
+
 # --- Временные файлы атомарной записи ---
 *.tmp
 .intents_*.tmp

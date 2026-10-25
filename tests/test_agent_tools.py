@@ -113,3 +113,66 @@ def test_archive_and_logs_are_denied(project) -> None:
 
     assert not result.ok
     assert "закрыты" in result.text
+
+
+def test_apply_patch_changes_unique_fragment(project) -> None:
+    """Патч меняет один фрагмент и оставляет резервную копию."""
+
+    result = tools.apply_patch(project, "a.txt", "мир", "планета")
+
+    assert result.ok
+    assert "планета" in (
+        project / "a.txt"
+    ).read_text(encoding="utf-8")
+    assert "agent_backups" in result.text
+
+
+def test_apply_patch_rejects_ambiguous_fragment(project) -> None:
+    """Если фрагмент встречается дважды, патч не применяется."""
+
+    (project / "dup.txt").write_text("x\nx\n", encoding="utf-8")
+
+    result = tools.apply_patch(project, "dup.txt", "x", "y")
+
+    assert not result.ok
+    assert "2" in result.text
+    assert (project / "dup.txt").read_text(encoding="utf-8") == "x\nx\n"
+
+
+def test_write_file_creates_new_file(project) -> None:
+    """Новый файл создаётся, а не только перезаписывается."""
+
+    result = tools.write_file(project, "new.txt", "привет")
+
+    assert result.ok
+    assert (project / "new.txt").read_text(encoding="utf-8") == "привет"
+    assert "новый файл" in result.text
+
+
+def test_write_file_denies_secrets(project) -> None:
+    """Секреты нельзя перезаписать через агента."""
+
+    result = tools.write_file(project, ".env", "TOKEN=x")
+
+    assert not result.ok
+
+
+def test_run_tests_reports_output(project, monkeypatch) -> None:
+    """Запуск тестов возвращает код и хвост вывода."""
+
+    class Result:
+        returncode = 0
+        stdout = "255 passed in 8s"
+        stderr = ""
+
+    monkeypatch.setattr(
+        tools.subprocess,
+        "run",
+        lambda *args, **kwargs: Result(),
+    )
+
+    result = tools.run_tests(project)
+
+    assert result.ok
+    assert "255 passed" in result.text
+    assert "код 0" in result.text

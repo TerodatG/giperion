@@ -136,12 +136,19 @@ def test_cancel_stops_before_next_step(tmp_path) -> None:
     assert result.answer == ""
 
 
-def test_only_read_tools_are_registered() -> None:
-    """На этапе A1 в реестре нет инструментов записи."""
+def test_registry_has_read_write_and_exec_tools() -> None:
+    """В A2 есть чтение, запись и запуск тестов с разными рисками."""
 
-    names = {spec.name for spec in registry.TOOL_SPECS}
+    risks = {spec.name: spec.risk for spec in registry.TOOL_SPECS}
 
-    assert names == {"list_dir", "read_file", "search_text"}
+    assert risks == {
+        "list_dir": "read",
+        "read_file": "read",
+        "search_text": "read",
+        "apply_patch": "write",
+        "write_file": "write",
+        "run_tests": "exec",
+    }
 
 
 def test_unknown_tool_is_an_error_observation(tmp_path) -> None:
@@ -184,6 +191,73 @@ def test_grounding_reads_named_file(tmp_path) -> None:
     assert result.steps[0].title.startswith("старт")
     assert "README.md" in result.steps[0].detail
     assert result.answer == "две строки"
+
+
+def test_write_is_rejected_without_changes(tmp_path) -> None:
+    """Отклонение не меняет файл и возвращает наблюдение агенту."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("старое", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool(
+                "apply_patch",
+                path="a.txt",
+                old="старое",
+                new="новое",
+            ),
+            _answer("отменено"),
+        ]
+    )
+
+    requests = []
+
+    result = run_agent(
+        "замени слово",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=lambda request: requests.append(request) or False,
+    )
+
+    assert requests
+    assert requests[0].title == "Изменить файл"
+    assert "новое" in requests[0].detail
+    assert target.read_text(encoding="utf-8") == "старое"
+    assert any(step.kind == "approval" for step in result.steps)
+    assert result.answer == "отменено"
+
+
+def test_write_applies_after_approval(tmp_path) -> None:
+    """Одобрение применяет патч и оставляет резервную копию."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("старое", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool(
+                "apply_patch",
+                path="a.txt",
+                old="старое",
+                new="новое",
+            ),
+            _answer("готово"),
+        ]
+    )
+
+    result = run_agent(
+        "замени слово",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=lambda request: True,
+    )
+
+    assert target.read_text(encoding="utf-8") == "новое"
+    assert result.answer == "готово"
+    assert (tmp_path / "data" / "agent_backups").is_dir()
 
 
 def test_parse_decision_accepts_fenced_json() -> None:

@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialogButtonBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
@@ -24,13 +25,14 @@ from terminal.core.model_registry import (
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
-MAX_STEPS = 8
+MAX_STEPS = 10
 POLL_MS = 120
 
 STEP_MARKS = {
     "tool": "→",
     "answer": "✓",
     "error": "!",
+    "approval": "▣",
 }
 
 
@@ -109,6 +111,50 @@ class AgentDialog(SkinDialog):
         controls.addWidget(self.stop_button)
         controls.addWidget(self.status_label, 1)
 
+        self.approval_frame = QFrame(self)
+        self.approval_frame.setObjectName("paramsPlate")
+        self.approval_frame.setVisible(False)
+
+        approval_layout = QVBoxLayout(self.approval_frame)
+        approval_layout.setContentsMargins(10, 8, 10, 10)
+        approval_layout.setSpacing(6)
+
+        self.approval_title = QLabel(
+            "ПОДТВЕРЖДЕНИЕ",
+            self.approval_frame,
+        )
+        self.approval_title.setObjectName("paramsPlateTitle")
+
+        self.approval_detail = QPlainTextEdit(self.approval_frame)
+        self.approval_detail.setObjectName("agentTrace")
+        self.approval_detail.setReadOnly(True)
+        self.approval_detail.setFixedHeight(200)
+
+        approval_buttons = QHBoxLayout()
+        approval_buttons.setSpacing(8)
+
+        self.approve_button = QPushButton(
+            "Одобрить",
+            self.approval_frame,
+        )
+        self.approve_button.setObjectName("workshopAction")
+        self.approve_button.clicked.connect(self._approve)
+
+        self.reject_button = QPushButton(
+            "Отклонить",
+            self.approval_frame,
+        )
+        self.reject_button.setObjectName("workshopAction")
+        self.reject_button.clicked.connect(self._reject)
+
+        approval_buttons.addWidget(self.approve_button)
+        approval_buttons.addWidget(self.reject_button)
+        approval_buttons.addStretch(1)
+
+        approval_layout.addWidget(self.approval_title)
+        approval_layout.addWidget(self.approval_detail)
+        approval_layout.addLayout(approval_buttons)
+
         self.trace = QPlainTextEdit(self)
         self.trace.setObjectName("agentTrace")
         self.trace.setReadOnly(True)
@@ -122,6 +168,7 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(subtitle)
         self.body_layout.addWidget(self.task_input)
         self.body_layout.addLayout(controls)
+        self.body_layout.addWidget(self.approval_frame)
         self.body_layout.addWidget(self.trace, 1)
         self.body_layout.addWidget(buttons)
 
@@ -152,6 +199,7 @@ class AgentDialog(SkinDialog):
 
         self.trace.clear()
         self._shown = 0
+        self.approval_frame.setVisible(False)
         self.job = AgentJob(
             task,
             brain,
@@ -176,6 +224,26 @@ class AgentDialog(SkinDialog):
         self.stop_button.setEnabled(False)
         self.status_label.setText("Останавливаю после текущего шага…")
 
+    def _approve(self) -> None:
+        """Подтверждает запись или запуск тестов."""
+
+        if self.job is None:
+            return
+
+        self.job.resolve_approval(True)
+        self.approval_frame.setVisible(False)
+        self.status_label.setText("Одобрено, продолжаю…")
+
+    def _reject(self) -> None:
+        """Отклоняет действие и возвращает агента к плану."""
+
+        if self.job is None:
+            return
+
+        self.job.resolve_approval(False)
+        self.approval_frame.setVisible(False)
+        self.status_label.setText("Действие отклонено.")
+
     def _poll(self) -> None:
         """Дорисовывает новые шаги и завершает задачу."""
 
@@ -198,6 +266,15 @@ class AgentDialog(SkinDialog):
 
             self.trace.appendPlainText("\n".join(lines))
 
+        pending = job.pending
+
+        if pending is not None and not self.approval_frame.isVisible():
+            self.approval_title.setText(pending.title.upper())
+            self.approval_detail.setPlainText(pending.detail)
+            self.approval_frame.setVisible(True)
+        elif pending is None and self.approval_frame.isVisible():
+            self.approval_frame.setVisible(False)
+
         if not job.done:
             self.status_label.setText(
                 f"Работаю… шаг {len(job.steps)} из {MAX_STEPS}."
@@ -206,6 +283,7 @@ class AgentDialog(SkinDialog):
             return
 
         self._timer.stop()
+        self.approval_frame.setVisible(False)
         self.run_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 

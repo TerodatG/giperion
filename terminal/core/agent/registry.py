@@ -30,6 +30,37 @@ TOOL_SPECS = (
             "path": "где искать, по умолчанию весь проект",
         },
     ),
+    ToolSpec(
+        name="apply_patch",
+        description=(
+            "Заменить один уникальный фрагмент в файле. "
+            "Требует подтверждения пользователя."
+        ),
+        args={
+            "path": "путь к файлу",
+            "old": "точный фрагмент, который меняем",
+            "new": "чем заменить (пустая строка — удалить)",
+        },
+        risk="write",
+    ),
+    ToolSpec(
+        name="write_file",
+        description=(
+            "Создать или полностью перезаписать текстовый файл. "
+            "Требует подтверждения; лучше apply_patch."
+        ),
+        args={
+            "path": "путь к файлу",
+            "content": "полный новый текст файла",
+        },
+        risk="write",
+    ),
+    ToolSpec(
+        name="run_tests",
+        description="Запустить pytest в папке проекта и показать итог.",
+        args={},
+        risk="exec",
+    ),
 )
 
 _TOOLS = {spec.name: spec for spec in TOOL_SPECS}
@@ -39,6 +70,55 @@ def get_spec(name: str) -> ToolSpec | None:
     """Возвращает описание инструмента по имени."""
 
     return _TOOLS.get(name)
+
+
+def needs_approval(call: ToolCall) -> bool:
+    """Требует ли вызов согласия пользователя."""
+
+    spec = get_spec(call.tool)
+
+    return spec is not None and spec.risk != "read"
+
+
+def preview(root: Path, call: ToolCall) -> ToolResult:
+    """Показывает, что именно произойдёт, без выполнения."""
+
+    spec = get_spec(call.tool)
+
+    if spec is None:
+        return ToolResult(False, f"Неизвестный инструмент: {call.tool}")
+
+    try:
+        if call.tool == "write_file":
+            _path, _old, diff = tools.prepare_write(
+                root,
+                _string_arg(call, "path"),
+                _string_arg(call, "content"),
+            )
+
+            return ToolResult(True, diff)
+
+        if call.tool == "apply_patch":
+            _path, _text, diff = tools.prepare_patch(
+                root,
+                _string_arg(call, "path"),
+                _string_arg(call, "old"),
+                _string_arg(call, "new"),
+            )
+
+            return ToolResult(True, diff)
+
+        if call.tool == "run_tests":
+            return ToolResult(
+                True,
+                "python -m pytest -q\nрабочая папка: " + str(root),
+            )
+    except ValueError as error:
+        return ToolResult(False, str(error))
+    except Exception as error:  # noqa: BLE001 — покажем причину
+        return ToolResult(False, f"{type(error).__name__}: {error}")
+
+    return ToolResult(True, "Действие без предпросмотра.")
 
 
 def tools_prompt() -> str:
@@ -106,6 +186,24 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
                 _string_arg(call, "query"),
                 _string_arg(call, "path", "."),
             )
+
+        if call.tool == "write_file":
+            return tools.write_file(
+                root,
+                _string_arg(call, "path"),
+                _string_arg(call, "content"),
+            )
+
+        if call.tool == "apply_patch":
+            return tools.apply_patch(
+                root,
+                _string_arg(call, "path"),
+                _string_arg(call, "old"),
+                _string_arg(call, "new"),
+            )
+
+        if call.tool == "run_tests":
+            return tools.run_tests(root)
     except ValueError as error:
         return ToolResult(False, str(error))
     except Exception as error:  # noqa: BLE001 — ошибку увидит модель

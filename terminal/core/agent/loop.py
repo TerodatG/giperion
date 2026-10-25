@@ -16,6 +16,7 @@ from terminal.core.agent.context import (
 from terminal.core.agent.protocol import (
     AgentResult,
     AgentStep,
+    ApprovalRequest,
     ToolCall,
     ToolResult,
 )
@@ -77,6 +78,15 @@ class Brain(Protocol):
         """Возвращает JSON-решение по промпту."""
 
 
+def _approval_title(call: ToolCall) -> str:
+    """Заголовок подтверждения по типу действия."""
+
+    if call.tool == "run_tests":
+        return "Запустить тесты"
+
+    return "Изменить файл"
+
+
 def _call_title(call: ToolCall) -> str:
     """Короткая подпись вызова для трейса."""
 
@@ -106,6 +116,7 @@ def run_agent(
     should_stop: Callable[[], bool] | None = None,
     require_tool_first: bool = True,
     ground_first: bool = True,
+    approve: Callable[[ApprovalRequest], bool] | None = None,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -227,6 +238,54 @@ def run_agent(
 
         if call is None:
             continue
+
+        if registry.needs_approval(call):
+            preview = registry.preview(root, call)
+
+            if not preview.ok:
+                emit(
+                    AgentStep(
+                        index,
+                        "error",
+                        "Действие невозможно",
+                        preview.text[:300],
+                    )
+                )
+                history.append((call, preview))
+
+                continue
+
+            request = ApprovalRequest(
+                kind=call.tool,
+                title=_approval_title(call),
+                detail=preview.text,
+            )
+
+            approved = bool(approve and approve(request))
+
+            emit(
+                AgentStep(
+                    index,
+                    "approval",
+                    ("Одобрено · " if approved else "Отклонено · ")
+                    + _approval_title(call),
+                    preview.text[:300],
+                )
+            )
+
+            if not approved:
+                history.append(
+                    (
+                        call,
+                        ToolResult(
+                            False,
+                            "Пользователь отклонил действие. "
+                            "Предложи другой путь или ответь.",
+                        ),
+                    )
+                )
+
+                continue
 
         result = registry.execute(root, call)
 

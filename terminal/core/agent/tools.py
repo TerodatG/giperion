@@ -5,8 +5,12 @@
 import os
 import shutil
 import subprocess
+import sys
+import difflib
+from datetime import datetime
 from pathlib import Path
 
+from shared.action_log import add_action
 from terminal.core.agent.protocol import ToolResult
 
 MAX_LIST_ENTRIES = 200
@@ -15,6 +19,10 @@ MAX_READ_BYTES = 1_000_000
 MAX_SEARCH_HITS = 40
 MAX_SEARCH_FILE_BYTES = 512_000
 MAX_SEARCH_FILES = 3000
+MAX_WRITE_CHARS = 200_000
+DIFF_LIMIT = 6000
+TEST_TIMEOUT = 300
+BACKUP_DIR = "data/agent_backups"
 
 TEXT_SUFFIXES = {
     ".py", ".md", ".json", ".jsonc", ".ui", ".txt", ".toml", ".cfg",
@@ -369,3 +377,219 @@ def search_text(
         return ToolResult(True, "Совпадений нет.")
 
     return ToolResult(True, "\n".join(hits))
+
+
+def _read_text(path: Path) -> str:
+    """Читает текстовый файл или объясняет, почему нельзя."""
+
+    data = path.read_bytes()
+
+    if b"\x00" in data[:4096]:
+        raise ToolError("Это двоичный файл, менять его нельзя.")
+
+    return data.decode("utf-8", "replace")
+
+
+def _diff(path: str, old: str, new: str) -> str:
+    """Собирает унифицированный дифф с ограничением размера."""
+
+    diff = difflib.unified_diff(
+        old.splitlines(),
+        new.splitlines(),
+        fromfile="a/" + path,
+        tofile="b/" + path,
+        lineterm="",
+    )
+    text = "\n".join(diff).strip()
+
+    if not text:
+        return "Изменений нет."
+
+    if len(text) > DIFF_LIMIT:
+        return text[:DIFF_LIMIT] + "\n… дифф обрезан."
+
+    return text
+
+
+def _backup(root: Path, path: Path) -> str:
+    """Кладёт копию файла перед изменением и возвращает её путь."""
+
+    base = _root(root)
+    relative = path.relative_to(base)
+    folder = base / BACKUP_DIR
+    folder.mkdir(parents=True, exist_ok=True)
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    name = stamp + "-" + relative.as_posix().replace("/", "__")
+    target = folder / name
+    shutil.copy2(path, target)
+
+    return target.relative_to(base).as_posix()
+
+
+def _write_atomic(path: Path, text: str) -> None:
+    """Пишет через временный файл, чтобы не оставить половину."""
+
+    temp = path.with_name(path.name + ".agent-tmp")
+    temp.write_text(text, encoding="utf-8")
+
+    try:
+        os.replace(temp, path)
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
+def _relative(root: Path, path: Path) -> str:
+    return path.relative_to(_root(root)).as_posix()
+
+
+def prepare_write(
+    root: Path,
+    path: str,
+    content: str,
+) -> tuple[Path, str, str]:
+    """Готовит запись файла: путь, старый текст и дифф."""
+
+    target = safe_path(root, path)
+
+    if target.exists() and not target.is_file():
+        raise ToolError("Это не файл.")
+
+    if not target.parent.exists():
+        raise ToolError("Папки для файла нет — сначала создай её.")
+
+    if target.suffix.lower() not in TEXT_SUFFIXES:
+        raise ToolError("Это не текстовый файл проекта.")
+
+    new_text = str(content)
+
+    if len(new_text) > MAX_WRITE_CHARS:
+        raise ToolError("Слишком большой текст для записи.")
+
+    old_text = _read_text(target) if target.exists() else ""
+    diff = _diff(_relative(root, target), old_text, new_text)
+
+    return target, old_text, diff
+
+
+def write_file(root: Path, path: str, content: str) -> ToolResult:
+    """Создаёт или полностью перезаписывает текстовый файл."""
+
+    try:
+        target, old_text, diff = prepare_write(root, path, content)
+    except ToolError as error:
+        return ToolResult(False, str(error))
+
+    backup = _backup(root, target) if target.exists() else ""
+
+    _write_atomic(target, str(content))
+    add_action(f"Агент: записан файл {_relative(root, target)}")
+
+    header = (
+        f"Записан {_relative(root, target)}"
+        + (f" · резервная копия {backup}" if backup else " · новый файл")
+    )
+
+    return ToolResult(True, header + "\n" + diff)
+
+
+def prepare_patch(
+    root: Path,
+    path: str,
+    old: str,
+    new: str,
+) -> tuple[Path, str, str]:
+    """Готовит точечную замену: путь, новый текст и дифф."""
+
+    if not str(old):
+        raise ToolError("Пустой фрагмент для замены.")
+
+    target = safe_path(root, path)
+
+    if not target.exists() or not target.is_file():
+        raise ToolError("Файл не найден.")
+
+    text = _read_text(target)
+    count = text.count(old)
+
+    if count == 0:
+        raise ToolError("Фрагмент не найден в файле — прочитай его заново.")
+
+    if count > 1:
+        raise ToolError(
+            f"Фрагмент встречается {count} раз — нужен уникальный."
+        )
+
+    new_text = text.replace(old, new, 1)
+    diff = _diff(_relative(root, target), text, new_text)
+
+    return target, new_text, diff
+
+
+def apply_patch(
+    root: Path,
+    path: str,
+    old: str,
+    new: str,
+) -> ToolResult:
+    """Заменяет один уникальный фрагмент в файле."""
+
+    try:
+        target, new_text, diff = prepare_patch(
+            root,
+            path,
+            old,
+            new,
+        )
+    except ToolError as error:
+        return ToolResult(False, str(error))
+
+    backup = _backup(root, target)
+    _write_atomic(target, new_text)
+    add_action(f"Агент: правка файла {_relative(root, target)}")
+
+    return ToolResult(
+        True,
+        f"Изменён {_relative(root, target)} · копия {backup}\n{diff}",
+    )
+
+
+def run_tests(root: Path) -> ToolResult:
+    """Запускает pytest в папке проекта и отдаёт хвост вывода."""
+
+    base = _root(root)
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q"],
+            cwd=base,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=TEST_TIMEOUT,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return ToolResult(
+            False,
+            f"Тесты не успели за {TEST_TIMEOUT} секунд.",
+        )
+    except OSError as error:
+        return ToolResult(False, f"Не удалось запустить тесты: {error}")
+
+    output = (result.stdout + result.stderr).strip()
+    tail = output[-4000:] if output else "вывод пуст"
+    ok = result.returncode == 0
+
+    add_action(
+        "Агент: pytest, код "
+        f"{result.returncode}"
+    )
+
+    return ToolResult(
+        ok,
+        f"pytest: код {result.returncode}\n{tail}",
+    )
+

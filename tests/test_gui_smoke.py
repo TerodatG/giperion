@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v020
+# Giperion/tests/test_gui_smoke.py                                 v021
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: окно «Производительность» и его пауза.
+# Последнее изменение: окно «Обновление» и полный цикл патча.
 
 import copy
 import os
@@ -569,8 +569,8 @@ def test_workshop_dialog_lists_tools(window) -> None:
     dialog.close()
 
 
-def test_agent_dialog_opens_read_only(window) -> None:
-    """Окно агента открывается и показывает только чтение."""
+def test_agent_dialog_opens_with_approval(window) -> None:
+    """Окно агента открывается; панель подтверждения спрятана."""
 
     window.open_agent_dialog()
 
@@ -579,6 +579,7 @@ def test_agent_dialog_opens_read_only(window) -> None:
     assert dialog.windowTitle() == "Агент"
     assert dialog.trace.isReadOnly()
     assert dialog.stop_button.isEnabled() is False
+    assert dialog.approval_frame.isHidden()
     assert dialog.task_input.toPlainText() == ""
 
     dialog.close()

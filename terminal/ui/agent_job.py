@@ -6,7 +6,7 @@ import threading
 from pathlib import Path
 
 from terminal.core.agent.loop import run_agent
-from terminal.core.agent.protocol import AgentStep
+from terminal.core.agent.protocol import AgentStep, ApprovalRequest
 
 
 class AgentJob:
@@ -28,12 +28,15 @@ class AgentJob:
         self.error = ""
         self.cancelled = False
         self.done = False
+        self.pending: ApprovalRequest | None = None
 
         self._task = task
         self._brain = brain
         self._root = root
         self._max_steps = max_steps
         self._stop = threading.Event()
+        self._approval = threading.Event()
+        self._approved = False
 
         self._thread = threading.Thread(
             target=self._run,
@@ -45,6 +48,33 @@ class AgentJob:
         """Просит цикл остановиться после текущего шага."""
 
         self._stop.set()
+        self._approval.set()
+
+    def request_approval(
+        self,
+        request: ApprovalRequest,
+    ) -> bool:
+        """Ждёт решения пользователя, не блокируя интерфейс."""
+
+        self.pending = request
+        self._approved = False
+        self._approval.clear()
+
+        while not self._approval.wait(0.2):
+            if self._stop.is_set():
+                self.pending = None
+
+                return False
+
+        self.pending = None
+
+        return self._approved
+
+    def resolve_approval(self, approved: bool) -> None:
+        """Передаёт решение кнопки «Одобрить» или «Отклонить»."""
+
+        self._approved = bool(approved)
+        self._approval.set()
 
     def _on_step(self, step: AgentStep) -> None:
         """Складывает шаг в общий список для окна."""
@@ -62,6 +92,7 @@ class AgentJob:
                 max_steps=self._max_steps,
                 on_step=self._on_step,
                 should_stop=self._stop.is_set,
+                approve=self.request_approval,
             )
 
             self.answer = result.answer

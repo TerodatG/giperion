@@ -351,7 +351,7 @@ class UpdateDialog(SkinDialog):
             self._patched = None
             self._set_status(
                 f"Обновлений нет: установлена последняя версия "
-                f"{check.current} из {check.source}."
+                f"{check.current} ({check.source})."
             )
 
             return
