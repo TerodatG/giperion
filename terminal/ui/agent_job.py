@@ -36,6 +36,7 @@ class AgentJob:
         initial_steps=None,
         worktree_branch: str = "",
         persist: bool = True,
+        budget=None,
     ) -> None:
         self.steps: list[AgentStep] = list(initial_steps or [])
         self.answer = ""
@@ -46,6 +47,9 @@ class AgentJob:
         self.approvals = 0
         self.duration_s = 0.0
         self.context_chars = 0
+        self.tokens = 0
+        self.cost = 0.0
+        self._budget = budget
 
         self._task = task
         self._brain = brain
@@ -96,6 +100,18 @@ class AgentJob:
         from datetime import datetime
 
         return datetime.now().isoformat(timespec="seconds")
+
+    @property
+    def live_tokens(self) -> int:
+        """Токены, потраченные к этому моменту."""
+
+        return int(getattr(self._brain, "total_tokens", 0) or 0)
+
+    @property
+    def live_cost(self) -> float:
+        """Стоимость, потраченная к этому моменту."""
+
+        return float(getattr(self._brain, "cost", 0.0) or 0.0)
 
     def cancel(self) -> None:
         """Просит цикл остановиться после текущего шага."""
@@ -179,6 +195,7 @@ class AgentJob:
                 initial_history=self._initial_history,
                 on_history=self._on_history,
                 allowed=self.allowed,
+                budget=self._budget,
             )
 
             self.answer = result.answer
@@ -192,6 +209,9 @@ class AgentJob:
             self.error = f"{type(error).__name__}: {error}"
         finally:
             self.duration_s = time.monotonic() - self._started
+            self.tokens = int(getattr(self._brain, "total_tokens", 0) or 0)
+            self.cost = float(getattr(self._brain, "cost", 0.0) or 0.0)
+
             record_run(
                 self._task,
                 self._model_name,
@@ -201,6 +221,8 @@ class AgentJob:
                 self.answer,
                 self.error,
                 self.cancelled,
+                self.tokens,
+                self.cost,
             )
 
             if self._persist:

@@ -135,7 +135,6 @@ def set_plugins_enabled(enabled: bool) -> None:
 
 POLICIES = ("read", "confirm", "trust")
 
-
 def approval_policy() -> str:
     """Возвращает политику подтверждений (по умолчанию confirm)."""
 
@@ -153,4 +152,59 @@ def set_approval_policy(policy: str) -> None:
 
     document = read_json_object(SETTINGS_FILE)
     document["approval_policy"] = policy
+    write_json(SETTINGS_FILE, document)
+
+
+def _number(
+    document: dict,
+    key: str,
+    default: float,
+    as_int: bool = False,
+) -> float | int:
+    """Число из файла настроек; мусор заменяется значением по умолчанию."""
+
+    value = document.get(key)
+
+    if isinstance(value, bool):
+        return int(default) if as_int else default
+
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return int(default) if as_int else default
+
+    if number < 0:
+        return int(default) if as_int else default
+
+    return int(number) if as_int else number
+
+
+def budget_limits():
+    """Лимиты и цены задачи из файла настроек."""
+
+    from terminal.core.agent.budget import BudgetLimits
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return BudgetLimits(
+        tokens=_number(document, "token_limit", 0, as_int=True),
+        cost=_number(document, "cost_limit", 0.0),
+        price_in=_number(document, "price_in", 0.0),
+        price_out=_number(document, "price_out", 0.0),
+    )
+
+
+def save_budget_limits(
+    tokens: int,
+    cost: float,
+    price_in: float,
+    price_out: float,
+) -> None:
+    """Сохраняет лимиты задачи; отрицательные значения приводятся к нулю."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["token_limit"] = max(0, int(tokens))
+    document["cost_limit"] = max(0.0, float(cost))
+    document["price_in"] = max(0.0, float(price_in))
+    document["price_out"] = max(0.0, float(price_out))
     write_json(SETTINGS_FILE, document)

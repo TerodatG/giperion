@@ -172,6 +172,38 @@ def _repeated_call(
     return None
 
 
+def _usage(brain: "Brain") -> tuple[int, float]:
+    """Сколько токенов и денег потратил мозг, если он это умеет."""
+
+    tokens = getattr(brain, "total_tokens", 0)
+    cost = getattr(brain, "cost", 0.0)
+
+    try:
+        tokens = int(tokens)
+    except (TypeError, ValueError):
+        tokens = 0
+
+    try:
+        cost = float(cost)
+    except (TypeError, ValueError):
+        cost = 0.0
+
+    return max(0, tokens), max(0.0, cost)
+
+
+def budget_state(budget, brain: "Brain") -> tuple[int, float, str]:
+    """Токены, стоимость и причина остановки (или пустая строка)."""
+
+    from terminal.core.agent.budget import exceeded
+
+    tokens, cost = _usage(brain)
+
+    if budget is None or not getattr(budget, "enabled", False):
+        return tokens, cost, ""
+
+    return tokens, cost, exceeded(budget, tokens, cost)
+
+
 def _run_subagent(
     call: ToolCall,
     brain: "Brain",
@@ -236,6 +268,7 @@ def run_agent(
         [list[tuple[ToolCall, ToolResult]]], None
     ] | None = None,
     allowed: set[str] | None = None,
+    budget=None,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -395,6 +428,26 @@ def run_agent(
             )
 
             continue
+
+        tokens, cost, budget_error = budget_state(budget, brain)
+
+        if budget_error and decision.action != "answer":
+            emit(
+                AgentStep(
+                    index,
+                    "budget",
+                    "Бюджет исчерпан",
+                    f"{budget_error} Потрачено: {tokens} токенов, "
+                    f"${cost:.4f}. Задача остановлена.",
+                )
+            )
+
+            return AgentResult(
+                steps=steps,
+                error=f"{budget_error} Потрачено {tokens} токенов "
+                f"(${cost:.4f}). Задача остановлена.",
+                context_chars=context_peak,
+            )
 
         if decision.action == "answer":
             if require_tool_first and not history:

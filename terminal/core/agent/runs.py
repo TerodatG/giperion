@@ -20,6 +20,8 @@ def record_run(
     answer: str = "",
     error: str = "",
     cancelled: bool = False,
+    tokens: int = 0,
+    cost: float = 0.0,
 ) -> None:
     """Добавляет одну строку в журнал; ошибки записи не ломают агента."""
 
@@ -33,6 +35,8 @@ def record_run(
         "answer": str(answer)[:1000],
         "error": str(error)[:500],
         "cancelled": bool(cancelled),
+        "tokens": int(tokens),
+        "cost": round(float(cost), 6),
     }
 
     try:

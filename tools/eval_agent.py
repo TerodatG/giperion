@@ -215,7 +215,11 @@ def build_brain(model: str, provider: str):
     native = provider_from_settings()
 
     if native is not None:
-        return NativeBrain(native), f"native/{native.model}"
+        from terminal.core.agent.settings import budget_limits
+
+        limits = budget_limits()
+
+        return NativeBrain(native, limits), f"native/{native.model}"
 
     helper = get_helper_model()
 
@@ -247,6 +251,8 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
 
         approvals: list = []
         started = time.monotonic()
+        before_tokens = int(getattr(brain, "total_tokens", 0) or 0)
+        before_cost = float(getattr(brain, "cost", 0.0) or 0.0)
 
         result = run_agent(
             task.task,
@@ -259,6 +265,8 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
 
         duration = time.monotonic() - started
         ok, note = task.check(folder, result.answer)
+        tokens = int(getattr(brain, "total_tokens", 0) or 0) - before_tokens
+        cost = float(getattr(brain, "cost", 0.0) or 0.0) - before_cost
 
         return {
             "id": task.id,
@@ -269,6 +277,8 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
             "approvals": len(approvals),
             "duration_s": round(duration, 2),
             "context_chars": result.context_chars,
+            "tokens": max(0, tokens),
+            "cost": round(max(0.0, cost), 6),
             "answer": result.answer[:500],
             "error": result.error[:300],
         }
@@ -292,6 +302,8 @@ def summarize(results: list[dict]) -> dict:
             "avg_steps": 0.0,
             "avg_duration_s": 0.0,
             "max_context": 0,
+            "tokens": 0,
+            "cost": 0.0,
         }
 
     passed = sum(1 for item in results if item["ok"])
@@ -309,6 +321,11 @@ def summarize(results: list[dict]) -> dict:
             1,
         ),
         "max_context": max(item["context_chars"] for item in results),
+        "tokens": sum(int(item.get("tokens") or 0) for item in results),
+        "cost": round(
+            sum(float(item.get("cost") or 0.0) for item in results),
+            6,
+        ),
     }
 
 
@@ -411,6 +428,8 @@ def main() -> None:
                 "approvals": 0,
                 "duration_s": 0.0,
                 "context_chars": 0,
+                "tokens": 0,
+                "cost": 0.0,
                 "answer": "",
                 "error": str(error),
             }
@@ -438,6 +457,14 @@ def main() -> None:
         f"{summary['avg_duration_s']} с, "
         f"контекст до {summary['max_context']} символов"
     )
+
+    if summary.get("tokens"):
+        money = (
+            f", ${summary['cost']:.4f}"
+            if summary.get("cost")
+            else ""
+        )
+        print(f"Расход: {summary['tokens']} токенов{money}")
 
     if previous:
         delta = summary["passed"] - int(

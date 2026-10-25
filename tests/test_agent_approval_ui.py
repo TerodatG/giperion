@@ -46,6 +46,8 @@ def _fake_job(pending: ApprovalRequest, captured: dict):
         pending=pending,
         done=False,
         allowed=set(),
+        live_tokens=0,
+        live_cost=0.0,
         resolve_approval=lambda approved, text=None, remember=False: (
             captured.update(approved=approved, remember=remember)
         ),

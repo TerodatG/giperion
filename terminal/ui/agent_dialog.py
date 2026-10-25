@@ -36,6 +36,7 @@ from terminal.core.agent.diff_marks import (
 from terminal.core.agent.providers import NativeBrain
 from terminal.core.agent.settings import (
     approval_policy,
+    budget_limits,
     provider_from_settings,
     set_approval_policy,
 )
@@ -71,6 +72,7 @@ STEP_MARKS = {
     "approval": "▣",
     "subagent": "↳",
     "secret": "▤",
+    "budget": "Σ",
 }
 
 REMEMBER_TITLES = {
@@ -424,9 +426,10 @@ class AgentDialog(SkinDialog):
             return
 
         native = provider_from_settings()
+        limits = budget_limits()
 
         if native is not None:
-            brain = NativeBrain(native)
+            brain = NativeBrain(native, limits)
             model_name = f"native · {native.model}"
         else:
             model = _pick_model()
@@ -482,6 +485,7 @@ class AgentDialog(SkinDialog):
                 initial_history=history,
                 initial_steps=steps,
                 worktree_branch=branch,
+                budget=limits,
             )
 
             self._shown = len(steps)
@@ -523,6 +527,7 @@ class AgentDialog(SkinDialog):
             model_name=model_name,
             policy=policy,
             worktree_branch=self.worktree_branch,
+            budget=limits,
         )
 
         self.run_button.setEnabled(False)
@@ -814,8 +819,12 @@ class AgentDialog(SkinDialog):
             self._reset_edit()
 
         if not job.done:
+            spend = job.live_tokens
+
             self.status_label.setText(
-                f"Работаю… шаг {len(job.steps)} из {MAX_STEPS}."
+                f"Работаю… шаг {len(job.steps)} из {MAX_STEPS}"
+                + (f" · {spend // 1000}k токенов" if spend else "")
+                + "."
             )
 
             return
@@ -861,11 +870,19 @@ class AgentDialog(SkinDialog):
                 else ""
             )
 
+            spend = (
+                f" · {job.tokens // 1000}k токенов"
+                + (f" · ${job.cost:.4f}" if job.cost > 0 else "")
+                if job.tokens
+                else ""
+            )
+
             self.status_label.setText(
                 f"Готово за {len(job.steps)} шаг(ов)"
                 f" · {job.duration_s:.1f} с"
                 f" · подтверждений: {job.approvals}"
                 f" · контекст {job.context_chars // 1000}k"
+                + spend
                 + allowed
                 + branch_note
             )

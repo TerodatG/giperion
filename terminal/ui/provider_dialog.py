@@ -8,11 +8,13 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -22,9 +24,11 @@ from terminal.core.agent.providers import (
 )
 from terminal.core.agent.registry import reload_plugins
 from terminal.core.agent.settings import (
+    budget_limits,
     load_settings,
     mask_key,
     plugins_enabled,
+    save_budget_limits,
     save_settings,
     set_plugins_enabled,
 )
@@ -88,6 +92,52 @@ class ProviderDialog(SkinDialog):
         form.addRow("Base URL", self.base_input)
         form.addRow("Модель", self.model_input)
         form.addRow("API-ключ", self.key_input)
+
+        limits = budget_limits()
+
+        self.token_limit_input = QSpinBox(self)
+        self.token_limit_input.setRange(0, 100_000_000)
+        self.token_limit_input.setSingleStep(10_000)
+        self.token_limit_input.setSuffix(" токенов")
+        self.token_limit_input.setSpecialValueText("без лимита")
+        self.token_limit_input.setValue(int(limits.tokens))
+
+        self.cost_limit_input = QDoubleSpinBox(self)
+        self.cost_limit_input.setRange(0.0, 100_000.0)
+        self.cost_limit_input.setDecimals(4)
+        self.cost_limit_input.setSingleStep(0.1)
+        self.cost_limit_input.setPrefix("$ ")
+        self.cost_limit_input.setSpecialValueText("без лимита")
+        self.cost_limit_input.setValue(float(limits.cost))
+
+        self.price_in_input = QDoubleSpinBox(self)
+        self.price_in_input.setRange(0.0, 10_000.0)
+        self.price_in_input.setDecimals(3)
+        self.price_in_input.setPrefix("$ ")
+        self.price_in_input.setSuffix(" / 1M")
+        self.price_in_input.setSpecialValueText("бесплатно")
+        self.price_in_input.setValue(float(limits.price_in))
+
+        self.price_out_input = QDoubleSpinBox(self)
+        self.price_out_input.setRange(0.0, 10_000.0)
+        self.price_out_input.setDecimals(3)
+        self.price_out_input.setPrefix("$ ")
+        self.price_out_input.setSuffix(" / 1M")
+        self.price_out_input.setSpecialValueText("бесплатно")
+        self.price_out_input.setValue(float(limits.price_out))
+
+        prices_row = QHBoxLayout()
+        prices_row.setSpacing(8)
+        prices_row.addWidget(QLabel("вход", self))
+        prices_row.addWidget(self.price_in_input)
+        prices_row.addSpacing(6)
+        prices_row.addWidget(QLabel("выход", self))
+        prices_row.addWidget(self.price_out_input)
+        prices_row.addStretch(1)
+
+        form.addRow("Лимит задачи", self.token_limit_input)
+        form.addRow("Лимит стоимости", self.cost_limit_input)
+        form.addRow("Цена токенов", prices_row)
 
         self.plugins_check = QCheckBox(
             "Разрешить плагины инструментов",
@@ -192,6 +242,13 @@ class ProviderDialog(SkinDialog):
             self.base_input.text(),
             self.key_input.text(),
             self.model_input.text(),
+        )
+
+        save_budget_limits(
+            self.token_limit_input.value(),
+            self.cost_limit_input.value(),
+            self.price_in_input.value(),
+            self.price_out_input.value(),
         )
 
         set_plugins_enabled(self.plugins_check.isChecked())

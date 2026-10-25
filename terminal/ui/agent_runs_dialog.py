@@ -47,6 +47,16 @@ def format_runs(limit: int = 30) -> str:
             "подтверждений: "
             f"{record.get('approvals', 0)} · "
             f"{record.get('duration_s', 0)} с"
+            + (
+                f" · {int(record.get('tokens') or 0) // 1000}k токенов"
+                if record.get("tokens")
+                else ""
+            )
+            + (
+                f" · ${float(record.get('cost') or 0):.4f}"
+                if record.get("cost")
+                else ""
+            )
         )
 
         error = str(record.get("error", "")).strip()

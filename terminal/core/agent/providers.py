@@ -250,17 +250,44 @@ class NativeBrain:
 
     native = True
 
-    def __init__(self, provider: OpenAICompatibleProvider) -> None:
+    def __init__(
+        self,
+        provider: OpenAICompatibleProvider,
+        limits=None,
+    ) -> None:
+        from terminal.core.agent.budget import BudgetLimits
+
         self.provider = provider
+        self.limits = limits if limits is not None else BudgetLimits()
         self.prompt_tokens = 0
         self.completion_tokens = 0
         self.calls = 0
+        self.cost = 0.0
 
     @property
     def total_tokens(self) -> int:
         """Сколько токенов потрачено за всё время работы мозга."""
 
         return self.prompt_tokens + self.completion_tokens
+
+    def _account(self, reply: ProviderReply) -> None:
+        """Копит токены и стоимость по ответу провайдера."""
+
+        from terminal.core.agent.budget import cost_of
+
+        self.calls += 1
+
+        usage = reply.usage if isinstance(reply.usage, dict) else {}
+
+        prompt = usage.get("prompt_tokens")
+        completion = usage.get("completion_tokens")
+
+        prompt = int(prompt) if isinstance(prompt, int) else 0
+        completion = int(completion) if isinstance(completion, int) else 0
+
+        self.prompt_tokens += prompt
+        self.completion_tokens += completion
+        self.cost += cost_of(prompt, completion, self.limits)
 
     def decide(self, prompt: str) -> AgentDecision:
         """Возвращает решение с настоящими вызовами инструментов."""
@@ -270,22 +297,7 @@ class NativeBrain:
             tool_schemas(),
         )
 
-        self.calls += 1
-
-        usage = reply.usage if isinstance(reply.usage, dict) else {}
-
-        for key, field in (
-            ("prompt_tokens", "prompt_tokens"),
-            ("completion_tokens", "completion_tokens"),
-        ):
-            value = usage.get(key)
-
-            if isinstance(value, (int, float)):
-                setattr(
-                    self,
-                    field,
-                    getattr(self, field) + int(value),
-                )
+        self._account(reply)
 
         if reply.calls:
             return AgentDecision(
@@ -317,22 +329,7 @@ class NativeBrain:
             None,
         )
 
-        self.calls += 1
-
-        usage = reply.usage if isinstance(reply.usage, dict) else {}
-
-        for key, field in (
-            ("prompt_tokens", "prompt_tokens"),
-            ("completion_tokens", "completion_tokens"),
-        ):
-            value = usage.get(key)
-
-            if isinstance(value, (int, float)):
-                setattr(
-                    self,
-                    field,
-                    getattr(self, field) + int(value),
-                )
+        self._account(reply)
 
         return reply.text.strip()
 
