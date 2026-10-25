@@ -144,6 +144,49 @@ TOOL_SPECS = (
     ),
 )
 
+PLUGIN_PERMISSIONS = {"fs:read", "fs:write", "net", "exec"}
+
+DEFAULT_PERMISSIONS = {
+    "read": ("fs:read",),
+    "write": ("fs:read", "fs:write"),
+    "exec": ("fs:read", "fs:write", "exec"),
+}
+
+
+def _permissions(document: dict, risk: str) -> tuple[str, ...]:
+    """Разрешения плагина: по умолчанию — по уровню риска."""
+
+    raw = document.get("permissions")
+
+    if raw is None:
+        return DEFAULT_PERMISSIONS[risk]
+
+    if not isinstance(raw, list) or not all(
+        isinstance(item, str) for item in raw
+    ):
+        raise ValueError("permissions должен быть списком строк.")
+
+    unknown = set(raw) - PLUGIN_PERMISSIONS
+
+    if unknown:
+        raise ValueError(
+            "Неизвестные разрешения: " + ", ".join(sorted(unknown))
+        )
+
+    permissions = tuple(dict.fromkeys(raw))
+
+    if "fs:write" in permissions and risk == "read":
+        raise ValueError("fs:write требует risk=write или exec.")
+
+    if "net" in permissions and risk != "exec":
+        raise ValueError("net требует risk=exec.")
+
+    if "exec" in permissions and risk != "exec":
+        raise ValueError("exec требует risk=exec.")
+
+    return permissions
+
+
 def _parse_manifest(
     document: object,
     path: Path,
@@ -201,6 +244,8 @@ def _parse_manifest(
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", handler):
         raise ValueError("Недопустимое имя обработчика.")
 
+    permissions = _permissions(document, risk)
+
     return (
         ToolSpec(
             name=name,
@@ -208,10 +253,27 @@ def _parse_manifest(
             args=dict(args),
             risk=risk,
             required=tuple(required),
+            permissions=permissions,
         ),
         module_path,
         handler,
     )
+
+
+def _unsafe_allowed(spec: ToolSpec) -> bool:
+    """Плагин с сетью или запуском программ грузится только по разрешению."""
+
+    dangerous = {"net", "exec"} & set(spec.permissions or ())
+
+    if not dangerous:
+        return True
+
+    try:
+        from terminal.core.agent import settings
+
+        return settings.allow_unsafe_plugins()
+    except Exception:  # noqa: BLE001 — без настроек считаем запрещённым
+        return False
 
 
 def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
@@ -249,6 +311,9 @@ def plugin_tools() -> tuple[tuple[ToolSpec, ...], dict]:
                         path,
                     )
                 except (OSError, ValueError, json.JSONDecodeError):
+                    continue
+
+                if not _unsafe_allowed(spec):
                     continue
 
                 if spec.name in builtin or spec.name in plugins:

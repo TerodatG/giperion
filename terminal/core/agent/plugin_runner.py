@@ -11,10 +11,21 @@ import sys
 from pathlib import Path
 
 from config import BASE_DIR
+from terminal.core.agent import sandbox
 from terminal.core.agent.protocol import ToolResult
 
 TIMEOUT = 30
 MAX_OUTPUT = 10_000
+EXIT_QUOTA = 0xC0000044
+
+
+def _exit_hint(code: int) -> str:
+    """Подсказка по коду завершения процесса плагина."""
+
+    if code == EXIT_QUOTA:
+        return "Плагин превысил лимит времени CPU и был остановлен."
+
+    return ""
 
 
 def _load_module(path: Path, handler_name: str):
@@ -90,8 +101,10 @@ def run_plugin_process(
     args: dict,
     handler_name: str = "handler",
     timeout: int = TIMEOUT,
+    memory_mb: int | None = None,
+    cpu_seconds: int | None = None,
 ) -> ToolResult:
-    """Запускает плагин в отдельном процессе и разбирает ответ."""
+    """Запускает плагин в отдельном процессе с песочницей."""
 
     command = [
         sys.executable,
@@ -104,37 +117,56 @@ def run_plugin_process(
     ]
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    env = sandbox.plugin_env(BASE_DIR)
 
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             command,
-            cwd=BASE_DIR,
-            capture_output=True,
+            cwd=str(Path(root).resolve()),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=timeout,
-            check=False,
             creationflags=creationflags,
-        )
-    except subprocess.TimeoutExpired:
-        return ToolResult(
-            False,
-            f"Плагин не успел за {timeout} секунд и был остановлен.",
         )
     except OSError as error:
         return ToolResult(False, f"Плагин не запустился: {error}")
 
-    output = (result.stdout or "").strip()
-    lines = [line for line in output.splitlines() if line.strip()]
+    job = sandbox.attach(
+        process.pid,
+        memory_mb=memory_mb or sandbox.MEMORY_MB,
+        cpu_seconds=cpu_seconds or sandbox.CPU_SECONDS,
+    )
 
-    if not lines:
-        detail = (result.stderr or "пусто")[:400]
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
 
         return ToolResult(
             False,
-            f"Плагин завершился без ответа (код {result.returncode}): "
-            f"{detail}",
+            f"Плагин не успел за {timeout} секунд и был остановлен.",
+        )
+    finally:
+        sandbox.close(job)
+
+    output = (stdout or "").strip()
+    lines = [line for line in output.splitlines() if line.strip()]
+
+    if not lines:
+        hint = _exit_hint(process.returncode)
+        detail = (stderr or "").strip()[:300]
+
+        if hint:
+            return ToolResult(False, hint)
+
+        return ToolResult(
+            False,
+            f"Плагин завершился без ответа (код {process.returncode}): "
+            f"{detail or 'пусто'}",
         )
 
     try:

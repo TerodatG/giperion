@@ -24,6 +24,7 @@ from terminal.core.agent.providers import (
 )
 from terminal.core.agent.registry import reload_plugins
 from terminal.core.agent.settings import (
+    allow_unsafe_plugins,
     budget_limits,
     load_settings,
     mask_key,
@@ -31,6 +32,7 @@ from terminal.core.agent.settings import (
     request_timeout,
     save_budget_limits,
     save_settings,
+    set_allow_unsafe_plugins,
     set_plugins_enabled,
     set_request_timeout,
     set_stream_enabled,
@@ -165,6 +167,18 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Плагины", self.plugins_check)
 
+        self.unsafe_check = QCheckBox(
+            "Разрешать плагинам сеть и запуск программ",
+            self,
+        )
+        self.unsafe_check.setChecked(allow_unsafe_plugins())
+        self.unsafe_check.setToolTip(
+            "По умолчанию плагин получает только чтение файлов проекта. "
+            "Сеть и запуск программ включаются отдельно и требуют "
+            "risk=exec в манифесте."
+        )
+        form.addRow("Опасные плагины", self.unsafe_check)
+
         self.stream_check = QCheckBox(
             "Показывать ответ по мере генерации",
             self,
@@ -280,6 +294,7 @@ class ProviderDialog(SkinDialog):
         set_request_timeout(self.timeout_input.value())
 
         set_plugins_enabled(self.plugins_check.isChecked())
+        set_allow_unsafe_plugins(self.unsafe_check.isChecked())
         set_stream_enabled(self.stream_check.isChecked())
         reload_plugins()
 

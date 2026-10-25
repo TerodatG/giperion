@@ -17,6 +17,8 @@ class ToolSpec:
     # Типы аргументов, которых нет в строковом словаре: например
     # {"paths": "array"} для списка путей.
     types: dict[str, str] = field(default_factory=dict)
+    # Что плагину разрешено: fs:read, fs:write, net, exec.
+    permissions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

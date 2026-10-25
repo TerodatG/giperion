@@ -151,6 +151,22 @@ def set_stream_enabled(enabled: bool) -> None:
     write_json(SETTINGS_FILE, document)
 
 
+def allow_unsafe_plugins() -> bool:
+    """Разрешены ли плагинам сеть и запуск программ (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("unsafe_plugins") is True
+
+
+def set_allow_unsafe_plugins(enabled: bool) -> None:
+    """Разрешает или запрещает опасные разрешения плагинов."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["unsafe_plugins"] = bool(enabled)
+    write_json(SETTINGS_FILE, document)
+
+
 POLICIES = ("read", "confirm", "trust")
 
 def approval_policy() -> str:
