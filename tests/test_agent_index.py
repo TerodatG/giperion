@@ -149,6 +149,26 @@ def test_registry_exposes_symbol_tool(tmp_path, monkeypatch) -> None:
     assert properties["limit"]["type"] == "integer"
 
 
+def test_load_index_uses_memory_cache(tmp_path, monkeypatch) -> None:
+    """Повторный поиск не читает 300 КБ JSON с диска."""
+
+    cache = tmp_path / "index.json"
+    monkeypatch.setattr(index, "INDEX_FILE", cache)
+    project = _project(tmp_path)
+
+    first = index.load_index(project)
+
+    def broken(*args, **kwargs):
+        raise AssertionError("файл индекса прочитан повторно")
+
+    monkeypatch.setattr(index, "read_json_object", broken)
+
+    second = index.load_index(project)
+
+    assert second is first
+    assert second["symbols"]
+
+
 def test_context_budget_setting(tmp_path, monkeypatch) -> None:
     """Бюджет контекста сохраняется и подрезается по границам."""
 

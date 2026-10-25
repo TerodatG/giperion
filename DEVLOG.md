@@ -4874,6 +4874,9 @@ un_tests и write_file).
   - список задач агента получает `on_resume` callback и не импортирует
     окно агента;
   - итог: **0 циклов импорта** (было 3).
+- **Индекс символов кэшируется в памяти**: повторный `find_symbol`
+  не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
+  Замер: **26 мс → 0,06 мс** на вызов.
 - **Исправлены скрытые ошибки**, найденные ruff:
   - `registry.py` ссылался на неопределённый `ToolError` — теперь
     `tools.ToolError`;
@@ -4903,7 +4906,7 @@ un_tests и write_file).
 
 **Проверено**
 
-- `python -m pytest` — **550 passed за 31,1 с**.
+- `python -m pytest` — **551 passed за 31,4 с**.
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
 - `python -m tools.check_structure` — файлов >600 строк: 15,

@@ -17,6 +17,32 @@ MAX_FILES = 4000
 MAX_FILE_BYTES = 500_000
 MAX_MATCHES = 30
 
+# Кэш в памяти: 307 КБ JSON не перечитываются на каждый find_symbol.
+_INDEX_CACHE: dict[tuple, dict] = {}
+
+
+def _index_stamp() -> tuple[int, int] | None:
+    """Отпечаток файла индекса: время и размер."""
+
+    try:
+        stat = INDEX_FILE.stat()
+    except OSError:
+        return None
+
+    return (stat.st_mtime_ns, stat.st_size)
+
+
+def _cache_index(base: Path, document: dict) -> None:
+    """Кладёт документ в кэш и убирает старые версии этого индекса."""
+
+    prefix = (str(base), str(INDEX_FILE))
+
+    for key in list(_INDEX_CACHE):
+        if key[:2] == prefix:
+            del _INDEX_CACHE[key]
+
+    _INDEX_CACHE[(*prefix, _index_stamp())] = document
+
 
 def _symbols_of(path: Path, text: str) -> list[dict]:
     """Собирает классы и функции файла с номерами строк."""
@@ -122,6 +148,14 @@ def load_index(root: Path, refresh: bool = False) -> dict:
     """Читает кэш индекса или строит его, если он устарел."""
 
     base = Path(root).resolve()
+    cache_key = (str(base), str(INDEX_FILE), _index_stamp())
+
+    if not refresh:
+        cached = _INDEX_CACHE.get(cache_key)
+
+        if cached is not None:
+            return cached
+
     document = read_json_object(INDEX_FILE)
 
     fresh = (
@@ -134,9 +168,14 @@ def load_index(root: Path, refresh: bool = False) -> dict:
     )
 
     if fresh:
+        _cache_index(base, document)
+
         return document
 
-    return build_index(base)
+    document = build_index(base)
+    _cache_index(base, document)
+
+    return document
 
 
 def find_symbol(
