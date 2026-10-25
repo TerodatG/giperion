@@ -1,9 +1,6 @@
-# Giperion/app/ui/settings_mixin.py                                 v002
+# Giperion/app/ui/settings_mixin.py                                 v003
 # Применение настроек вида, шрифта и заголовка окна.
-# Последнее изменение: размеры шрифта групп текста.
-
-from PySide6.QtCore import QTimer
-from shiboken6 import isValid
+# Последнее изменение: без подписи на планке заголовка.
 
 from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
@@ -82,20 +79,3 @@ class SettingsMixin:
 
         self._apply_chat_font()
         self._rebuild_chat()
-
-        # Подтверждение применения — на планке заголовка.
-        if hasattr(self, "title_status"):
-            self.title_status.setText("настройки применены")
-
-            QTimer.singleShot(
-                2500, self._restore_title_status
-            )
-
-    def _restore_title_status(self) -> None:
-        """Возвращает на планку версию ядра."""
-
-        if not isValid(self.window):
-            return
-
-        if hasattr(self, "title_status"):
-            self.update_core_panel()

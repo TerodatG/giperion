@@ -1,6 +1,6 @@
-# Giperion/app/ui/settings_dialog.py                                v003
+# Giperion/app/ui/settings_dialog.py                                v004
 # Вложенное окно настроек и страница «Вид».
-# Последнее изменение: группы шрифта для трёх сенаторов.
+# Последнее изменение: раздел «О нас» с версией, командой и принципами.
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QStackedWidget,
     QTextBrowser,
@@ -32,7 +33,10 @@ from terminal.core.window_settings import (
 )
 from terminal.core.help_handler import get_system_command_lines
 from terminal.ui.dialogs_base import SkinDialog
-from terminal.ui.dialog_text import build_help_html
+from terminal.ui.dialog_text import (
+    build_help_html,
+    format_release_date,
+)
 from terminal.ui.theme import (
     MAX_CHAT_FONT_SIZE,
     MIN_CHAT_FONT_SIZE,
@@ -681,7 +685,20 @@ class SettingsDialog(SkinDialog):
         return page
 
     def _build_about_page(self) -> QWidget:
-        """Собирает страницу «О нас»: проект отдельно, остальное на экране."""
+        """Собирает страницу «О нас»: чем живёт проект и кто его делает."""
+
+        from PySide6 import __version__ as pyside_version
+
+        from terminal.core.app_version import (
+            current_released,
+            current_version,
+        )
+        from terminal.core.system_info import (
+            format_bytes,
+            get_system_info,
+        )
+
+        info = get_system_info()
 
         page = QWidget(self)
         layout = QVBoxLayout(page)
@@ -691,65 +708,180 @@ class SettingsDialog(SkinDialog):
         title = QLabel("О ПРОЕКТЕ", page)
         title.setObjectName("dialogTitle")
 
-        project = QLabel(
-            "<h3>Giperion</h3>"
-            "<p>Локальный ИИ-собеседник: собственная модель, "
-            "агент «Терминал» и оконный интерфейс.</p>",
+        intro = QLabel(
+            "Giperion — локальный ИИ-собеседник: собственная нейросетевая "
+            "модель, агент «Терминал» и оконный интерфейс в духе "
+            "терминала. Диалоги, память и файлы остаются на этом "
+            "компьютере, а внешние модели подключаются по желанию.",
             page,
         )
-        project.setWordWrap(True)
-        project.setAlignment(Qt.AlignTop)
+        intro.setWordWrap(True)
 
-        plate = QFrame(page)
-        plate.setObjectName("paramsPlate")
+        scroll = QScrollArea(page)
+        scroll.setObjectName("systemScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        plate_layout = QVBoxLayout(plate)
-        plate_layout.setContentsMargins(0, 0, 0, 0)
-        plate_layout.setSpacing(0)
+        content = QWidget()
+        content.setObjectName("systemContent")
 
-        screen = QWidget(plate)
-        screen.setObjectName("paramsScreen")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(8)
 
-        grid = QGridLayout(screen)
-        grid.setContentsMargins(12, 9, 12, 10)
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(6)
-        grid.setColumnStretch(1, 1)
+        def plate(
+            caption_text: str,
+            rows: tuple[tuple[str, str], ...],
+        ) -> QFrame:
+            """Собирает плиту раздела с ровными строками."""
 
-        caption = QLabel("О НАС", screen)
-        caption.setObjectName("paramsPlateTitle")
-        grid.addWidget(caption, 0, 0, 1, 2)
+            frame = QFrame(content)
+            frame.setObjectName("paramsPlate")
 
-        rows = (
-            ("Разработчик", "Terodat — автор проекта."),
-            (
-                "ИИ-соавтор",
-                "DeepSeek V4.1 Flash — код и архитектура.",
-            ),
-            (
-                "Интерфейс",
-                "PySide6, металлическая шкура и зелёный терминал связи.",
-            ),
+            frame_layout = QVBoxLayout(frame)
+            frame_layout.setContentsMargins(0, 0, 0, 0)
+            frame_layout.setSpacing(0)
+
+            screen = QWidget(frame)
+            screen.setObjectName("paramsScreen")
+
+            grid = QGridLayout(screen)
+            grid.setContentsMargins(12, 9, 12, 10)
+            grid.setHorizontalSpacing(14)
+            grid.setVerticalSpacing(6)
+            grid.setColumnStretch(1, 1)
+
+            caption = QLabel(caption_text, screen)
+            caption.setObjectName("paramsPlateTitle")
+            grid.addWidget(caption, 0, 0, 1, 2)
+
+            for index, (name, value) in enumerate(rows, start=1):
+                key_label = QLabel(f"{name}:", screen)
+                key_label.setObjectName("paramsKey")
+                key_label.setWordWrap(True)
+
+                value_label = QLabel(value, screen)
+                value_label.setObjectName("paramsValue")
+                value_label.setWordWrap(True)
+
+                grid.addWidget(key_label, index, 0)
+                grid.addWidget(value_label, index, 1)
+
+            frame_layout.addWidget(screen)
+
+            return frame
+
+        content_layout.addWidget(
+            plate(
+                "О ПРОГРАММЕ",
+                (
+                    (
+                        "Версия",
+                        f"{current_version()} от "
+                        f"{format_release_date(current_released())}",
+                    ),
+                    (
+                        "Платформа",
+                        f"{info['os']} · Python {info['python']} · "
+                        f"PySide6 {pyside_version}",
+                    ),
+                    (
+                        "Компьютер",
+                        f"{info['processor']} · "
+                        f"{format_bytes(info['ram_total'])} ОЗУ",
+                    ),
+                    (
+                        "Нейросеть",
+                        f"PyTorch {info['torch']} · "
+                        f"CUDA {info['cuda']}",
+                    ),
+                    (
+                        "Исходники",
+                        "локальный git-репозиторий проекта",
+                    ),
+                ),
+            )
         )
 
-        for index, (name, value) in enumerate(rows, start=1):
-            key_label = QLabel(f"{name}:", screen)
-            key_label.setObjectName("paramsKey")
-            key_label.setWordWrap(True)
+        content_layout.addWidget(
+            plate(
+                "КОМАНДА",
+                (
+                    (
+                        "Разработчик",
+                        "Terodat — автор проекта, интерфейса и модели.",
+                    ),
+                    (
+                        "ИИ-соавтор",
+                        "DeepSeek V4.1 Flash — код, тесты и архитектура.",
+                    ),
+                    (
+                        "Благодарности",
+                        "PySide6 (Qt), PyTorch, OpenCode — инструменты, "
+                        "на которых стоит терминал.",
+                    ),
+                ),
+            )
+        )
 
-            value_label = QLabel(value, screen)
-            value_label.setObjectName("paramsValue")
-            value_label.setWordWrap(True)
+        content_layout.addWidget(
+            plate(
+                "ПРИНЦИПЫ",
+                (
+                    (
+                        "Локальность",
+                        "Диалоги, память и файлы не уходят в облако "
+                        "без запроса.",
+                    ),
+                    (
+                        "Контроль",
+                        "Опасные действия агента ждут подтверждения "
+                        "человека.",
+                    ),
+                    (
+                        "Обновления",
+                        "Только по кнопке: проверка sha256, резервная "
+                        "копия и запись версии.",
+                    ),
+                    (
+                        "Прозрачность",
+                        "Журнал действий, паспорт модели и открытые "
+                        "данные проекта.",
+                    ),
+                ),
+            )
+        )
 
-            grid.addWidget(key_label, index, 0)
-            grid.addWidget(value_label, index, 1)
+        content_layout.addWidget(
+            plate(
+                "ОБРАТНАЯ СВЯЗЬ",
+                (
+                    (
+                        "Журнал действий",
+                        "logs/actions.log — что делал терминал.",
+                    ),
+                    (
+                        "Данные",
+                        "data/ — каталог моделей, дроны, история "
+                        "и настройки.",
+                    ),
+                    (
+                        "Об ошибке",
+                        "Опиши шаги и приложи последние строки журнала: "
+                        "так причину видно сразу.",
+                    ),
+                ),
+            )
+        )
 
-        plate_layout.addWidget(screen)
+        content_layout.addStretch(1)
+
+        scroll.setWidget(content)
 
         layout.addWidget(title)
-        layout.addWidget(project)
-        layout.addWidget(plate)
-        layout.addStretch(1)
+        layout.addWidget(intro)
+        layout.addWidget(scroll, 1)
 
         return page
 

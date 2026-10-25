@@ -1,4 +1,4 @@
-﻿# Giperion/terminal/core/model_passport.py                           v001
+# Giperion/terminal/core/model_passport.py                           v001
 # Паспорт модели: чтение JSON, компактные метрики и разделы для окна.
 # Последнее изменение: первый вариант — паспорт Гипериона.
 

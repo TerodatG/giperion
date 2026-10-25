@@ -1,7 +1,7 @@
-# Giperion/terminal/ui/window_style.py                             v028
+# Giperion/terminal/ui/window_style.py                             v030
 # Футуристическая шкура окна в духе «Кода доступа рай»: тёмный металл
 # с заклёпками и зелёный терминальный лог.
-# Последнее изменение: отступ подписи «СИСТЕМА» и шрифт меню.
+# Последнее изменение: блок роста агента в закладке «Терминал».
 
 from config import BASE_DIR
 
@@ -68,12 +68,6 @@ QLabel#titleText {
     font-family: "Bahnschrift SemiBold", "Segoe UI";
     font-size: 12pt;
     font-weight: bold;
-}
-
-QLabel#titleStatus {
-    background: transparent;
-    color: #b98a5c;
-    font-size: 8pt;
 }
 
 QPushButton#titleButton,
@@ -208,6 +202,32 @@ QLabel#executiveValue {
     background: transparent;
     color: #b8f0b0;
     font-size: 9pt;
+}
+
+QWidget#executiveGrowth {
+    background-color: #091a10;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+}
+
+QLabel#executiveLevel {
+    background: transparent;
+    color: #7cf58f;
+    font-family: "Bahnschrift SemiBold", "Segoe UI";
+    font-size: 13pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+QProgressBar#executiveBar {
+    background-color: #07160d;
+    border: 1px solid #23421f;
+    border-radius: 2px;
+}
+
+QProgressBar#executiveBar::chunk {
+    background-color: #7cf58f;
+    border-radius: 1px;
 }
 
 QScrollArea#systemScroll {
@@ -772,7 +792,8 @@ QLabel#settingsSection {
 }
 
 QCheckBox#companionCheck,
-QCheckBox#conferenceCheck {
+QCheckBox#conferenceCheck,
+QCheckBox#modelGroupCheck {
     color: #8fd8c8;
     font-weight: bold;
 }

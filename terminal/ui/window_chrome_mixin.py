@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/window_chrome_mixin.py                       v005
+# Giperion/terminal/ui/window_chrome_mixin.py                       v006
 # Безрамочное окно: каркас, планка заголовка, перетаскивание и ресайз.
-# Последнее изменение: вопрос закрытия на зелёном экране в плите.
+# Последнее изменение: на планке только название «ГИПЕРИОН».
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -195,14 +195,6 @@ class WindowChromeMixin:
 
         layout.addWidget(title)
 
-        self.title_status = QLabel("ядро v0.1", bar)
-        self.title_status.setObjectName("titleStatus")
-        self.title_status.setAlignment(
-            Qt.AlignBottom | Qt.AlignLeft
-        )
-
-        layout.addWidget(self.title_status)
-
         layout.addStretch(1)
 
         minimize_button = self._make_title_button(
@@ -223,7 +215,7 @@ class WindowChromeMixin:
         close_button.clicked.connect(self.window.close)
 
         # Значки и подписи не мешают тянуть окно за планку.
-        for element in (emblem, title, self.title_status):
+        for element in (emblem, title):
             element.setAttribute(
                 Qt.WA_TransparentForMouseEvents, True
             )

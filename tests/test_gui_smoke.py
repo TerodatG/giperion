@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v023
+# Giperion/tests/test_gui_smoke.py                                 v030
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: образ активной модели на главном экране.
+# Последнее изменение: шапка без подписи и числа агента.
 
 import copy
 import os
@@ -504,7 +504,7 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
         window.personalities_button.toolTip()
         == "Личностные матрицы"
     )
-    assert window.pet_button.toolTip() == "Питомец"
+    assert window.drone_button.toolTip() == "Дрон"
     assert (
         window.performance_button.toolTip()
         == "Производительность"
@@ -728,7 +728,7 @@ def test_system_buttons_live_in_system_panel(window) -> None:
         window.settings_button,
         window.performance_button,
         window.update_button,
-        window.pet_button,
+        window.drone_button,
     ):
         assert button.parent() is window.system_panel
 
@@ -757,7 +757,7 @@ def test_files_module_button_is_empty_slot(window) -> None:
 
 
 def test_model_avatar_switches_main_screen(window, monkeypatch) -> None:
-    """У активной модели на главном экране свой портрет."""
+    """У активной модели на главном экране свой живой портрет."""
 
     from PySide6.QtGui import QPixmap
 
@@ -780,7 +780,42 @@ def test_model_avatar_switches_main_screen(window, monkeypatch) -> None:
     assert not expected.isNull()
     assert window.avatar_caption.text() == "ОБРАЗ МОДЕЛИ"
     assert window.avatar_pixmap.size() == expected.size()
-    assert window.avatar_animated is False
+
+    # Анимация: пульс глаза, слой линий и падающие огоньки.
+    assert window.avatar_animated is True
+    assert window.avatar_timer.isActive()
+    assert window.avatar_eye_mode == "pulse"
+    assert len(window.avatar_eyes) == 1
+    assert not window.avatar_lines.isNull()
+    assert window.avatar_sparks
+
+    before = window.avatar_sparks[0].y
+    window._advance_sparks(1.0)
+
+    assert window.avatar_sparks[0].y != before
+
+
+def test_giperion_avatar_keeps_lid_animation(window, monkeypatch) -> None:
+    """У Гипериона остаются веки и автопоиск двух глаз."""
+
+    from terminal.core.model_registry import get_model
+    from terminal.ui import avatar_mixin
+
+    model = get_model("giperion")
+
+    monkeypatch.setattr(
+        avatar_mixin,
+        "get_active_model",
+        lambda: model,
+    )
+
+    window.apply_model_avatar()
+
+    assert window.avatar_caption.text() == "ОБРАЗ ГИПЕРИОНА"
+    assert window.avatar_eye_mode == "lid"
+    assert len(window.avatar_eyes) == 2
+    assert window.avatar_animated is True
+    assert not window.avatar_sparks
 
 
 def test_attachment_plus_opens_menu(window, monkeypatch) -> None:
@@ -1054,20 +1089,474 @@ def test_update_dialog_survives_missing_feed(
     dialog.close()
 
 
+def test_model_groups_switch_disables_models(
+    window,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Галочки групп выключают модели, сенат и компаньонов."""
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import (
+        QApplication,
+        QCheckBox,
+        QLabel,
+        QListWidget,
+        QPushButton,
+        QTabBar,
+    )
+
+    from terminal.core import model_files, model_settings
+    from terminal.core.model_catalog import CONFERENCE_GROUP
+
+    monkeypatch.setattr(
+        model_files,
+        "SETTINGS_FILE",
+        tmp_path / "model_settings.json",
+    )
+
+    go_id = "go-deepseek-v4.1-flash"
+
+    assert model_settings.set_conference_member(go_id, True)
+
+    window.open_models_dialog()
+
+    dialog = window.window._tool_windows["models"]
+
+    boxes = {
+        box.text(): box
+        for box in dialog.findChildren(QCheckBox)
+    }
+
+    assert boxes["Бесплатные модели"].isChecked()
+    assert boxes["Модели Go"].isChecked()
+
+    tabs = dialog.findChild(QTabBar)
+    view = dialog.findChild(QListWidget, "modelsView")
+
+    def row_ids() -> list[str]:
+        """Идентификаторы строк текущей закладки."""
+
+        return [
+            view.item(index).data(Qt.UserRole)
+            for index in range(view.count())
+        ]
+
+    senate = next(
+        index
+        for index in range(tabs.count())
+        if tabs.tabData(index) == CONFERENCE_GROUP
+    )
+    tabs.setCurrentIndex(senate)
+    QApplication.processEvents()
+
+    assert go_id in row_ids()
+
+    boxes["Модели Go"].setChecked(False)
+    QApplication.processEvents()
+
+    assert go_id not in row_ids()
+    assert go_id not in model_settings.load_conference_ids()
+
+    other = next(
+        index
+        for index in range(tabs.count())
+        if tabs.tabData(index) == "other"
+    )
+    tabs.setCurrentIndex(other)
+    QApplication.processEvents()
+
+    for index in range(view.count()):
+        if view.item(index).data(Qt.UserRole) == go_id:
+            view.setCurrentRow(index)
+
+            break
+
+    QApplication.processEvents()
+
+    status = dialog.findChild(QLabel, "modelStatus")
+    activate = dialog.findChild(QPushButton, "activateButton")
+
+    assert "недоступна" in status.text()
+    assert "Модели Go" in status.text()
+    assert activate.isEnabled() is False
+    assert "· недоступна" in view.currentItem().text()
+
+    boxes["Модели Go"].setChecked(True)
+    QApplication.processEvents()
+
+    assert go_id in model_settings.load_conference_ids()
+
+    dialog.close()
+
+
+def test_pet_nickname_can_be_changed_in_dialog(
+    window,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """В окне «Дроны» кличка меняется кнопкой."""
+
+    from PySide6.QtWidgets import QApplication, QLabel, QPushButton
+
+    from terminal.core import pets
+    from terminal.ui import pets_dialog
+
+    monkeypatch.setattr(
+        pets,
+        "PETS_FILE",
+        tmp_path / "pets.json",
+    )
+    monkeypatch.setattr(
+        pets_dialog,
+        "_ask_nickname",
+        lambda parent, pet: "Бублик",
+    )
+
+    window.open_pets_dialog()
+
+    dialog = window.window._tool_windows["pets"]
+
+    texts = [label.text() for label in dialog.findChildren(QLabel)]
+
+    # В карточке нет дубля вида, а кличка по умолчанию не задана.
+    assert texts.count("Кибер паук") == 1
+    assert any("КЛИЧКА: не задана" in text for text in texts)
+
+    button = next(
+        item
+        for item in dialog.findChildren(QPushButton)
+        if item.text() == "✎ Переименовать"
+    )
+
+    button.click()
+    QApplication.processEvents()
+
+    loaded = {pet["id"]: pet for pet in pets.load_pets()}
+
+    assert loaded["cyber-spider"]["nickname"] == "Бублик"
+    assert loaded["cyber-spider"]["name"] == "Кибер паук"
+
+    texts = [label.text() for label in dialog.findChildren(QLabel)]
+
+    assert any("КЛИЧКА: Бублик" in text for text in texts)
+
+    dialog.close()
+
+
+def test_own_model_can_be_deleted(
+    window,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """В закладке «Свои» модель удаляется из каталога."""
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import (
+        QApplication,
+        QDialog,
+        QListWidget,
+        QPushButton,
+        QTabBar,
+    )
+
+    from terminal.core import model_files, model_registry
+    from terminal.ui import dialogs_base
+
+    monkeypatch.setattr(
+        model_files,
+        "CUSTOM_MODELS_FILE",
+        tmp_path / "custom_models.json",
+    )
+    monkeypatch.setattr(
+        model_files,
+        "SETTINGS_FILE",
+        tmp_path / "model_settings.json",
+    )
+    monkeypatch.setattr(
+        dialogs_base.ConfirmDialog,
+        "exec",
+        lambda self: QDialog.Accepted,
+    )
+
+    model = model_registry.add_custom_model("Своя", "Local")
+
+    assert model is not None
+
+    window.open_models_dialog()
+
+    dialog = window.window._tool_windows["models"]
+
+    tabs = dialog.findChild(QTabBar)
+    own = next(
+        index
+        for index in range(tabs.count())
+        if tabs.tabData(index) == "own"
+    )
+    tabs.setCurrentIndex(own)
+    QApplication.processEvents()
+
+    view = dialog.findChild(QListWidget, "modelsView")
+    row = next(
+        index
+        for index in range(view.count())
+        if view.item(index).data(Qt.UserRole) == model["id"]
+    )
+    view.setCurrentRow(row)
+    QApplication.processEvents()
+
+    delete = next(
+        button
+        for button in dialog.findChildren(QPushButton)
+        if button.text() == "− Удалить модель"
+    )
+
+    assert delete.isVisible()
+    assert delete.isEnabled()
+
+    delete.click()
+    QApplication.processEvents()
+
+    ids = [
+        item["id"] for item in model_registry.load_models()
+    ]
+
+    assert model["id"] not in ids
+
+    dialog.close()
+
+
+def test_custom_drone_can_be_deleted(
+    window,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """В окне «Дроны» своего дрона можно удалить."""
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import (
+        QApplication,
+        QDialog,
+        QListWidget,
+        QPushButton,
+    )
+
+    from terminal.core import pets
+    from terminal.ui import dialogs_base
+
+    monkeypatch.setattr(
+        pets,
+        "PETS_FILE",
+        tmp_path / "pets.json",
+    )
+    monkeypatch.setattr(
+        dialogs_base.ConfirmDialog,
+        "exec",
+        lambda self: QDialog.Accepted,
+    )
+
+    custom = pets.add_custom_pet("Шарик", "spider")
+
+    assert custom is not None
+
+    window.open_pets_dialog()
+
+    dialog = window.window._tool_windows["pets"]
+
+    delete = next(
+        button
+        for button in dialog.findChildren(QPushButton)
+        if button.text() == "− Удалить дрона"
+    )
+
+    # По умолчанию выбран базовый дрон — удалять его нельзя.
+    assert delete.isEnabled() is False
+
+    view = dialog.findChild(QListWidget, "modelsView")
+
+    for row in range(view.count()):
+        if view.item(row).data(Qt.UserRole) == custom["id"]:
+            view.setCurrentRow(row)
+
+            break
+
+    QApplication.processEvents()
+
+    assert delete.isEnabled() is True
+
+    delete.click()
+    QApplication.processEvents()
+
+    assert pets.get_pet(custom["id"]) is None
+
+    dialog.close()
+
+
+def test_add_model_dialog_uses_skin(qapp, monkeypatch) -> None:
+    """Окно «Своя модель» одето в общую шкуру."""
+
+    from PySide6.QtWidgets import QDialog
+
+    from terminal.ui.add_model_dialog import show_add_model_dialog
+    from terminal.ui.dialogs_base import SkinDialog
+
+    captured = {}
+
+    def fake_exec(self):
+        captured["dialog"] = self
+
+        return QDialog.Rejected
+
+    monkeypatch.setattr(SkinDialog, "exec", fake_exec)
+
+    assert show_add_model_dialog(None) is None
+    assert isinstance(captured["dialog"], SkinDialog)
+    assert captured["dialog"].windowTitle() == "Своя модель"
+    assert captured["dialog"].title_bar is not None
+
+
+def test_nickname_dialog_returns_new_value(qapp, monkeypatch) -> None:
+    """Окно клички отдаёт введённое имя и подставляет текущее."""
+
+    from PySide6.QtWidgets import QDialog, QLineEdit
+
+    from terminal.ui import pets_dialog
+    from terminal.ui.dialogs_base import SkinDialog
+
+    seen = {}
+
+    def fake_exec(self):
+        field = self.findChild(QLineEdit)
+
+        seen["before"] = field.text()
+        field.setText("Бублик")
+
+        return QDialog.Accepted
+
+    monkeypatch.setattr(SkinDialog, "exec", fake_exec)
+
+    result = pets_dialog._ask_nickname(
+        None,
+        {"name": "Кибер паук", "nickname": "Пёс"},
+    )
+
+    assert seen["before"] == "Пёс"
+    assert result == "Бублик"
+
+
+def test_about_page_has_project_sections(window) -> None:
+    """«О нас»: программа, команда, принципы и обратная связь."""
+
+    from PySide6.QtWidgets import QLabel
+
+    from terminal.core.app_version import current_version
+
+    window.open_settings_dialog()
+
+    dialog = window.window._tool_windows["settings"]
+    dialog.stack.setCurrentIndex(2)
+
+    texts = "\n".join(
+        label.text()
+        for label in dialog.stack.widget(2).findChildren(QLabel)
+    )
+
+    assert "О ПРОГРАММЕ" in texts
+    assert "КОМАНДА" in texts
+    assert "ПРИНЦИПЫ" in texts
+    assert "ОБРАТНАЯ СВЯЗЬ" in texts
+    assert "Terodat" in texts
+    assert current_version() in texts
+
+    dialog.close()
+
+
+def test_header_shows_only_title(window) -> None:
+    """На планке заголовка только эмблема и название."""
+
+    from PySide6.QtWidgets import QLabel
+
+    texts = [
+        label.text()
+        for label in window.title_bar.findChildren(QLabel)
+    ]
+
+    assert texts == ["◈", "ГИПЕРИОН"]
+    assert not hasattr(window, "title_status")
+
+
+def test_terminal_tab_shows_agent_numbers(
+    window,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Закладка «Терминал» показывает числовые показатели агента."""
+
+    import json
+
+    from terminal.core.agent import runs
+
+    path = tmp_path / "agent_runs.jsonl"
+    path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "created_at": "2026-10-25T10:00:00",
+                        "steps": 3,
+                        "approvals": 2,
+                        "duration_s": 12.0,
+                        "files": ["a.py"],
+                        "tokens": 120,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "created_at": "2026-10-25T11:30:00",
+                        "steps": 5,
+                        "duration_s": 18.0,
+                        "files": ["a.py", "b.py"],
+                        "tokens": 80,
+                        "error": "boom",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(runs, "RUNS_FILE", path)
+
+    window.update_executive_panel()
+
+    assert window.executive_values["runs"].text() == "2"
+    assert window.executive_values["ok"].text() == "1"
+    assert window.executive_values["success"].text() == "50 %"
+    assert window.executive_values["steps"].text() == "8"
+    assert window.executive_values["files"].text() == "2"
+    assert window.executive_values["approvals"].text() == "2"
+    assert window.executive_values["duration"].text() == "30 с"
+    assert window.executive_values["average"].text() == "15 с"
+    assert window.executive_values["tokens"].text() == "200"
+    assert window.executive_values["cost"].text() == "—"
+    assert window.executive_level.text() == "УРОВЕНЬ 1"
+    assert "25.10.2026 11:30" in window.executive_footer.text()
+
+
 def test_pet_attachment_changes_responder(
     window,
     monkeypatch,
 ) -> None:
-    """Закреплённый питомец становится отвечающим в чате."""
+    """Закреплённый дрон становится отвечающим в чате."""
 
     from terminal.ui import pets_mixin
 
     pet = {
-        "id": "robot-puppy",
-        "name": "Робо-щенок",
-        "nickname": "Робо-щенок",
-        "greeting": "Гав!",
-        "self_description": "Я Робо-щенок.",
+        "id": "cyber-spider",
+        "name": "Кибер паук",
+        "nickname": "Кибер паук",
+        "greeting": "Писк!",
+        "self_description": "Я Кибер паук.",
     }
 
     monkeypatch.setattr(
@@ -1084,9 +1573,9 @@ def test_pet_attachment_changes_responder(
     window._pets_changed()
 
     assert window.attached_pet == pet
-    assert window.bot_name == "Робо-щенок"
-    assert window.bot_nickname == "Робо-щенок"
-    assert window.input.placeholderText() == "Напиши Робо-щенок…"
+    assert window.bot_name == "Кибер паук"
+    assert window.bot_nickname == "Кибер паук"
+    assert window.input.placeholderText() == "Напиши Кибер паук…"
 
     monkeypatch.setattr(
         pets_mixin,
