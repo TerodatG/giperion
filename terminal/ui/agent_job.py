@@ -64,6 +64,7 @@ class AgentJob:
         self._brain = brain
         self._root = root
         self._max_steps = max_steps
+        self.max_steps = max(1, int(max_steps))
         self._model_name = model_name
         self._policy = policy
         self._initial_history = list(initial_history or [])

@@ -196,3 +196,31 @@ def test_stream_and_timeout_settings(tmp_path, monkeypatch) -> None:
     )
 
     assert settings.request_timeout() == settings.DEFAULT_TIMEOUT
+
+
+def test_task_controls_settings(tmp_path, monkeypatch) -> None:
+    """Шаги и выбранная модель сохраняются и подрезаются."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+
+    assert settings.max_steps() == 12
+    assert settings.model_choice() == ""
+
+    settings.set_max_steps(20)
+    settings.set_model_choice("go-qwen3.8-flash")
+
+    assert settings.max_steps() == 20
+    assert settings.model_choice() == "go-qwen3.8-flash"
+
+    settings.set_max_steps(0)
+    assert settings.max_steps() == 1
+
+    settings.set_max_steps(1000)
+    assert settings.max_steps() == 40
+
+    settings.set_model_choice("")
+    assert settings.model_choice() == ""

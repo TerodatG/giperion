@@ -199,6 +199,48 @@ def set_browser_enabled(enabled: bool) -> None:
     write_json(SETTINGS_FILE, document)
 
 
+DEFAULT_MAX_STEPS = 12
+
+
+def max_steps() -> int:
+    """Сколько шагов разрешено одной задаче."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = _number(
+        document,
+        "max_steps",
+        DEFAULT_MAX_STEPS,
+        as_int=True,
+    )
+
+    return min(40, max(1, int(value)))
+
+
+def set_max_steps(steps: int) -> None:
+    """Сохраняет лимит шагов задачи."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["max_steps"] = min(40, max(1, int(steps)))
+    write_json(SETTINGS_FILE, document)
+
+
+def model_choice() -> str:
+    """Выбранная в окне агента модель: 'native' или id из каталога."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = document.get("model_choice")
+
+    return value.strip() if isinstance(value, str) else ""
+
+
+def set_model_choice(choice: str) -> None:
+    """Запоминает выбор модели в окне агента."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["model_choice"] = str(choice or "").strip()[:120]
+    write_json(SETTINGS_FILE, document)
+
+
 POLICIES = ("read", "confirm", "trust")
 
 def approval_policy() -> str:

@@ -162,3 +162,50 @@ def test_dialog_hints_unfinished_task(qapp, monkeypatch) -> None:
     assert "доделай отчёт" in dialog.status_label.text()
 
     dialog.close()
+
+
+def test_task_controls_show_saved_model(qapp, monkeypatch) -> None:
+    """В окне есть шаги, контекст и выбор модели; выбор восстанавливается."""
+
+    from types import SimpleNamespace
+
+    from terminal.ui import agent_dialog
+
+    monkeypatch.setattr(
+        agent_dialog,
+        "provider_from_settings",
+        lambda: SimpleNamespace(model="local-model"),
+    )
+    monkeypatch.setattr(
+        agent_dialog,
+        "_available_models",
+        lambda: [
+            {
+                "id": "m1",
+                "name": "Model One",
+                "model_id": "m1",
+                "provider_id": "opencode",
+            }
+        ],
+    )
+    monkeypatch.setattr(agent_dialog, "model_choice", lambda: "m1")
+
+    dialog = agent_dialog.AgentDialog(None)
+
+    assert 1 <= dialog.steps_input.value() <= 40
+    assert 8_000 <= dialog.context_input.value() <= 2_000_000
+
+    labels = [
+        dialog.model_combo.itemText(index)
+        for index in range(dialog.model_combo.count())
+    ]
+
+    assert any("Провайдер" in label for label in labels)
+    assert "Model One" in labels
+
+    current = dialog.model_combo.currentData()
+
+    assert current["kind"] == "model"
+    assert current["model"]["id"] == "m1"
+
+    dialog.close()

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -40,8 +41,13 @@ from terminal.core.agent.settings import (
     approval_policy,
     budget_limits,
     context_limit_chars,
+    max_steps,
+    model_choice,
     provider_from_settings,
     set_approval_policy,
+    set_context_limit_chars,
+    set_max_steps,
+    set_model_choice,
 )
 from terminal.core.agent.tasks import (
     deserialize_history,
@@ -55,17 +61,11 @@ from terminal.core.agent.worktrees import (
     merge_worktree,
     remove_worktree,
 )
-from terminal.core.helper_model import get_helper_model
-from terminal.core.model_registry import (
-    DEFAULT_MODEL_ID,
-    get_active_model,
-)
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
 from terminal.ui.provider_dialog import show_provider_dialog
 
-MAX_STEPS = 12
 POLL_MS = 120
 
 STEP_MARKS = {
@@ -112,19 +112,28 @@ TASK_TEMPLATES = (
 )
 
 
-def _pick_model() -> dict | None:
-    """Берёт активную внешнюю модель или лучшего помощника."""
+def _available_models() -> list[dict]:
+    """Модели каталога, которые можно запустить прямо сейчас."""
 
-    active = get_active_model()
+    try:
+        from terminal.core.model_registry import load_models
 
-    if (
-        active is not None
-        and active["id"] != DEFAULT_MODEL_ID
-        and active.get("model_id")
-    ):
-        return active
+        models = load_models()
+    except Exception:  # noqa: BLE001 — без каталога остаётся провайдер
+        return []
 
-    return get_helper_model()
+    result = []
+
+    for model in models:
+        if not model.get("available"):
+            continue
+
+        if not model.get("model_id"):
+            continue
+
+        result.append(model)
+
+    return result
 
 
 class AgentDialog(SkinDialog):
@@ -241,6 +250,39 @@ class AgentDialog(SkinDialog):
         model_row.addWidget(self.provider_button)
         model_row.addWidget(self.policy_combo)
         model_row.addStretch(1)
+
+        self.steps_input = QSpinBox(self)
+        self.steps_input.setRange(1, 40)
+        self.steps_input.setValue(int(max_steps()))
+        self.steps_input.setSuffix(" шагов")
+        self.steps_input.setToolTip(
+            "Сколько решений модели разрешено одной задаче."
+        )
+
+        self.context_input = QSpinBox(self)
+        self.context_input.setRange(8_000, 2_000_000)
+        self.context_input.setSingleStep(10_000)
+        self.context_input.setSuffix(" симв.")
+        self.context_input.setValue(int(context_limit_chars()))
+        self.context_input.setToolTip(
+            "Бюджет контекста задачи в символах."
+        )
+
+        self.model_combo = QComboBox(self)
+        self.model_combo.setObjectName("approvalPolicy")
+        self.model_combo.setMinimumWidth(230)
+        self.model_combo.setToolTip(
+            "Какой моделью выполнять задачу: провайдер из настроек "
+            "или модель каталога."
+        )
+        self._fill_models()
+
+        limits_row = QHBoxLayout()
+        limits_row.setSpacing(8)
+        limits_row.addWidget(self.model_combo)
+        limits_row.addWidget(self.steps_input)
+        limits_row.addWidget(self.context_input)
+        limits_row.addStretch(1)
 
         self.run_button = QPushButton("Запустить", self)
         self.run_button.setObjectName("workshopAction")
@@ -422,6 +464,7 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(self.task_input)
         self.body_layout.addWidget(self.template_combo)
         self.body_layout.addLayout(model_row)
+        self.body_layout.addLayout(limits_row)
         self.body_layout.addLayout(controls)
         self.body_layout.addLayout(worktree_row)
         self.body_layout.addWidget(self.approval_frame)
@@ -509,6 +552,54 @@ class AgentDialog(SkinDialog):
 
         self.trace.appendPlainText("\n".join(lines))
 
+    def _fill_models(self) -> None:
+        """Заполняет список моделей: провайдер и каталог."""
+
+        self.model_combo.clear()
+        saved = model_choice()
+        native = provider_from_settings()
+
+        if native is not None:
+            self.model_combo.addItem(
+                f"Провайдер · {native.model}",
+                {"kind": "native"},
+            )
+
+        for model in _available_models():
+            label = str(model.get("name") or model.get("model_id"))
+            self.model_combo.addItem(
+                label[:60],
+                {"kind": "model", "model": model},
+            )
+
+        if self.model_combo.count() == 0:
+            self.model_combo.addItem("Нет доступных моделей", None)
+
+            return
+
+        index = 0
+
+        for position in range(self.model_combo.count()):
+            data = self.model_combo.itemData(position)
+
+            if not isinstance(data, dict):
+                continue
+
+            if data.get("kind") == "native" and saved in ("", "native"):
+                index = position
+
+                break
+
+            if (
+                data.get("kind") == "model"
+                and saved == str((data.get("model") or {}).get("id") or "")
+            ):
+                index = position
+
+                break
+
+        self.model_combo.setCurrentIndex(index)
+
     def _start(self) -> None:
         """Запускает новую задачу агента."""
 
@@ -524,29 +615,51 @@ class AgentDialog(SkinDialog):
         self.undo_button.setVisible(False)
         self._summary_job = None
 
-        native = provider_from_settings()
         limits = budget_limits()
-        context_chars = context_limit_chars()
+        context_chars = int(self.context_input.value())
+        steps_limit = int(self.steps_input.value())
 
-        if native is not None:
+        set_max_steps(steps_limit)
+        set_context_limit_chars(context_chars)
+
+        choice = self.model_combo.currentData()
+
+        if not isinstance(choice, dict):
+            self.status_label.setText(
+                "Нет доступной модели: включи провайдера в «Провайдер…» "
+                "или добавь модель в каталог."
+            )
+            return
+
+        if choice.get("kind") == "native":
+            native = provider_from_settings()
+
+            if native is None:
+                self.status_label.setText(
+                    "Провайдер не настроен: заполни адрес, модель и ключ "
+                    "в окне «Провайдер…»."
+                )
+                return
+
             brain = NativeBrain(native, limits)
             model_name = f"native · {native.model}"
+            set_model_choice("native")
         else:
-            model = _pick_model()
+            model = choice.get("model") or {}
+            model_id = str(model.get("model_id") or "")
 
-            if model is None:
+            if not model_id:
                 self.status_label.setText(
-                    "Нет доступной внешней модели: подключи её в окне "
-                    "«Модель» или задай AGENT_BASE_URL/AGENT_API_KEY/"
-                    "AGENT_MODEL."
+                    "У выбранной модели нет идентификатора."
                 )
                 return
 
             brain = ModelBrain(
-                model["model_id"],
+                model_id,
                 model.get("provider_id") or "opencode",
             )
-            model_name = model["name"]
+            model_name = str(model.get("name") or model_id)
+            set_model_choice(str(model.get("id") or model_id))
 
         resume = self._resume
 
@@ -578,7 +691,7 @@ class AgentDialog(SkinDialog):
                 task,
                 brain,
                 resume_root,
-                max_steps=MAX_STEPS,
+                max_steps=steps_limit,
                 model_name=model_name,
                 policy=policy,
                 task_id=str(resume.get("id") or "") or None,
@@ -624,7 +737,7 @@ class AgentDialog(SkinDialog):
             task,
             brain,
             root,
-            max_steps=MAX_STEPS,
+            max_steps=steps_limit,
             model_name=model_name,
             policy=policy,
             worktree_branch=self.worktree_branch,
@@ -644,7 +757,7 @@ class AgentDialog(SkinDialog):
             else ""
         )
         self.status_label.setText(
-            f"Модель: {model_name} · шагов до {MAX_STEPS}"
+            f"Модель: {model_name} · шагов до {steps_limit}"
             f"{branch_note}."
         )
         self._timer.start()
@@ -925,7 +1038,8 @@ class AgentDialog(SkinDialog):
             tail = job.partial.replace("\n", " ").strip()
 
             self.status_label.setText(
-                f"Работаю… шаг {len(job.steps)} из {MAX_STEPS}"
+                f"Работаю… шаг {len(job.steps)} из "
+                f"{getattr(job, 'max_steps', 0)}"
                 + (f" · {spend // 1000}k токенов" if spend else "")
                 + (f" · «{tail[-70:]}»" if tail else "")
                 + "."
