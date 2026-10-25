@@ -166,6 +166,83 @@ def _merge_name(current: str, piece: str) -> str:
     return current + piece
 
 
+def _apply_stream_event(
+    event: dict,
+    content: list[str],
+    calls: dict[int, dict[str, str]],
+    on_delta: Callable[[str], None],
+) -> dict | None:
+    """Разбирает одно событие SSE и возвращает usage, если он есть."""
+
+    usage = event.get("usage")
+
+    if not isinstance(usage, dict):
+        usage = None
+
+    for choice in event.get("choices") or []:
+        delta = choice.get("delta") or {}
+        piece = delta.get("content")
+
+        if isinstance(piece, str) and piece:
+            content.append(piece)
+            on_delta(piece)
+
+        for item in delta.get("tool_calls") or []:
+            index = item.get("index")
+
+            if not isinstance(index, int):
+                index = len(calls)
+
+            slot = calls.setdefault(
+                index,
+                {"id": "", "name": "", "arguments": ""},
+            )
+
+            if item.get("id"):
+                slot["id"] = str(item["id"])
+
+            function = item.get("function") or {}
+
+            slot["name"] = _merge_name(
+                slot["name"],
+                function.get("name") or "",
+            )
+
+            arguments = function.get("arguments")
+
+            if isinstance(arguments, str):
+                slot["arguments"] += arguments
+
+    return usage
+
+
+def _tool_calls_payload(
+    calls: dict[int, dict[str, str]],
+) -> list[dict]:
+    """Собирает tool_calls из накопленных частей."""
+
+    tool_calls = []
+
+    for index in sorted(calls):
+        slot = calls[index]
+
+        if not slot["name"]:
+            continue
+
+        tool_calls.append(
+            {
+                "type": "function",
+                "id": slot["id"] or f"call_{index}",
+                "function": {
+                    "name": slot["name"],
+                    "arguments": slot["arguments"] or "{}",
+                },
+            }
+        )
+
+    return tool_calls
+
+
 def _stream_json(
     url: str,
     api_key: str,
@@ -218,44 +295,15 @@ def _stream_json(
                     continue
 
                 if isinstance(event, dict):
-                    found_usage = event.get("usage")
+                    found = _apply_stream_event(
+                        event,
+                        content,
+                        calls,
+                        on_delta,
+                    )
 
-                    if isinstance(found_usage, dict):
-                        usage = found_usage
-
-                for choice in event.get("choices") or []:
-                    delta = choice.get("delta") or {}
-                    piece = delta.get("content")
-
-                    if isinstance(piece, str) and piece:
-                        content.append(piece)
-                        on_delta(piece)
-
-                    for item in delta.get("tool_calls") or []:
-                        index = item.get("index")
-
-                        if not isinstance(index, int):
-                            index = len(calls)
-
-                        slot = calls.setdefault(
-                            index,
-                            {"id": "", "name": "", "arguments": ""},
-                        )
-
-                        if item.get("id"):
-                            slot["id"] = str(item["id"])
-
-                        function = item.get("function") or {}
-
-                        slot["name"] = _merge_name(
-                            slot["name"],
-                            function.get("name") or "",
-                        )
-
-                        arguments = function.get("arguments")
-
-                        if isinstance(arguments, str):
-                            slot["arguments"] += arguments
+                    if found is not None:
+                        usage = found
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", "replace")[:300]
 
@@ -270,24 +318,7 @@ def _stream_json(
         "content": "".join(content),
     }
 
-    tool_calls = []
-
-    for index in sorted(calls):
-        slot = calls[index]
-
-        if not slot["name"]:
-            continue
-
-        tool_calls.append(
-            {
-                "type": "function",
-                "id": slot["id"] or f"call_{index}",
-                "function": {
-                    "name": slot["name"],
-                    "arguments": slot["arguments"] or "{}",
-                },
-            }
-        )
+    tool_calls = _tool_calls_payload(calls)
 
     if tool_calls:
         message["tool_calls"] = tool_calls
@@ -351,6 +382,63 @@ def _post_json(
     return value
 
 
+def _tool_calls_from_message(message: dict) -> list[ToolCall]:
+    """Разбирает tool_calls ответа в вызовы агента."""
+
+    calls = []
+
+    for item in message.get("tool_calls") or []:
+        function = item.get("function") or {}
+        name = function.get("name")
+        arguments = function.get("arguments") or "{}"
+
+        if not isinstance(name, str) or not name:
+            continue
+
+        if isinstance(arguments, str):
+            try:
+                args = json.loads(arguments)
+            except json.JSONDecodeError as error:
+                raise ProviderError(
+                    "Аргументы вызова — не JSON."
+                ) from error
+        elif isinstance(arguments, dict):
+            args = arguments
+        else:
+            args = {}
+
+        if not isinstance(args, dict):
+            args = {}
+
+        calls.append(ToolCall(tool=name, args=args))
+
+    return calls
+
+
+def _reply_from_data(data: dict) -> ProviderReply:
+    """Собирает ProviderReply из ответа провайдера."""
+
+    choices = data.get("choices")
+
+    if not isinstance(choices, list) or not choices:
+        raise ProviderError("В ответе нет choices.")
+
+    message = choices[0].get("message") or {}
+    text = message.get("content") or ""
+    text = text if isinstance(text, str) else ""
+    usage = data.get("usage")
+
+    if not isinstance(usage, dict):
+        usage = None
+
+    return ProviderReply(
+        text=text,
+        calls=tuple(_tool_calls_from_message(message)),
+        usage=usage,
+        raw=dict(message, role="assistant"),
+    )
+
+
 class OpenAICompatibleProvider:
     """Провайдер с /chat/completions и function calling."""
 
@@ -412,6 +500,50 @@ class OpenAICompatibleProvider:
                 attempt += 1
                 self._sleep(delay)
 
+    def _payload(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None,
+    ) -> dict:
+        """Собирает тело запроса."""
+
+        payload = {"model": self.model, "messages": messages}
+
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        return payload
+
+    def _stream_or_send(self, payload: dict, on_delta) -> dict:
+        """Пробует поток, при сбое до первого куска — обычный запрос."""
+
+        if not (self.stream and on_delta is not None):
+            return self._send(payload)
+
+        received = {"chars": 0}
+
+        def delta(piece: str) -> None:
+            received["chars"] += len(piece)
+            on_delta(piece)
+
+        try:
+            return self._stream(
+                self.base_url + "/chat/completions",
+                self.api_key,
+                payload,
+                self.timeout,
+                delta,
+            )
+        except ProviderError as error:
+            if received["chars"]:
+                raise ProviderError(
+                    "Поток ответа прервался после начала: "
+                    f"{error}"
+                ) from error
+
+        return self._send(payload)
+
     def complete(
         self,
         messages: list[dict],
@@ -420,7 +552,7 @@ class OpenAICompatibleProvider:
     ) -> ProviderReply:
         """Отправляет сообщения и возвращает текст и tool calls.
 
-        Если включён поток и передан `on_delta`, текст приходит кусками по
+        Если включён поток и передан on_delta, текст приходит кусками по
         мере генерации. При сбое до первого куска запрос повторяется
         обычным способом; после — поток не дублируется, а ошибка уходит
         наружу.
@@ -429,89 +561,9 @@ class OpenAICompatibleProvider:
         if not self.base_url:
             raise ProviderError("Не задан base_url провайдера.")
 
-        payload = {
-            "model": self.model,
-            "messages": messages,
-        }
-
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-
-        data = None
-
-        if self.stream and on_delta is not None:
-            received = {"chars": 0}
-
-            def delta(piece: str) -> None:
-                received["chars"] += len(piece)
-                on_delta(piece)
-
-            try:
-                data = self._stream(
-                    self.base_url + "/chat/completions",
-                    self.api_key,
-                    payload,
-                    self.timeout,
-                    delta,
-                )
-            except ProviderError as error:
-                if received["chars"]:
-                    raise ProviderError(
-                        "Поток ответа прервался после начала: "
-                        f"{error}"
-                    ) from error
-
-                data = None
-
-        if data is None:
-            data = self._send(payload)
-
-        choices = data.get("choices")
-
-        if not isinstance(choices, list) or not choices:
-            raise ProviderError("В ответе нет choices.")
-
-        message = choices[0].get("message") or {}
-
-        text = message.get("content") or ""
-        text = text if isinstance(text, str) else ""
-
-        usage = data.get("usage")
-
-        if not isinstance(usage, dict):
-            usage = None
-
-        calls = []
-
-        for item in message.get("tool_calls") or []:
-            function = item.get("function") or {}
-            name = function.get("name")
-            arguments = function.get("arguments") or "{}"
-
-            if not isinstance(name, str) or not name:
-                continue
-
-            if isinstance(arguments, str):
-                try:
-                    args = json.loads(arguments)
-                except json.JSONDecodeError as error:
-                    raise ProviderError(
-                        "Аргументы вызова — не JSON."
-                    ) from error
-            elif isinstance(arguments, dict):
-                args = arguments
-            else:
-                args = {}
-
-            if not isinstance(args, dict):
-                args = {}
-
-            calls.append(ToolCall(tool=name, args=args))
-
-        return ProviderReply(
-            text=text,
-            calls=tuple(calls),
-            usage=usage,
-            raw=dict(message, role="assistant"),
+        data = self._stream_or_send(
+            self._payload(messages, tools),
+            on_delta,
         )
+
+        return _reply_from_data(data)

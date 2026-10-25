@@ -98,41 +98,36 @@ def list_worktrees(root: Path) -> str:
     return result.stdout.strip()
 
 
-def merge_worktree(
-    root: Path,
-    branch: str,
-    target: str = "",
-) -> str:
-    """Сливает ветку агента в текущую или указанную ветку."""
-
-    base = Path(root).resolve()
-
-    if not is_repository(base):
-        raise WorktreeError("Проект не является git-репозиторием.")
-
-    name = str(branch or "").strip()
-
-    if not name.startswith("agent/"):
-        raise WorktreeError("Сливать можно только ветки agent/*.")
+def _current_branch_or_error(base: Path) -> str:
+    """Текущая ветка или ошибка."""
 
     current = _run(base, ["rev-parse", "--abbrev-ref", "HEAD"])
 
     if current.returncode != 0:
         raise WorktreeError("Не удалось определить текущую ветку.")
 
-    current_branch = current.stdout.strip()
-    target_branch = str(target or current_branch).strip()
+    return current.stdout.strip()
+
+
+def _target_branch(base: Path, current: str, target: str) -> str:
+    """Проверяет целевую ветку."""
+
+    target_branch = str(target or current).strip()
 
     if target_branch.startswith("agent/"):
         raise WorktreeError("Целевой веткой не может быть ветка agent/*.")
 
-    if target_branch != current_branch:
+    if target_branch != current:
         exists = _run(base, ["rev-parse", "--verify", target_branch])
 
         if exists.returncode != 0:
-            raise WorktreeError(
-                f"Ветки «{target_branch}» нет."
-            )
+            raise WorktreeError(f"Ветки «{target_branch}» нет.")
+
+    return target_branch
+
+
+def _ensure_clean(base: Path) -> None:
+    """Не даёт сливать поверх незакоммиченных правок."""
 
     dirty = _run(base, ["status", "--porcelain"])
 
@@ -151,17 +146,71 @@ def merge_worktree(
             "сначала закоммить или откати их."
         )
 
-    switched = False
 
-    if target_branch != current_branch:
-        switch = _run(base, ["switch", target_branch])
+def _switch_to(base: Path, target: str, current: str) -> bool:
+    """Переключает ветку; True — ветка менялась."""
 
-        if switch.returncode != 0:
-            detail = (switch.stderr or switch.stdout).strip()[:300]
+    if target == current:
+        return False
 
-            raise WorktreeError(f"Не удалось переключиться: {detail}")
+    switch = _run(base, ["switch", target])
 
-        switched = True
+    if switch.returncode != 0:
+        detail = (switch.stderr or switch.stdout).strip()[:300]
+
+        raise WorktreeError(f"Не удалось переключиться: {detail}")
+
+    return True
+
+
+def _merge_error(
+    base: Path,
+    name: str,
+    current: str,
+    switched: bool,
+    result,
+) -> None:
+    """Откатывает неудачное слияние и поднимает ошибку."""
+
+    _run(base, ["merge", "--abort"])
+    detail = (result.stderr or result.stdout).strip()[:500]
+
+    if switched:
+        _run(base, ["switch", current])
+
+    hint = ""
+
+    if "CONFLICT" in (result.stdout or "") or "CONFLICT" in detail:
+        hint = (
+            " Ветки разошлись по одним и тем же строкам: слияние "
+            "отменено, файлы не тронуты. Открой задачу заново на "
+            "свежей базе или перенеси правки вручную."
+        )
+
+    raise WorktreeError(f"Слияние не удалось: {detail}{hint}")
+
+
+def merge_worktree(
+    root: Path,
+    branch: str,
+    target: str = "",
+) -> str:
+    """Сливает ветку агента в текущую или указанную ветку."""
+
+    base = Path(root).resolve()
+
+    if not is_repository(base):
+        raise WorktreeError("Проект не является git-репозиторием.")
+
+    name = str(branch or "").strip()
+
+    if not name.startswith("agent/"):
+        raise WorktreeError("Сливать можно только ветки agent/*.")
+
+    current = _current_branch_or_error(base)
+    target_branch = _target_branch(base, current, target)
+    _ensure_clean(base)
+    switched = _switch_to(base, target_branch, current)
 
     result = _run(
         base,
@@ -169,25 +218,10 @@ def merge_worktree(
     )
 
     if result.returncode != 0:
-        _run(base, ["merge", "--abort"])
-        detail = (result.stderr or result.stdout).strip()[:500]
-
-        if switched:
-            _run(base, ["switch", current_branch])
-
-        hint = ""
-
-        if "CONFLICT" in (result.stdout or "") or "CONFLICT" in detail:
-            hint = (
-                " Ветки разошлись по одним и тем же строкам: слияние "
-                "отменено, файлы не тронуты. Открой задачу заново на "
-                "свежей базе или перенеси правки вручную."
-            )
-
-        raise WorktreeError(f"Слияние не удалось: {detail}{hint}")
+        _merge_error(base, name, current, switched, result)
 
     if switched:
-        _run(base, ["switch", current_branch])
+        _run(base, ["switch", current])
 
     return (result.stdout or "Слито.").strip()[:1000]
 

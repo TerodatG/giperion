@@ -29,6 +29,77 @@ def _exit_hint(code: int) -> str:
     return ""
 
 
+def _allowed_roots(root: Path, module_dir: Path | None) -> tuple[list[Path], list[Path]]:
+    """Корни для чтения и записи."""
+
+    allowed_read = [
+        Path(root).resolve(),
+        Path(BASE_DIR).resolve(),
+        Path(sys.base_prefix).resolve(),
+        Path(sys.prefix).resolve(),
+    ]
+
+    if module_dir is not None:
+        allowed_read.append(Path(module_dir).resolve())
+
+    allowed_write = [Path(root).resolve()]
+    container_temp = os.environ.get("TEMP") or os.environ.get("TMP")
+
+    if container_temp:
+        try:
+            allowed_write.append(Path(container_temp).resolve())
+        except (OSError, ValueError):
+            pass
+
+    return allowed_read, allowed_write
+
+
+def _inside(path, roots: list[Path]) -> bool:
+    """Лежит ли путь внутри одного из корней."""
+
+    try:
+        real = Path(os.path.realpath(str(path))).resolve()
+    except (OSError, ValueError, TypeError):
+        return False
+
+    return any(real == base or base in real.parents for base in roots)
+
+
+def _deny(what: str, path: str = "") -> None:
+    """Отказывает в доступе с понятным текстом."""
+
+    detail = f" ({path})" if path else ""
+
+    raise PermissionError(f"Песочница плагина: {what}{detail}")
+
+
+def _check_open(args, allowed_read, allowed_write) -> None:
+    """Проверяет открытие файла."""
+
+    path = args[0] if args else None
+
+    if path is None or isinstance(path, int):
+        return
+
+    mode = str(args[1] or "") if len(args) > 1 else ""
+    writing = any(symbol in mode for symbol in "wax+")
+
+    if writing:
+        if not _inside(path, allowed_write):
+            _deny("запись за пределами проекта", str(path))
+    elif not _inside(path, allowed_read):
+        _deny("чтение за пределами проекта", str(path))
+
+
+def _check_mutation(args, allowed_write) -> None:
+    """Проверяет изменения файлов и папок."""
+
+    for path in args:
+        if isinstance(path, (str, bytes, os.PathLike)) and path:
+            if not _inside(path, allowed_write):
+                _deny("изменение за пределами проекта", str(path))
+
+
 def install_guard(
     root: Path,
     permissions: tuple[str, ...] = (),
@@ -42,92 +113,37 @@ def install_guard(
     без разрешения.
     """
 
-    allowed_read = [
-        Path(root).resolve(),
-        Path(BASE_DIR).resolve(),
-        Path(sys.base_prefix).resolve(),
-        Path(sys.prefix).resolve(),
-    ]
-
-    if module_dir is not None:
-        allowed_read.append(Path(module_dir).resolve())
-
-    allowed_write = [Path(root).resolve()]
-
-    # AppContainer подменяет TEMP на папку своего профиля, поэтому
-    # разрешаем запись именно туда, а не в системный temp вообще.
-    container_temp = os.environ.get("TEMP") or os.environ.get("TMP")
-
-    if container_temp:
-        try:
-            allowed_write.append(Path(container_temp).resolve())
-        except (OSError, ValueError):
-            pass
-
+    allowed_read, allowed_write = _allowed_roots(root, module_dir)
     allow_net = "net" in permissions
     allow_exec = "exec" in permissions
 
-    def inside(path, roots: list[Path]) -> bool:
-        try:
-            real = Path(os.path.realpath(str(path))).resolve()
-        except (OSError, ValueError, TypeError):
-            return False
-
-        return any(real == base or base in real.parents for base in roots)
-
-    def fail(what: str, path: str = "") -> None:
-        detail = f" ({path})" if path else ""
-
-        raise PermissionError(
-            f"Песочница плагина: {what}{detail}"
-        )
+    mutation_events = {
+        "os.mkdir",
+        "os.rmdir",
+        "os.remove",
+        "os.rename",
+        "os.replace",
+        "os.symlink",
+        "os.link",
+        "os.truncate",
+    }
+    exec_events = {
+        "subprocess.Popen",
+        "os.system",
+        "os.exec",
+        "os.spawn",
+        "os.posix_spawn",
+    }
 
     def hook(event: str, args: tuple) -> None:
         if event == "open":
-            path = args[0] if args else None
-
-            if path is None or isinstance(path, int):
-                return
-
-            mode = str(args[1] or "") if len(args) > 1 else ""
-            writing = any(symbol in mode for symbol in "wax+")
-
-            if writing:
-                if not inside(path, allowed_write):
-                    fail("запись за пределами проекта", str(path))
-            elif not inside(path, allowed_read):
-                fail("чтение за пределами проекта", str(path))
-
-            return
-
-        if event in (
-            "os.mkdir",
-            "os.rmdir",
-            "os.remove",
-            "os.rename",
-            "os.replace",
-            "os.symlink",
-            "os.link",
-            "os.truncate",
-        ):
-            for path in args:
-                if isinstance(path, (str, bytes, os.PathLike)) and path:
-                    if not inside(path, allowed_write):
-                        fail("изменение за пределами проекта", str(path))
-
-            return
-
-        if event.startswith("socket.") and not allow_net:
-            fail("сеть запрещена")
-
-        if event in (
-            "subprocess.Popen",
-            "os.system",
-            "os.exec",
-            "os.spawn",
-            "os.posix_spawn",
-        ) and not allow_exec:
-            fail("запуск программ запрещён")
+            _check_open(args, allowed_read, allowed_write)
+        elif event in mutation_events:
+            _check_mutation(args, allowed_write)
+        elif event.startswith("socket.") and not allow_net:
+            _deny("сеть запрещена")
+        elif event in exec_events and not allow_exec:
+            _deny("запуск программ запрещён")
 
     sys.addaudithook(hook)
 

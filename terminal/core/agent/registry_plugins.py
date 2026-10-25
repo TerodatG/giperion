@@ -56,14 +56,8 @@ def _permissions(document: dict, risk: str) -> tuple[str, ...]:
     return permissions
 
 
-def _parse_manifest(
-    document: object,
-    path: Path,
-) -> tuple[ToolSpec, Path, str]:
-    """Проверяет JSON-манифест, не исполняя код плагина."""
-
-    if not isinstance(document, dict):
-        raise ValueError("Манифест должен быть объектом.")
+def _manifest_header(document: dict) -> tuple[str, str]:
+    """Имя и описание плагина."""
 
     name = str(document.get("name") or "").strip()
 
@@ -74,6 +68,12 @@ def _parse_manifest(
 
     if not description:
         raise ValueError("У плагина нет описания.")
+
+    return name, description
+
+
+def _manifest_args(document: dict) -> tuple[dict, tuple]:
+    """Аргументы и обязательные имена."""
 
     args = document.get("args") or {}
 
@@ -90,10 +90,22 @@ def _parse_manifest(
     ):
         raise ValueError("required должен ссылаться на args.")
 
+    return args, tuple(required)
+
+
+def _manifest_risk(document: dict) -> str:
+    """Риск плагина."""
+
     risk = str(document.get("risk") or "read")
 
     if risk not in ("read", "write", "exec"):
         raise ValueError("risk должен быть read, write или exec.")
+
+    return risk
+
+
+def _manifest_module(document: dict, path: Path) -> Path:
+    """Путь к модулю рядом с манифестом."""
 
     module = str(document.get("module") or "").strip()
 
@@ -108,11 +120,34 @@ def _parse_manifest(
     if not module_path.is_file():
         raise ValueError(f"Нет модуля плагина: {module}")
 
+    return module_path
+
+
+def _manifest_handler(document: dict) -> str:
+    """Имя функции-обработчика."""
+
     handler = str(document.get("handler") or "handler").strip()
 
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", handler):
         raise ValueError("Недопустимое имя обработчика.")
 
+    return handler
+
+
+def _parse_manifest(
+    document: object,
+    path: Path,
+) -> tuple[ToolSpec, Path, str]:
+    """Проверяет JSON-манифест, не исполняя код плагина."""
+
+    if not isinstance(document, dict):
+        raise ValueError("Манифест должен быть объектом.")
+
+    name, description = _manifest_header(document)
+    args, required = _manifest_args(document)
+    risk = _manifest_risk(document)
+    module_path = _manifest_module(document, path)
+    handler = _manifest_handler(document)
     permissions = _permissions(document, risk)
 
     return (
@@ -121,7 +156,7 @@ def _parse_manifest(
             description=description,
             args=dict(args),
             risk=risk,
-            required=tuple(required),
+            required=required,
             permissions=permissions,
         ),
         module_path,

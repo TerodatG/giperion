@@ -287,21 +287,25 @@ def is_within_budget(prompt: str, max_chars: int) -> bool:
     return len(prompt) <= max_chars
 
 
-def parse_decision(raw: str) -> AgentDecision:
-    """Разбирает ответ модели в решение агента."""
+def _strip_fence(text: str) -> str:
+    """Убирает markdown-обёртку вокруг JSON."""
 
-    text = str(raw or "").strip()
+    if not text.startswith("`"):
+        return text
 
-    if text.startswith("```"):
-        lines = text.splitlines()
+    lines = text.splitlines()
 
-        if lines:
-            lines = lines[1:]
+    if lines:
+        lines = lines[1:]
 
-        if lines and lines[-1].strip().startswith("```"):
-            lines = lines[:-1]
+    if lines and lines[-1].strip().startswith("`"):
+        lines = lines[:-1]
 
-        text = "\n".join(lines).strip()
+    return "\n".join(lines).strip()
+
+
+def _decode_object(text: str) -> dict:
+    """Находит и разбирает JSON-объект в ответе."""
 
     start = text.find("{")
 
@@ -316,45 +320,56 @@ def parse_decision(raw: str) -> AgentDecision:
     if not isinstance(data, dict):
         raise DecisionError("JSON должен быть объектом")
 
-    action = data.get("action")
+    return data
 
-    if action == "answer":
-        answer = data.get("text")
 
-        if not isinstance(answer, str) or not answer.strip():
-            raise DecisionError("в answer нет текста")
+def _parse_answer(data: dict) -> AgentDecision:
+    """Решение-ответ."""
 
-        return AgentDecision(action="answer", text=answer.strip())
+    answer = data.get("text")
 
-    if action == "tools":
-        raw_calls = data.get("calls")
+    if not isinstance(answer, str) or not answer.strip():
+        raise DecisionError("в answer нет текста")
 
-        if not isinstance(raw_calls, list) or not raw_calls:
-            raise DecisionError("в tools нужен непустой список calls")
+    return AgentDecision(action="answer", text=answer.strip())
 
-        calls = []
 
-        for item in raw_calls[:3]:
-            if not isinstance(item, dict):
-                raise DecisionError("каждый вызов должен быть объектом")
+def _parse_tool_call(item: dict) -> ToolCall:
+    """Один вызов инструмента."""
 
-            name = item.get("tool")
-            args = item.get("args", {})
+    name = item.get("tool")
+    args = item.get("args", {})
 
-            if not isinstance(name, str) or not name.strip():
-                raise DecisionError("у вызова нет инструмента")
+    if not isinstance(name, str) or not name.strip():
+        raise DecisionError("у вызова нет инструмента")
 
-            if not isinstance(args, dict):
-                raise DecisionError("args должен быть объектом")
+    if not isinstance(args, dict):
+        raise DecisionError("args должен быть объектом")
 
-            calls.append(
-                ToolCall(tool=name.strip(), args=args)
-            )
+    return ToolCall(tool=name.strip(), args=args)
 
-        return AgentDecision(action="tools", calls=tuple(calls))
 
-    if action != "tool":
-        raise DecisionError("action должен быть tool, tools или answer")
+def _parse_tools(data: dict) -> AgentDecision:
+    """Пакет вызовов."""
+
+    raw_calls = data.get("calls")
+
+    if not isinstance(raw_calls, list) or not raw_calls:
+        raise DecisionError("в tools нужен непустой список calls")
+
+    calls = []
+
+    for item in raw_calls[:3]:
+        if not isinstance(item, dict):
+            raise DecisionError("каждый вызов должен быть объектом")
+
+        calls.append(_parse_tool_call(item))
+
+    return AgentDecision(action="tools", calls=tuple(calls))
+
+
+def _parse_tool(data: dict) -> AgentDecision:
+    """Одиночный вызов."""
 
     tool = data.get("tool")
 
@@ -370,3 +385,21 @@ def parse_decision(raw: str) -> AgentDecision:
         action="tool",
         call=ToolCall(tool=tool.strip(), args=args),
     )
+
+
+def parse_decision(raw: str) -> AgentDecision:
+    """Разбирает ответ модели в решение агента."""
+
+    data = _decode_object(_strip_fence(str(raw or "").strip()))
+    action = data.get("action")
+
+    if action == "answer":
+        return _parse_answer(data)
+
+    if action == "tools":
+        return _parse_tools(data)
+
+    if action != "tool":
+        raise DecisionError("action должен быть tool, tools или answer")
+
+    return _parse_tool(data)

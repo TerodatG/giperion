@@ -18,6 +18,77 @@ from terminal.core.agent.registry_specs import (
 )
 
 
+def _missing_required(call: ToolCall, spec) -> ToolResult | None:
+    """Проверяет наличие обязательных аргументов."""
+
+    for name in spec.required:
+        if name not in call.args:
+            return ToolResult(False, f"Не хватает аргумента «{name}».")
+
+    return None
+
+
+def _value_error(
+    name: str,
+    value,
+    spec,
+    *,
+    required: bool,
+) -> ToolResult | None:
+    """Проверяет тип и пустоту одного аргумента."""
+
+    kind = spec.types.get(name)
+
+    if kind == "array":
+        if (
+            not isinstance(value, list)
+            or (required and not value)
+            or not all(
+                isinstance(item, str) and item.strip()
+                for item in value
+            )
+        ):
+            return ToolResult(
+                False,
+                f"Аргумент «{name}» должен быть непустым списком строк."
+                if required
+                else f"Аргумент «{name}» должен быть списком строк.",
+            )
+
+        return None
+
+    if kind == "integer":
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            return ToolResult(
+                False,
+                f"Аргумент «{name}» должен быть целым числом.",
+            )
+
+        try:
+            int(value)
+        except (TypeError, ValueError):
+            return ToolResult(
+                False,
+                f"Аргумент «{name}» должен быть целым числом.",
+            )
+
+        return None
+
+    if not isinstance(value, str):
+        return ToolResult(
+            False,
+            f"Аргумент «{name}» должен быть строкой.",
+        )
+
+    if required and not value.strip() and name != "new":
+        return ToolResult(
+            False,
+            f"Аргумент «{name}» не может быть пустым.",
+        )
+
+    return None
+
+
 def validate_call(call: ToolCall) -> ToolResult | None:
     """Проверяет аргументы вызова по схеме инструмента."""
 
@@ -26,14 +97,12 @@ def validate_call(call: ToolCall) -> ToolResult | None:
     if spec is None:
         return ToolResult(False, f"Неизвестный инструмент: {call.tool}")
 
-    if spec.schema is not None:
-        for name in spec.required:
-            if name not in call.args:
-                return ToolResult(
-                    False,
-                    f"Не хватает аргумента «{name}».",
-                )
+    missing = _missing_required(call, spec)
 
+    if missing is not None:
+        return missing
+
+    if spec.schema is not None:
         return None
 
     extra = set(call.args) - set(spec.args)
@@ -45,83 +114,27 @@ def validate_call(call: ToolCall) -> ToolResult | None:
         )
 
     for name in spec.required:
-        if name not in call.args:
-            return ToolResult(
-                False,
-                f"Не хватает аргумента «{name}».",
-            )
+        error = _value_error(
+            name,
+            call.args[name],
+            spec,
+            required=True,
+        )
 
-        value = call.args[name]
-
-        if spec.types.get(name) == "array":
-            if (
-                not isinstance(value, list)
-                or not value
-                or not all(
-                    isinstance(item, str) and item.strip()
-                    for item in value
-                )
-            ):
-                return ToolResult(
-                    False,
-                    f"Аргумент «{name}» должен быть непустым списком "
-                    "строк.",
-                )
-
-            continue
-
-        if spec.types.get(name) == "integer":
-            if isinstance(value, bool) or not isinstance(
-                value, (int, str)
-            ):
-                return ToolResult(
-                    False,
-                    f"Аргумент «{name}» должен быть целым числом.",
-                )
-
-            try:
-                int(value)
-            except (TypeError, ValueError):
-                return ToolResult(
-                    False,
-                    f"Аргумент «{name}» должен быть целым числом.",
-                )
-
-            continue
-
-        if not isinstance(value, str):
-            return ToolResult(
-                False,
-                f"Аргумент «{name}» должен быть строкой.",
-            )
-
-        if not value.strip() and name != "new":
-            return ToolResult(
-                False,
-                f"Аргумент «{name}» не может быть пустым.",
-            )
+        if error is not None:
+            return error
 
     for name, value in call.args.items():
-        if name not in spec.args:
-            continue
-
-        if spec.types.get(name) == "array":
-            if not isinstance(value, list):
-                return ToolResult(
-                    False,
-                    f"Аргумент «{name}» должен быть списком строк.",
-                )
-
-            continue
-
-        if spec.types.get(name) == "integer":
-            continue
-
-        if not isinstance(value, str):
-            return ToolResult(
-                False,
-                f"Аргумент «{name}» должен быть строкой.",
+        if name in spec.args and name not in spec.required:
+            error = _value_error(
+                name,
+                value,
+                spec,
+                required=False,
             )
+
+            if error is not None:
+                return error
 
     return None
 
@@ -266,6 +279,126 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
     return ToolResult(True, "Действие без предпросмотра.")
 
 
+def _file_tool(root: Path, call: ToolCall) -> ToolResult | None:
+    """Файловые инструменты."""
+
+    if call.tool == "list_dir":
+        return tools.list_dir(root, _string_arg(call, "path", "."))
+
+    if call.tool == "read_file":
+        return tools.read_file(
+            root,
+            _string_arg(call, "path"),
+            _int_arg(call, "start", 1),
+            _int_arg(call, "limit", 0),
+        )
+
+    if call.tool == "search_text":
+        return tools.search_text(
+            root,
+            _string_arg(call, "query"),
+            _string_arg(call, "path", "."),
+        )
+
+    if call.tool == "write_file":
+        return tools.write_file(
+            root,
+            _string_arg(call, "path"),
+            _string_arg(call, "content"),
+        )
+
+    if call.tool == "apply_patch":
+        return tools.apply_patch(
+            root,
+            _string_arg(call, "path"),
+            _string_arg(call, "old"),
+            _string_arg(call, "new"),
+        )
+
+    return None
+
+
+def _git_tool(root: Path, call: ToolCall) -> ToolResult | None:
+    """Инструменты git."""
+
+    if call.tool == "git_status":
+        return git_tools.git_status(root)
+
+    if call.tool == "git_diff":
+        return git_tools.git_diff(root, _string_arg(call, "path"))
+
+    if call.tool == "git_log":
+        return git_tools.git_log(
+            root,
+            _string_arg(call, "limit", "5"),
+        )
+
+    if call.tool == "git_commit":
+        return git_tools.git_commit(
+            root,
+            _string_arg(call, "message"),
+            _list_arg(call, "paths"),
+        )
+
+    if call.tool == "git_restore":
+        return git_tools.git_restore(
+            root,
+            _string_arg(call, "path"),
+        )
+
+    return None
+
+
+def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
+    """MCP, плагины, индекс, тесты, команды и веб."""
+
+    from terminal.core.agent import mcp
+
+    if call.tool in mcp.mcp_tools()[1]:
+        return mcp.call_tool(root, call.tool, call.args)
+
+    plugin_entry = _plugin_handler(call.tool)
+
+    if plugin_entry is not None:
+        module_path, handler_name, permissions = plugin_entry
+
+        return run_plugin_process(
+            module_path,
+            root,
+            call.args,
+            handler_name,
+            permissions=permissions,
+        )
+
+    if call.tool == "find_symbol":
+        from terminal.core.agent import index
+
+        return index.find_symbol(root, _string_arg(call, "query"))
+
+    if call.tool == "run_tests":
+        return tools.run_tests(root)
+
+    if call.tool == "run_command":
+        return tools.run_command(
+            root,
+            _string_arg(call, "command"),
+        )
+
+    if call.tool == "fetch_url":
+        from terminal.core.agent import settings, web
+
+        if not settings.browser_enabled():
+            return ToolResult(
+                False,
+                "Чтение веб-страниц выключено: включи «Разрешить "
+                "чтение веб-страниц» в окне «Провайдер…».",
+            )
+
+        return web.fetch(_string_arg(call, "url"))
+
+    return None
+
+
 def execute(root: Path, call: ToolCall) -> ToolResult:
     """Выполняет вызов инструмента с проверкой аргументов."""
 
@@ -275,116 +408,11 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
         return invalid
 
     try:
-        from terminal.core.agent import mcp
+        for handler in (_special_tool, _file_tool, _git_tool):
+            result = handler(root, call)
 
-        if call.tool in mcp.mcp_tools()[1]:
-            return mcp.call_tool(root, call.tool, call.args)
-
-        plugin_entry = _plugin_handler(call.tool)
-
-        if plugin_entry is not None:
-            module_path, handler_name, permissions = plugin_entry
-
-            return run_plugin_process(
-                module_path,
-                root,
-                call.args,
-                handler_name,
-                permissions=permissions,
-            )
-
-        if call.tool == "list_dir":
-            return tools.list_dir(
-                root,
-                _string_arg(call, "path", "."),
-            )
-
-        if call.tool == "read_file":
-            return tools.read_file(
-                root,
-                _string_arg(call, "path"),
-                _int_arg(call, "start", 1),
-                _int_arg(call, "limit", 0),
-            )
-
-        if call.tool == "find_symbol":
-            from terminal.core.agent import index
-
-            return index.find_symbol(
-                root,
-                _string_arg(call, "query"),
-            )
-
-        if call.tool == "search_text":
-            return tools.search_text(
-                root,
-                _string_arg(call, "query"),
-                _string_arg(call, "path", "."),
-            )
-
-        if call.tool == "write_file":
-            return tools.write_file(
-                root,
-                _string_arg(call, "path"),
-                _string_arg(call, "content"),
-            )
-
-        if call.tool == "apply_patch":
-            return tools.apply_patch(
-                root,
-                _string_arg(call, "path"),
-                _string_arg(call, "old"),
-                _string_arg(call, "new"),
-            )
-
-        if call.tool == "run_tests":
-            return tools.run_tests(root)
-
-        if call.tool == "git_status":
-            return git_tools.git_status(root)
-
-        if call.tool == "git_diff":
-            return git_tools.git_diff(
-                root,
-                _string_arg(call, "path"),
-            )
-
-        if call.tool == "git_log":
-            return git_tools.git_log(
-                root,
-                _string_arg(call, "limit", "5"),
-            )
-
-        if call.tool == "git_commit":
-            return git_tools.git_commit(
-                root,
-                _string_arg(call, "message"),
-                _list_arg(call, "paths"),
-            )
-
-        if call.tool == "git_restore":
-            return git_tools.git_restore(
-                root,
-                _string_arg(call, "path"),
-            )
-
-        if call.tool == "run_command":
-            return tools.run_command(
-                root,
-                _string_arg(call, "command"),
-            )
-
-        if call.tool == "fetch_url":
-            from terminal.core.agent import settings, web
-
-            if not settings.browser_enabled():
-                return ToolResult(
-                    False,
-                    "Чтение веб-страниц выключено: включи «Разрешить "
-                    "чтение веб-страниц» в окне «Провайдер…».",
-                )
-
-            return web.fetch(_string_arg(call, "url"))
+            if result is not None:
+                return result
     except ValueError as error:
         return ToolResult(False, str(error))
     except Exception as error:  # noqa: BLE001 — ошибку увидит модель
@@ -394,4 +422,3 @@ def execute(root: Path, call: ToolCall) -> ToolResult:
         )
 
     return ToolResult(False, f"Инструмент не реализован: {call.tool}")
-
