@@ -46,6 +46,9 @@ data/agent_runs.jsonl
 # --- Отчёты стенда оценки агента ---
 data/agent_eval/
 
+# --- Состояния задач агента ---
+data/agent_tasks/
+
 # --- Настройки провайдера агента (ключ) ---
 data/agent_settings.json
 

@@ -95,6 +95,50 @@ def _clean_nickname(value: object, name: str) -> str:
     return fallback[:60] or name[:60]
 
 
+def _clean_animation(value: object) -> dict:
+    """Проверяет настройки живой анимации аватара модели."""
+
+    if not isinstance(value, dict):
+        return {}
+
+    eyes = []
+
+    for point in value.get("eyes") or []:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            continue
+
+        try:
+            u = float(point[0])
+            v = float(point[1])
+        except (TypeError, ValueError):
+            continue
+
+        eyes.append(
+            (
+                round(max(0.0, min(1.0, u)), 4),
+                round(max(0.0, min(1.0, v)), 4),
+            )
+        )
+
+    def number(key: str, default: float, low: float, high: float) -> float:
+        """Читает число в разумных границах."""
+
+        try:
+            return max(low, min(high, float(value.get(key, default))))
+        except (TypeError, ValueError):
+            return default
+
+    lines = value.get("lines")
+
+    return {
+        "eyes": eyes,
+        "eye_radius": number("eye_radius", 0.085, 0.02, 0.35),
+        "eye_period": number("eye_period", 4.6, 1.0, 30.0),
+        "lines": lines if isinstance(lines, str) else "",
+        "particles": bool(value.get("particles", False)),
+    }
+
+
 def _parse_model(record: dict) -> dict | None:
     """Превращает запись каталога в модель с проверенными полями."""
 
@@ -145,6 +189,9 @@ def _parse_model(record: dict) -> dict | None:
         "available": bool(record.get("available", False)),
         "group": str(record.get("group", "other")),
         "avatar": avatar if isinstance(avatar, str) else "",
+        "avatar_animation": _clean_animation(
+            record.get("avatar_animation")
+        ),
         "url": str(record.get("url", "")),
         "api": str(record.get("api", "")),
         "price": str(record.get("price", "")),

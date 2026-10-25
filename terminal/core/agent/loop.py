@@ -173,6 +173,10 @@ def run_agent(
     allow_subagent: bool = True,
     max_prompt_chars: int = MAX_PROMPT,
     policy: str = "confirm",
+    initial_history: list[tuple[ToolCall, ToolResult]] | None = None,
+    on_history: Callable[
+        [list[tuple[ToolCall, ToolResult]]], None
+    ] | None = None,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -185,8 +189,16 @@ def run_agent(
         policy = "confirm"
 
     steps: list[AgentStep] = []
-    history: list[tuple[ToolCall, ToolResult]] = []
+    history: list[tuple[ToolCall, ToolResult]] = list(
+        initial_history or []
+    )
     context_peak = 0
+
+    def remember(call: ToolCall, result: ToolResult) -> None:
+        history.append((call, result))
+
+        if on_history is not None:
+            on_history(history)
 
     def emit(step: AgentStep) -> None:
         steps.append(step)
@@ -197,7 +209,7 @@ def run_agent(
     def stopped() -> bool:
         return bool(should_stop and should_stop())
 
-    if ground_first:
+    if ground_first and not history:
         for call in grounding_calls(clean_task, root):
             result = registry.execute(root, call)
 
@@ -210,7 +222,7 @@ def run_agent(
                 )
             )
 
-            history.append((call, result))
+            remember(call, result)
 
     for index in range(1, max(max_steps, 1) + 1):
         if stopped():
@@ -271,15 +283,13 @@ def run_agent(
                 )
             )
 
-            history.append(
-                (
-                    ToolCall(tool="format", args={}),
-                    ToolResult(
-                        False,
-                        "Ответ не разобрался: "
-                        f"{error}. Верни только JSON по схеме.",
-                    ),
-                )
+            remember(
+                ToolCall(tool="format", args={}),
+                ToolResult(
+                    False,
+                    "Ответ не разобрался: "
+                    f"{error}. Верни только JSON по схеме.",
+                ),
             )
 
             continue
@@ -294,15 +304,13 @@ def run_agent(
                         "Модель ответила, ничего не прочитав.",
                     )
                 )
-                history.append(
-                    (
-                        ToolCall(tool="policy", args={}),
-                        ToolResult(
-                            False,
-                            "Сначала вызови list_dir, read_file или "
-                            "search_text, а потом отвечай.",
-                        ),
-                    )
+                remember(
+                    ToolCall(tool="policy", args={}),
+                    ToolResult(
+                        False,
+                        "Сначала вызови list_dir, read_file или "
+                        "search_text, а потом отвечай.",
+                    ),
                 )
 
                 continue
@@ -342,7 +350,7 @@ def run_agent(
                         invalid.text[:300],
                     )
                 )
-                history.append((call, invalid))
+                remember(call, invalid)
 
                 continue
 
@@ -365,7 +373,7 @@ def run_agent(
                     )
                 )
 
-                history.append((call, result))
+                remember(call, result)
 
                 continue
 
@@ -383,15 +391,13 @@ def run_agent(
                         "Политика «только чтение».",
                     )
                 )
-                history.append(
-                    (
-                        call,
-                        ToolResult(
-                            False,
-                            "Политика «только чтение»: действие "
-                            "запрещено. Предложи ответ без изменений.",
-                        ),
-                    )
+                remember(
+                    call,
+                    ToolResult(
+                        False,
+                        "Политика «только чтение»: действие "
+                        "запрещено. Предложи ответ без изменений.",
+                    ),
                 )
 
                 continue
@@ -425,7 +431,7 @@ def run_agent(
                             preview.text[:300],
                         )
                     )
-                    history.append((call, preview))
+                    remember(call, preview)
 
                     continue
 
@@ -466,15 +472,13 @@ def run_agent(
                 )
 
                 if not approved:
-                    history.append(
-                        (
-                            call,
-                            ToolResult(
-                                False,
-                                "Пользователь отклонил действие. "
-                                "Предложи другой путь или ответь.",
-                            ),
-                        )
+                    remember(
+                        call,
+                        ToolResult(
+                            False,
+                            "Пользователь отклонил действие. "
+                            "Предложи другой путь или ответь.",
+                        ),
                     )
 
                     continue
@@ -503,7 +507,7 @@ def run_agent(
                 )
             )
 
-            history.append((call, result))
+            remember(call, result)
 
     return AgentResult(
         steps=steps,

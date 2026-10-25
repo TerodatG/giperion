@@ -55,7 +55,13 @@ def test_job_waits_for_approval(tmp_path) -> None:
         ]
     )
 
-    job = AgentJob("замени", brain, tmp_path, max_steps=4)
+    job = AgentJob(
+        "замени",
+        brain,
+        tmp_path,
+        max_steps=4,
+        persist=False,
+    )
 
     _wait_for(lambda: job.pending is not None or job.done)
 
@@ -104,6 +110,7 @@ def test_job_writes_run_journal(tmp_path, monkeypatch) -> None:
         tmp_path,
         max_steps=4,
         model_name="Тест",
+        persist=False,
     )
 
     _wait_for(lambda: job.done)

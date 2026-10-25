@@ -3,6 +3,7 @@
 # Последнее изменение: отдельная ветка и параллельные задачи.
 
 import time
+from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import (
@@ -38,6 +39,10 @@ from terminal.core.agent.settings import (
     provider_from_settings,
     set_approval_policy,
 )
+from terminal.core.agent.tasks import (
+    deserialize_history,
+    deserialize_steps,
+)
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
@@ -53,6 +58,7 @@ from terminal.core.model_registry import (
 )
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
 from terminal.ui.provider_dialog import show_provider_dialog
 
 MAX_STEPS = 12
@@ -85,7 +91,7 @@ def _pick_model() -> dict | None:
 class AgentDialog(SkinDialog):
     """Окно агента; при закрытии останавливает текущую задачу."""
 
-    def __init__(self, parent) -> None:
+    def __init__(self, parent, resume: dict | None = None) -> None:
         super().__init__(
             parent,
             "Агент",
@@ -97,6 +103,7 @@ class AgentDialog(SkinDialog):
         self._shown = 0
         self._editing = False
         self._parent = parent
+        self._resume = resume
         self.worktree_path: Path | None = None
         self.worktree_branch = ""
 
@@ -108,7 +115,12 @@ class AgentDialog(SkinDialog):
         self._highlight_timer = QTimer(self)
         self._highlight_timer.setSingleShot(True)
         self._highlight_timer.setInterval(180)
-        self._highlight_timer.timeout.connect(self._refresh_highlights)
+        self._highlight_timer.timeout.connect(
+            self._refresh_highlights
+        )
+
+        if resume is not None:
+            self._apply_resume(resume)
 
     def _build(self) -> None:
         """Собирает поля, кнопки и ленту шагов."""
@@ -190,6 +202,15 @@ class AgentDialog(SkinDialog):
         )
         self.new_task_button.clicked.connect(self._open_new_task)
 
+        self.tasks_button = QPushButton("Задачи…", self)
+        self.tasks_button.setObjectName("workshopAction")
+        self.tasks_button.setToolTip(
+            "Сохранённые задачи: продолжить или удалить."
+        )
+        self.tasks_button.clicked.connect(
+            lambda: show_agent_tasks_dialog(self._parent)
+        )
+
         self.status_label = QLabel("Готов к задаче.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -199,6 +220,7 @@ class AgentDialog(SkinDialog):
         controls.addWidget(self.run_button)
         controls.addWidget(self.stop_button)
         controls.addWidget(self.new_task_button)
+        controls.addWidget(self.tasks_button)
         controls.addWidget(self.status_label, 1)
 
         self.merge_button = QPushButton("Слить ветку", self)
@@ -332,6 +354,47 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(self.trace, 1)
         self.body_layout.addWidget(buttons)
 
+    def _apply_resume(self, state: dict) -> None:
+        """Заполняет окно сохранённой задачей."""
+
+        self.task_input.setPlainText(str(state.get("task") or ""))
+
+        policy = str(state.get("policy") or "")
+        index = self.policy_combo.findData(policy)
+
+        if index >= 0:
+            self.policy_combo.setCurrentIndex(index)
+
+        branch = str(state.get("worktree_branch") or "")
+        root = Path(str(state.get("root") or ""))
+
+        if branch and ".agent_worktrees" in root.parts:
+            self.worktree_path = root
+            self.worktree_branch = branch
+            self.worktree_checkbox.setChecked(True)
+            self.worktree_checkbox.setEnabled(False)
+
+        steps = deserialize_steps(state.get("steps"))
+
+        for step in steps:
+            self._append_step(step)
+
+        self._shown = len(steps)
+        self.status_label.setText(
+            "Продолжение задачи. Проверь текст и нажми «Запустить»."
+        )
+
+    def _append_step(self, step) -> None:
+        """Добавляет один шаг в ленту."""
+
+        mark = STEP_MARKS.get(step.kind, "·")
+        lines = [f"[{step.index}] {mark} {step.title}"]
+
+        if step.detail:
+            lines.append("    " + step.detail)
+
+        self.trace.appendPlainText("\n".join(lines))
+
     def _start(self) -> None:
         """Запускает новую задачу агента."""
 
@@ -366,6 +429,55 @@ class AgentDialog(SkinDialog):
             )
             model_name = model["name"]
 
+        resume = self._resume
+
+        if resume and task == str(resume.get("task") or ""):
+            self._resume = None
+            resume_root = Path(str(resume.get("root") or ""))
+
+            if not resume_root.exists():
+                self.status_label.setText(
+                    f"Папка задачи не найдена: {resume_root}"
+                )
+                return
+
+            history = deserialize_history(resume.get("history"))
+            steps = deserialize_steps(resume.get("steps"))
+            branch = str(resume.get("worktree_branch") or "")
+
+            self.worktree_branch = branch
+            self.worktree_path = (
+                resume_root
+                if ".agent_worktrees" in resume_root.parts
+                else None
+            )
+
+            policy = self.policy_combo.currentData() or "confirm"
+            set_approval_policy(policy)
+
+            self.job = AgentJob(
+                task,
+                brain,
+                resume_root,
+                max_steps=MAX_STEPS,
+                model_name=model_name,
+                policy=policy,
+                task_id=str(resume.get("id") or "") or None,
+                initial_history=history,
+                initial_steps=steps,
+                worktree_branch=branch,
+            )
+
+            self._shown = len(steps)
+            self.run_button.setEnabled(False)
+            self.stop_button.setEnabled(True)
+            self.status_label.setText(
+                "Продолжаю сохранённую задачу…"
+            )
+            self._timer.start()
+
+            return
+
         root = BASE_DIR
         self.worktree_path = None
         self.worktree_branch = ""
@@ -394,6 +506,7 @@ class AgentDialog(SkinDialog):
             max_steps=MAX_STEPS,
             model_name=model_name,
             policy=policy,
+            worktree_branch=self.worktree_branch,
         )
 
         self.run_button.setEnabled(False)
@@ -648,14 +761,7 @@ class AgentDialog(SkinDialog):
         while self._shown < len(job.steps):
             step = job.steps[self._shown]
             self._shown += 1
-
-            mark = STEP_MARKS.get(step.kind, "·")
-            lines = [f"[{step.index}] {mark} {step.title}"]
-
-            if step.detail:
-                lines.append("    " + step.detail)
-
-            self.trace.appendPlainText("\n".join(lines))
+            self._append_step(step)
 
         pending = job.pending
 
@@ -735,8 +841,12 @@ class AgentDialog(SkinDialog):
         super().closeEvent(event)
 
 
-def show_agent_dialog(parent, key: str = "agent") -> None:
+def show_agent_dialog(
+    parent,
+    key: str = "agent",
+    resume: dict | None = None,
+) -> None:
     """Открывает немодальное окно агента."""
 
-    dialog = AgentDialog(parent)
+    dialog = AgentDialog(parent, resume)
     show_tool_window(parent, dialog, key)

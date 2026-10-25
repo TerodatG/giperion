@@ -632,6 +632,64 @@ def test_agent_runs_dialog_opens(window) -> None:
     dialog.close()
 
 
+def test_agent_tasks_dialog_lists_states(window, monkeypatch) -> None:
+    """Окно задач показывает сохранённые задачи."""
+
+    from terminal.ui import agent_tasks_dialog
+
+    state = {
+        "id": "20261025-test",
+        "task": "проверить задачи",
+        "status": "running",
+        "updated_at": "2026-10-25T12:00:00",
+        "steps": [{"index": 1, "kind": "tool", "title": "read_file"}],
+        "history": [{"tool": "read_file", "args": {}, "ok": True, "text": "x"}],
+    }
+
+    monkeypatch.setattr(
+        agent_tasks_dialog,
+        "list_states",
+        lambda: [state],
+    )
+
+    agent_tasks_dialog.show_agent_tasks_dialog(window.window)
+
+    dialog = window.window._tool_windows["agent-tasks"]
+
+    assert dialog.windowTitle() == "Задачи агента"
+    assert dialog.view.count() == 1
+
+    dialog.view.setCurrentRow(0)
+    assert "проверить задачи" in dialog.details.text()
+
+    dialog.close()
+
+
+def test_agent_dialog_prefills_resume(window) -> None:
+    """Окно агента заполняется сохранённой задачей."""
+
+    from terminal.ui.agent_dialog import AgentDialog
+
+    state = {
+        "id": "20261025-test",
+        "task": "продолжить меня",
+        "policy": "confirm",
+        "root": str(window.window.property("dummy") or ""),
+        "steps": [
+            {"index": 1, "kind": "tool", "title": "read_file", "detail": "x"}
+        ],
+        "history": [],
+    }
+
+    dialog = AgentDialog(window.window, resume=state)
+
+    assert dialog.task_input.toPlainText() == "продолжить меня"
+    assert "read_file" in dialog.trace.toPlainText()
+    assert dialog.status_label.text().startswith("Продолжение")
+
+    dialog.close()
+
+
 def test_agent_new_task_opens_second_window(window) -> None:
     """«Новая задача» открывает второе окно, не закрывая первое."""
 

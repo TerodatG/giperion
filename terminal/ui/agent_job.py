@@ -6,6 +6,7 @@ import threading
 import time
 from pathlib import Path
 
+from terminal.core.agent import tasks as task_store
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.protocol import (
     AgentStep,
@@ -30,8 +31,13 @@ class AgentJob:
         max_steps: int = 8,
         model_name: str = "",
         policy: str = "confirm",
+        task_id: str | None = None,
+        initial_history=None,
+        initial_steps=None,
+        worktree_branch: str = "",
+        persist: bool = True,
     ) -> None:
-        self.steps: list[AgentStep] = []
+        self.steps: list[AgentStep] = list(initial_steps or [])
         self.answer = ""
         self.error = ""
         self.cancelled = False
@@ -47,17 +53,46 @@ class AgentJob:
         self._max_steps = max_steps
         self._model_name = model_name
         self._policy = policy
+        self._initial_history = list(initial_history or [])
         self._stop = threading.Event()
         self._approval = threading.Event()
         self._approved = False
         self._approval_text: str | None = None
         self._started = time.monotonic()
 
+        self.task_id = task_id or task_store.new_task_id()
+        self._persist = persist
+        self._state = {
+            "id": self.task_id,
+            "task": task,
+            "model": model_name,
+            "policy": policy,
+            "root": str(root),
+            "worktree_branch": worktree_branch,
+            "status": task_store.STATUS_RUNNING,
+            "answer": "",
+            "error": "",
+            "steps": task_store.serialize_steps(self.steps),
+            "history": task_store.serialize_history(
+                self._initial_history
+            ),
+            "created_at": self._now(),
+        }
+
+        if self._persist:
+            task_store.save_state(self._state)
+
         self._thread = threading.Thread(
             target=self._run,
             daemon=True,
         )
         self._thread.start()
+
+    @staticmethod
+    def _now() -> str:
+        from datetime import datetime
+
+        return datetime.now().isoformat(timespec="seconds")
 
     def cancel(self) -> None:
         """Просит цикл остановиться после текущего шага."""
@@ -103,6 +138,21 @@ class AgentJob:
 
         self.steps.append(step)
 
+        if self._persist:
+            self._state["steps"] = task_store.serialize_steps(
+                self.steps
+            )
+            task_store.save_state(self._state)
+
+    def _on_history(self, history) -> None:
+        """Сохраняет историю для продолжения задачи."""
+
+        if self._persist:
+            self._state["history"] = task_store.serialize_history(
+                history
+            )
+            task_store.save_state(self._state)
+
     def _run(self) -> None:
         """Запускает цикл агента и запоминает итог."""
 
@@ -116,6 +166,8 @@ class AgentJob:
                 should_stop=self._stop.is_set,
                 approve=self.request_approval,
                 policy=self._policy,
+                initial_history=self._initial_history,
+                on_history=self._on_history,
             )
 
             self.answer = result.answer
@@ -139,4 +191,25 @@ class AgentJob:
                 self.error,
                 self.cancelled,
             )
+
+            if self._persist:
+                if self.cancelled:
+                    status = task_store.STATUS_CANCELLED
+                elif self.error:
+                    status = task_store.STATUS_ERROR
+                else:
+                    status = task_store.STATUS_DONE
+
+                self._state.update(
+                    {
+                        "status": status,
+                        "answer": self.answer,
+                        "error": self.error,
+                        "steps": task_store.serialize_steps(
+                            self.steps
+                        ),
+                    }
+                )
+                task_store.save_state(self._state)
+
             self.done = True

@@ -48,6 +48,7 @@ if reply is None:
 - `diff_marks.py` — номера изменённых строк для side-by-side;
 - `providers.py` — провайдер с настоящими tool calls и `NativeBrain`;
 - `settings.py` — адрес, ключ и модель провайдера (файл вне git);
+- `tasks.py` — состояние задач и история для продолжения;
 - `runs.py` — журнал прогонов `data/agent_runs.jsonl`;
 - `context.py` — промпт и разбор JSON-решения;
 - `loop.py` — шаги, лимит, отмена, «заземление», подтверждения, подагент;
