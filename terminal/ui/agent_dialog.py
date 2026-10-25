@@ -70,6 +70,7 @@ STEP_MARKS = {
     "error": "!",
     "approval": "▣",
     "subagent": "↳",
+    "secret": "▤",
 }
 
 

@@ -11,6 +11,7 @@ from terminal.core.agent.protocol import (
     ToolResult,
 )
 from terminal.core.agent.registry import tools_prompt
+from terminal.core.agent.redact import redact
 
 MAX_OBSERVATION = 4000
 MAX_HISTORY = 24000
@@ -266,7 +267,7 @@ def build_prompt(
 ) -> str:
     """Промпт для моделей, отвечающих JSON-решением."""
 
-    return _assemble(
+    prompt = _assemble(
         task,
         history,
         SYSTEM_PROMPT,
@@ -275,6 +276,8 @@ def build_prompt(
         max_chars,
         final_note,
     )
+
+    return redact(prompt).text
 
 
 def build_native_prompt(
@@ -285,7 +288,7 @@ def build_native_prompt(
 ) -> str:
     """Промпт для моделей с настоящими tool calls: без JSON и без схем."""
 
-    return _assemble(
+    prompt = _assemble(
         task,
         history,
         NATIVE_SYSTEM_PROMPT,
@@ -294,6 +297,8 @@ def build_native_prompt(
         max_chars,
         final_note,
     )
+
+    return redact(prompt).text
 
 
 def is_within_budget(prompt: str, max_chars: int) -> bool:

@@ -25,6 +25,7 @@ from terminal.core.agent.protocol import (
     ToolCall,
     ToolResult,
 )
+from terminal.core.agent.redact import redact
 
 DEFAULT_MAX_STEPS = 8
 
@@ -222,13 +223,32 @@ def run_agent(
         policy = "confirm"
 
     steps: list[AgentStep] = []
-    history: list[tuple[ToolCall, ToolResult]] = list(
-        initial_history or []
-    )
+    history: list[tuple[ToolCall, ToolResult]] = [
+        (call, ToolResult(result.ok, redact(result.text).text))
+        for call, result in (initial_history or [])
+    ]
     context_peak = 0
     native = bool(getattr(brain, "native", False))
+    position = 0
 
     def remember(call: ToolCall, result: ToolResult) -> None:
+        # Секреты не попадают ни в промпт, ни в историю задачи, ни в
+        # журнал: чистим наблюдение сразу, как только инструмент ответил.
+        clean = redact(result.text)
+
+        if clean.hidden:
+            result = ToolResult(result.ok, clean.text)
+
+            emit(
+                AgentStep(
+                    position,
+                    "secret",
+                    "Секреты скрыты",
+                    f"скрыто фрагментов: {clean.hidden} · "
+                    f"{call.tool}",
+                )
+            )
+
         history.append((call, result))
 
         if on_history is not None:
@@ -259,6 +279,8 @@ def run_agent(
             remember(call, result)
 
     for index in range(1, max(max_steps, 1) + 1):
+        position = index
+
         if stopped():
             return AgentResult(
                 steps=steps,
