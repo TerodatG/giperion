@@ -46,6 +46,27 @@ def test_readme_line_count(tmp_path) -> None:
     assert not check(tmp_path, "5 строк")[0]
 
 
+def test_tests_passed_accepts_russian_answer() -> None:
+    """Ответ про тесты засчитывается и по-русски."""
+
+    check = eval_agent.tests_passed()
+
+    for answer in (
+        "Все 411 тестов пройдено успешно.",
+        "Тесты прошли, код 0.",
+        "7 passed in 12s",
+        "Сборка зелёная, всё успешно.",
+    ):
+        ok, note = check(None, answer)
+
+        assert ok, answer
+        assert note
+
+    ok, note = check(None, "Не удалось запустить тесты.")
+    assert not ok
+    assert note == "нет результата"
+
+
 def test_summarize() -> None:
     results = [
         {"ok": True, "steps": 4, "duration_s": 2.0, "context_chars": 100},

@@ -107,11 +107,21 @@ def readme_line_count() -> Check:
 
 
 def tests_passed() -> Check:
-    """Ответ должен сообщать об успешных тестах."""
+    """Ответ должен сообщать об успешных тестах — на любом языке."""
+
+    markers = (
+        "passed",
+        "код 0",
+        "пройдено",
+        "прошли",
+        "успешно",
+        "зелён",
+        "зелен",
+    )
 
     def check(_root: Path, answer: str) -> tuple[bool, str]:
         text = str(answer or "").casefold()
-        ok = "passed" in text or "код 0" in text
+        ok = any(marker in text for marker in markers)
 
         return ok, "есть результат тестов" if ok else "нет результата"
 
