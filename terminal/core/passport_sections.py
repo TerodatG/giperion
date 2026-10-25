@@ -255,6 +255,124 @@ def _feature_rows(features: dict) -> list[tuple[str, str]]:
     return rows
 
 
+def _level_section(passport: dict) -> tuple | None:
+    """Раздел уровня и даты обновления."""
+
+    if not _section(passport, "level"):
+        return None
+
+    return (
+        "УРОВЕНЬ",
+        [
+            ("Уровень", format_level(passport)),
+            ("Обновлён", format_date(passport.get("updated"))),
+        ],
+    )
+
+
+def _quality_section(quality: dict) -> tuple | None:
+    """Раздел качества и уверенности."""
+
+    if not quality:
+        return None
+
+    return (
+        "КАЧЕСТВО",
+        [
+            ("Точность (top-1)", _accuracy_row(quality)),
+            ("Macro-F1", format_percent(quality.get("macro_f1"))),
+            ("Доверительный интервал", _ci_row(quality)),
+            (
+                "Средняя уверенность",
+                format_percent(quality.get("mean_confidence")),
+            ),
+            ("Калибровка (ECE)", format_percent(quality.get("ece"))),
+            ("Fallback", format_percent(quality.get("fallback"))),
+            (
+                "Точность на опечатках",
+                format_percent(quality.get("noise_accuracy")),
+            ),
+            (
+                "OOD-детекция",
+                format_percent(quality.get("ood_auroc")),
+            ),
+        ],
+    )
+
+
+def _dialogue_section(dialogue: dict) -> tuple | None:
+    """Раздел диалога и контекста."""
+
+    if not dialogue:
+        return None
+
+    return (
+        "ДИАЛОГ И КОНТЕКСТ",
+        [
+            (
+                "Multi-turn (3 хода)",
+                format_percent(dialogue.get("multi_turn")),
+            ),
+            (
+                "Использование контекста",
+                str(dialogue.get("context_utilization") or UNKNOWN),
+            ),
+            (
+                "Retention после обучения",
+                format_percent(dialogue.get("retention")),
+            ),
+        ],
+    )
+
+
+def _speed_section(speed: dict) -> tuple | None:
+    """Раздел скорости и ресурсов."""
+
+    if not speed:
+        return None
+
+    return (
+        "СКОРОСТЬ И РЕСУРСЫ",
+        [
+            ("p50 ответа", _milliseconds(speed.get("p50_ms"))),
+            ("p95 ответа", _milliseconds(speed.get("p95_ms"))),
+            ("Устройство", str(speed.get("device") or UNKNOWN)),
+            ("Холодный старт", _seconds(speed.get("cold_start_s"))),
+            ("Память", _with_unit(speed.get("ram_mb"), "МБ")),
+            (
+                "Стоимость 1000 запросов",
+                str(speed.get("cost") or UNKNOWN),
+            ),
+        ],
+    )
+
+
+def _dynamics_section(dynamics: dict) -> tuple | None:
+    """Раздел динамики обучения."""
+
+    if not dynamics:
+        return None
+
+    return (
+        "ДИНАМИКА",
+        [
+            (
+                "Data efficiency",
+                format_percent(dynamics.get("data_efficiency")),
+            ),
+            (
+                "Time-to-fix",
+                _with_unit(dynamics.get("time_to_fix_days"), "дн."),
+            ),
+            ("Coverage", format_percent(dynamics.get("coverage"))),
+            (
+                "Качество разметки",
+                format_percent(dynamics.get("label_quality")),
+            ),
+        ],
+    )
+
+
 def passport_sections(
     passport: dict,
 ) -> list[tuple[str, list[tuple[str, str]]]]:
@@ -262,25 +380,15 @@ def passport_sections(
 
     architecture = _section(passport, "architecture")
     training = _section(passport, "training")
-    quality = _section(passport, "quality")
-    dialogue = _section(passport, "dialogue")
-    speed = _section(passport, "speed")
-    dynamics = _section(passport, "dynamics")
     access = _section(passport, "access")
     features = _section(passport, "features")
 
     sections: list[tuple[str, list[tuple[str, str]]]] = []
 
-    if _section(passport, "level"):
-        sections.append(
-            (
-                "УРОВЕНЬ",
-                [
-                    ("Уровень", format_level(passport)),
-                    ("Обновлён", format_date(passport.get("updated"))),
-                ],
-            )
-        )
+    level = _level_section(passport)
+
+    if level:
+        sections.append(level)
 
     architecture_rows = _architecture_rows(architecture, training)
 
@@ -297,122 +405,14 @@ def passport_sections(
     if feature_rows:
         sections.append(("ФУНКЦИИ", feature_rows))
 
-    if quality:
-        sections.append(
-            (
-                "КАЧЕСТВО",
-                [
-                    ("Точность (top-1)", _accuracy_row(quality)),
-                    ("Macro-F1", format_percent(quality.get("macro_f1"))),
-                    ("Доверительный интервал", _ci_row(quality)),
-                    (
-                        "Средняя уверенность",
-                        format_percent(
-                            quality.get("mean_confidence")
-                        ),
-                    ),
-                    (
-                        "Калибровка (ECE)",
-                        format_percent(quality.get("ece")),
-                    ),
-                    (
-                        "Fallback",
-                        format_percent(quality.get("fallback")),
-                    ),
-                    (
-                        "Точность на опечатках",
-                        format_percent(quality.get("noise_accuracy")),
-                    ),
-                    (
-                        "OOD-детекция",
-                        format_percent(quality.get("ood_auroc")),
-                    ),
-                ],
-            )
-        )
-
-    if dialogue:
-        sections.append(
-            (
-                "ДИАЛОГ И КОНТЕКСТ",
-                [
-                    (
-                        "Multi-turn (3 хода)",
-                        format_percent(dialogue.get("multi_turn")),
-                    ),
-                    (
-                        "Использование контекста",
-                        str(
-                            dialogue.get("context_utilization")
-                            or UNKNOWN
-                        ),
-                    ),
-                    (
-                        "Retention после обучения",
-                        format_percent(dialogue.get("retention")),
-                    ),
-                ],
-            )
-        )
-
-    if speed:
-        sections.append(
-            (
-                "СКОРОСТЬ И РЕСУРСЫ",
-                [
-                    ("p50 ответа", _milliseconds(speed.get("p50_ms"))),
-                    ("p95 ответа", _milliseconds(speed.get("p95_ms"))),
-                    (
-                        "Устройство",
-                        str(speed.get("device") or UNKNOWN),
-                    ),
-                    (
-                        "Холодный старт",
-                        _seconds(speed.get("cold_start_s")),
-                    ),
-                    (
-                        "Память",
-                        _with_unit(speed.get("ram_mb"), "МБ"),
-                    ),
-                    (
-                        "Стоимость 1000 запросов",
-                        str(speed.get("cost") or UNKNOWN),
-                    ),
-                ],
-            )
-        )
-
-    if dynamics:
-        sections.append(
-            (
-                "ДИНАМИКА",
-                [
-                    (
-                        "Data efficiency",
-                        format_percent(
-                            dynamics.get("data_efficiency")
-                        ),
-                    ),
-                    (
-                        "Time-to-fix",
-                        _with_unit(
-                            dynamics.get("time_to_fix_days"),
-                            "дн.",
-                        ),
-                    ),
-                    (
-                        "Coverage",
-                        format_percent(dynamics.get("coverage")),
-                    ),
-                    (
-                        "Качество разметки",
-                        format_percent(
-                            dynamics.get("label_quality")
-                        ),
-                    ),
-                ],
-            )
-        )
+    for section in (
+        _quality_section(_section(passport, "quality")),
+        _dialogue_section(_section(passport, "dialogue")),
+        _speed_section(_section(passport, "speed")),
+        _dynamics_section(_section(passport, "dynamics")),
+    ):
+        if section is not None:
+            sections.append(section)
 
     return sections
 
@@ -430,4 +430,3 @@ def passport_notes(passport: dict) -> list[str]:
         for note in notes
         if isinstance(note, str) and note.strip()
     ]
-
