@@ -4941,6 +4941,10 @@ un_tests и write_file).
   - `performance_types.py`, `performance_windows.py`,
     `performance_psutil.py`, `performance_helpers.py`;
   - `performance_monitor.py` — 773 → **183 строки**.
+- **Паспорт модели разобран**:
+  - `passport_format.py` — числа, даты и уровни;
+  - `passport_sections.py` — архитектура, доступ, функции и заметки;
+  - `model_passport.py` — 684 → **136 строк**, чтение и компактные метрики.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
@@ -4976,7 +4980,7 @@ un_tests и write_file).
 - `python -m pytest` — **551 passed за 31,4 с**.
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
-- `python -m tools.check_structure` — файлов >600 строк: 3,
+- `python -m tools.check_structure` — файлов >600 строк: 2,
   функций >150: 12, функций C>20: 16 (было 16/16/20).
 
 **Ограничения**
