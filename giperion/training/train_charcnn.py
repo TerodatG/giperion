@@ -208,21 +208,14 @@ def evaluate(
     return correct / len(val_loader.dataset)
 
 
-def train(full: bool = False) -> None:
-    """Обучает гибридную модель и показывает её ошибки.
-
-    full=True — финальное обучение на всём датасете
-    без проверочной выборки (для работы бота).
-    """
+def _prepare_training(full: bool) -> dict:
+    """Готовит данные, модель, загрузчики и оптимизатор."""
 
     torch.manual_seed(SEED)
 
     checkpoint = checkpoint_file(full)
 
-    with CLASSIFICATION_FILE.open(
-        "r",
-        encoding="utf-8",
-    ) as file:
+    with CLASSIFICATION_FILE.open("r", encoding="utf-8") as file:
         examples = json.load(file)
 
     word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
@@ -232,10 +225,7 @@ def train(full: bool = False) -> None:
         train_examples = augment_examples(examples)
         val_examples = []
     else:
-        train_examples, val_examples = split_examples(
-            examples
-        )
-
+        train_examples, val_examples = split_examples(examples)
         train_examples = augment_examples(train_examples)
 
     labels = sorted({item["label"] for item in examples})
@@ -245,7 +235,6 @@ def train(full: bool = False) -> None:
         word_tokenizer,
         char_tokenizer,
     )
-
     val_dataset = HybridDataset(
         val_examples,
         word_tokenizer,
@@ -258,7 +247,6 @@ def train(full: bool = False) -> None:
         shuffle=True,
         pin_memory=True,
     )
-
     val_loader = (
         None
         if not val_examples
@@ -281,11 +269,124 @@ def train(full: bool = False) -> None:
         lr=LEARNING_RATE,
         weight_decay=WEIGHT_DECAY,
     )
+    criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
 
-    criterion = nn.CrossEntropyLoss(
-        label_smoothing=LABEL_SMOOTHING,
+    return {
+        "checkpoint": checkpoint,
+        "labels": labels,
+        "train_dataset": train_dataset,
+        "val_dataset": val_dataset,
+        "val_examples": val_examples,
+        "train_loader": train_loader,
+        "val_loader": val_loader,
+        "model": model,
+        "optimizer": optimizer,
+        "criterion": criterion,
+    }
+
+
+def _train_epoch(model, loader, optimizer, criterion, labels) -> tuple[float, float]:
+    """Одна эпоха обучения: средний loss и точность."""
+
+    model.train()
+    epoch_loss = 0.0
+    seen = 0
+    correct = 0
+
+    for batch in loader:
+        tokens = batch["tokens"].to(DEVICE)
+        chars = batch["chars"].to(DEVICE)
+        targets = batch_targets(batch["label"], labels)
+
+        optimizer.zero_grad()
+
+        logits = model(tokens, chars)
+        loss = criterion(logits, targets)
+
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+
+        epoch_loss += loss.item() * targets.size(0)
+        seen += targets.size(0)
+        correct += int(
+            (logits.argmax(dim=1) == targets).sum().item()
+        )
+
+    return epoch_loss / max(seen, 1), correct / max(seen, 1)
+
+
+def _run_epochs(data: dict) -> tuple[float, bool]:
+    """Обучает модель и сохраняет лучший чекпоинт."""
+
+    model = data["model"]
+    val_loader = data["val_loader"]
+    labels = data["labels"]
+    checkpoint = data["checkpoint"]
+    best_accuracy = -1.0
+
+    for epoch in range(1, EPOCHS + 1):
+        loss, train_accuracy = _train_epoch(
+            model,
+            data["train_loader"],
+            data["optimizer"],
+            data["criterion"],
+            labels,
+        )
+
+        if val_loader is None:
+            save_checkpoint(model, labels, checkpoint)
+            val_accuracy = 0.0
+        else:
+            val_accuracy = evaluate(model, val_loader, labels)
+
+            if val_accuracy > best_accuracy:
+                best_accuracy = val_accuracy
+                save_checkpoint(model, labels, checkpoint)
+
+        report = (
+            f"Эпоха {epoch:02d}/{EPOCHS}: "
+            f"loss={loss:.4f} train={train_accuracy:.3f}"
+        )
+
+        if val_loader:
+            report += f" val={val_accuracy:.3f}"
+
+        print(report)
+
+    return best_accuracy, bool(val_loader)
+
+
+def _reveal_errors(data: dict) -> None:
+    """Загружает лучшие веса и печатает ошибки."""
+
+    checkpoint = data["checkpoint"]
+    best_checkpoint = torch.load(
+        checkpoint,
+        map_location=DEVICE,
+        weights_only=False,
     )
 
+    data["model"].load_state_dict(best_checkpoint["model_state"])
+
+    print_errors(
+        data["model"],
+        data["val_dataset"],
+        data["labels"],
+        data["val_examples"],
+    )
+
+
+def train(full: bool = False) -> None:
+    """Обучает гибридную модель и показывает её ошибки.
+
+    full=True — финальное обучение на всём датасете
+    без проверочной выборки (для работы бота).
+    """
+
+    data = _prepare_training(full)
+    labels = data["labels"]
+    val_loader = data["val_loader"]
     mode_title = (
         "финальное на всём датасете"
         if full
@@ -295,82 +396,15 @@ def train(full: bool = False) -> None:
     print(f"=== Гибридный классификатор Giperion ({mode_title}) ===")
     print(f"Устройство: {DEVICE}")
     print(f"Классов: {len(labels)}")
-    print(f"Обучающих: {len(train_dataset)}")
+    print(f"Обучающих: {len(data['train_dataset'])}")
 
     if val_loader:
-        print(f"Проверочных: {len(val_dataset)}")
+        print(f"Проверочных: {len(data['val_dataset'])}")
 
-    print(f"Параметров модели: {parameter_count(model)}")
+    print(f"Параметров модели: {parameter_count(data['model'])}")
     print()
 
-    best_accuracy = -1.0
-
-    for epoch in range(1, EPOCHS + 1):
-        model.train()
-        epoch_loss = 0.0
-        seen = 0
-        correct = 0
-
-        for batch in train_loader:
-            tokens = batch["tokens"].to(DEVICE)
-            chars = batch["chars"].to(DEVICE)
-
-            targets = batch_targets(
-                batch["label"],
-                labels,
-            )
-
-            optimizer.zero_grad()
-
-            logits = model(tokens, chars)
-            loss = criterion(logits, targets)
-
-            loss.backward()
-
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(),
-                1.0,
-            )
-
-            optimizer.step()
-
-            epoch_loss += loss.item() * targets.size(0)
-            seen += targets.size(0)
-
-            correct += int(
-                (logits.argmax(dim=1) == targets)
-                .sum()
-                .item()
-            )
-
-        train_accuracy = correct / max(seen, 1)
-
-        if val_loader is None:
-            # Нет проверки — сохраняем после каждой эпохи,
-            # в файле остаётся последняя версия.
-            save_checkpoint(model, labels, checkpoint)
-            val_accuracy = 0.0
-        else:
-            val_accuracy = evaluate(
-                model,
-                val_loader,
-                labels,
-            )
-
-            if val_accuracy > best_accuracy:
-                best_accuracy = val_accuracy
-                save_checkpoint(model, labels, checkpoint)
-
-        report = (
-            f"Эпоха {epoch:02d}/{EPOCHS}: "
-            f"loss={epoch_loss / max(seen, 1):.4f} "
-            f"train={train_accuracy:.3f}"
-        )
-
-        if val_loader:
-            report += f" val={val_accuracy:.3f}"
-
-        print(report)
+    best_accuracy, used_validation = _run_epochs(data)
 
     print()
 
@@ -379,27 +413,11 @@ def train(full: bool = False) -> None:
     else:
         print("Проверочная выборка не использовалась.")
 
-    print(f"Модель сохранена: {checkpoint}")
+    print(f"Модель сохранена: {data['checkpoint']}")
     print()
 
-    if not val_examples:
-        return
-
-    # Перезагружаем лучшие веса для честного показа ошибок.
-    best_checkpoint = torch.load(
-        checkpoint,
-        map_location=DEVICE,
-        weights_only=False,
-    )
-
-    model.load_state_dict(best_checkpoint["model_state"])
-
-    print_errors(
-        model,
-        val_dataset,
-        labels,
-        val_examples,
-    )
+    if used_validation:
+        _reveal_errors(data)
 
 
 if __name__ == "__main__":
