@@ -4917,6 +4917,11 @@ un_tests и write_file).
   - `tools/eval_report.py` — сводка, история и отчёт;
   - `tools/eval_agent.py` — 1109 → **341 строка**, только CLI.
   `main` — 248 → **136**, `_report` — 109.
+- **Оконные тесты разнесены** (`tests/ui/`):
+  - `conftest.py` — общие фикстуры Qt, состояния и главного окна;
+  - `test_window.py`, `test_dialogs.py`, `test_panels.py`,
+    `test_models_pets.py`, `test_settings.py` — 49 тестов вместо
+    одного файла на 1787 строк.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
