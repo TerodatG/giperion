@@ -202,13 +202,13 @@ class AnswerMixin:
             return
 
         if job.error is not None:
-            add_action(f"Ошибка конференции: {job.error}")
+            add_action(f"Ошибка сената: {job.error}")
 
             self._local_fallback(
                 user_message,
                 previous_level,
                 chat_epoch,
-                "Конференция не смогла получить ответы — "
+                "Сенат не смог получить ответы — "
                 "отвечает локальный Гиперион.",
             )
 
@@ -219,7 +219,7 @@ class AnswerMixin:
                 user_message,
                 previous_level,
                 chat_epoch,
-                "Участники конференции не ответили — "
+                "Участники сената не ответили — "
                 "отвечает локальный Гиперион.",
             )
 
@@ -251,7 +251,7 @@ class AnswerMixin:
 
         for reply in failures:
             add_action(
-                f"Конференция, {reply.name}: {reply.text}"
+                f"Сенат, {reply.name}: {reply.text}"
             )
             self.append_system(reply.text)
             self.append_abstain(
@@ -264,7 +264,7 @@ class AnswerMixin:
                 user_message,
                 previous_level,
                 chat_epoch,
-                "Все участники конференции не ответили — "
+                "Все участники сената не ответили — "
                 "отвечает локальный Гиперион.",
             )
 

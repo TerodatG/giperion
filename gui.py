@@ -233,7 +233,7 @@ class GiperionWindow(
                 model["name"] for model in members
             )
             self.append_system(
-                "Конференция включена. Отвечают: "
+                "Сенат включён. Отвечают: "
                 f"{names or 'участники не выбраны'}."
             )
         elif get_current_model_id() == DEFAULT_MODEL_ID:

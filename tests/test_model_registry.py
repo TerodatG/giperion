@@ -193,19 +193,27 @@ def test_companions_are_saved_and_listed(
     assert model_registry.get_models_by_group("companions") == []
 
 
-def test_giperion_cannot_be_companion(
+def test_giperion_can_be_companion(
     isolated_registry,
 ) -> None:
-    """Собственное ядро не может быть своим компаньоном."""
+    """Гипериона тоже можно отметить компаньоном — как любую модель."""
 
-    assert model_registry.set_companion("giperion") is False
-    assert model_registry.load_companion_ids() == []
+    assert model_registry.set_companion("giperion") is True
+    assert model_registry.load_companion_ids() == ["giperion"]
+    assert model_registry.is_companion("giperion") is True
+
+    assert [
+        model["id"]
+        for model in model_registry.get_models_by_group(
+            "companions"
+        )
+    ] == ["giperion"]
 
 
 def test_conference_members_are_saved_and_listed(
     isolated_registry,
 ) -> None:
-    """Участник конференции попадает на свою закладку."""
+    """Участник сената попадает на свою закладку."""
 
     assert model_registry.set_conference_member("deepseek") is True
     assert model_registry.load_conference_ids() == ["deepseek"]
@@ -232,11 +240,11 @@ def test_conference_members_are_saved_and_listed(
 
 
 def test_conference_tab_is_first() -> None:
-    """Закладка «Конференция» стоит перед остальными."""
+    """Закладка «Сенат» стоит перед остальными."""
 
     assert model_registry.MODEL_GROUPS[0] == (
         "conference",
-        "Конференция",
+        "Сенат",
     )
 
 

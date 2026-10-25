@@ -1,6 +1,6 @@
 # Giperion/app/core/model_settings.py                              v004
-# Активная модель, компаньоны, конференция и группировка каталога.
-# Последнее изменение: участники конференции и псевдогруппа для закладки.
+# Активная модель, компаньоны, сенат и группировка каталога.
+# Последнее изменение: участники сената и псевдогруппа для закладки.
 
 from terminal.core import model_files
 from terminal.core.model_catalog import (
@@ -14,10 +14,11 @@ from shared.storage.json_store import read_json_object, write_json
 
 
 def load_companion_ids() -> list[str]:
-    """Идентификаторы моделей, отмеченных компаньонами Гипериона.
+    """Идентификаторы моделей, отмеченных компаньонами.
 
     Компаньонов может быть несколько: для помощи выбирается лучший
-    из них по репутации и навыкам. Гиперион компаньоном быть не может.
+    из них по репутации и навыкам. Отметить можно любую модель
+    каталога, включая Гипериона.
     """
 
     document = read_json_object(model_files.SETTINGS_FILE)
@@ -26,11 +27,7 @@ def load_companion_ids() -> list[str]:
     if not isinstance(raw, list):
         return []
 
-    known_ids = {
-        model["id"]
-        for model in load_models()
-        if model["id"] != DEFAULT_MODEL_ID
-    }
+    known_ids = {model["id"] for model in load_models()}
     companions = []
 
     for model_id in raw:
@@ -47,15 +44,11 @@ def load_companion_ids() -> list[str]:
 def save_companion_ids(model_ids: list[str]) -> list[str]:
     """Сохраняет список компаньонов, оставляя активную модель.
 
-    Возвращает очищенный список: только известные внешние модели,
+    Возвращает очищенный список: только известные модели каталога,
     без повторов.
     """
 
-    known_ids = {
-        model["id"]
-        for model in load_models()
-        if model["id"] != DEFAULT_MODEL_ID
-    }
+    known_ids = {model["id"] for model in load_models()}
     companions = []
 
     for model_id in model_ids:
@@ -76,7 +69,7 @@ def save_companion_ids(model_ids: list[str]) -> list[str]:
 def set_companion(model_id: str, enabled: bool = True) -> bool:
     """Включает или выключает модель в списке компаньонов."""
 
-    if model_id == DEFAULT_MODEL_ID or get_model(model_id) is None:
+    if get_model(model_id) is None:
         return False
 
     companions = load_companion_ids()
@@ -99,7 +92,7 @@ def is_companion(model_id: str) -> bool:
 
 
 def load_conference_ids() -> list[str]:
-    """Идентификаторы участников конференции."""
+    """Идентификаторы участников сената."""
 
     document = read_json_object(model_files.SETTINGS_FILE)
     raw = document.get("conference", [])
@@ -122,7 +115,7 @@ def load_conference_ids() -> list[str]:
 
 
 def save_conference_ids(model_ids: list[str]) -> list[str]:
-    """Сохраняет участников конференции, не теряя выбор модели."""
+    """Сохраняет участников сената, не теряя выбор модели."""
 
     known_ids = {model["id"] for model in load_models()}
     members = []
@@ -146,7 +139,7 @@ def set_conference_member(
     model_id: str,
     enabled: bool = True,
 ) -> bool:
-    """Добавляет или убирает модель из участников конференции."""
+    """Добавляет или убирает модель из участников сената."""
 
     if get_model(model_id) is None:
         return False
@@ -165,7 +158,7 @@ def set_conference_member(
 
 
 def is_conference_member(model_id: str) -> bool:
-    """Участвует ли модель в конференции."""
+    """Участвует ли модель в сенате."""
 
     return model_id in load_conference_ids()
 

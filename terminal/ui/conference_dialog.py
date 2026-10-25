@@ -1,5 +1,5 @@
 # Giperion/app/ui/conference_dialog.py                              v003
-# Окно «Режим конференции»: список режимов слева и карточка справа.
+# Окно «Вид сената»: список режимов слева и карточка справа.
 # Последнее изменение: сенаторы и обычный шрифт названий режимов.
 
 from PySide6.QtCore import QSize, Qt
@@ -30,7 +30,7 @@ from terminal.ui.dialogs_base import SkinDialog
 
 
 def show_conference_dialog(parent) -> None:
-    """Открывает настройки режимов конференции."""
+    """Открывает настройки режимов сената."""
 
     members = order_models_by_reputation(
         get_conference_members()
@@ -55,24 +55,24 @@ def show_conference_dialog(parent) -> None:
     else:
         members_text = (
             "Пока никто не отмечен. Поставь галочку «Участник "
-            "конференции» в карточке модели."
+            "сената» в карточке модели."
         )
 
     dialog = SkinDialog(
         parent,
-        "Режим конференции",
+        "Вид сената",
         min_width=920,
         min_height=700,
     )
 
     layout = dialog.body_layout
 
-    title = QLabel("КОНФЕРЕНЦИЯ", dialog)
+    title = QLabel("СЕНАТ", dialog)
     title.setObjectName("dialogTitle")
 
     subtitle = QLabel(
         "Выбери сценарий. «Параллельный совет» запускается, когда "
-        "включён модуль «Конференция» и отмечены участники. Дебаты "
+        "включён модуль «Сенат» и отмечены участники. Дебаты "
         "и модератор пока подготовлены как задел.",
         dialog,
     )
@@ -232,7 +232,7 @@ def show_conference_dialog(parent) -> None:
         members_label.setText(members_text)
 
     def remember() -> None:
-        """Сохраняет выбранный режим конференции."""
+        """Сохраняет выбранный режим сената."""
 
         mode = selected_mode()
 

@@ -1,5 +1,5 @@
 # Giperion/tests/test_ui_models_and_modules.py                     v003
-# Проверки названий модулей, умений моделей и конференции.
+# Проверки названий модулей, умений моделей и сената.
 
 from terminal.core.model_registry import get_model
 from terminal.ui.panels_mixin import MODULE_INFO
@@ -12,7 +12,7 @@ def test_module_titles_and_empty_hints() -> None:
     assert MODULE_INFO["internet"][0] == "Сетевой модуль"
     assert MODULE_INFO["voice"][0] == "Голосовой модуль"
     assert MODULE_INFO["files"][0] == "Файлы ПК"
-    assert MODULE_INFO["conference"][0] == "Конференция"
+    assert MODULE_INFO["conference"][0] == "Сенат"
     assert all(hint == "" for _, hint in MODULE_INFO.values())
 
 

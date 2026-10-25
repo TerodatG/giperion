@@ -1,5 +1,5 @@
 # Giperion/app/core/conference_catalog.py                          v002
-# Режимы конференции нескольких моделей и выбранный режим.
+# Режимы сената нескольких моделей и выбранный режим.
 # Последнее изменение: короткие подписи для вертикального каталога.
 
 from terminal.core.model_registry import get_model, load_conference_ids
@@ -20,7 +20,7 @@ CONFERENCE_MODES = (
         "details": (
             "В следующем сообщении каждая модель видит полный транскрипт, "
             "включая ответы других участников. Самый быстрый и простой "
-            "режим для знакомства с конференцией."
+            "режим для знакомства с сенатом."
         ),
     },
     {
@@ -54,7 +54,7 @@ CONFERENCE_MODES = (
 
 
 def get_mode(mode_id: str) -> dict | None:
-    """Возвращает описание режима конференции."""
+    """Возвращает описание режима сената."""
 
     return next(
         (
@@ -79,7 +79,7 @@ def get_selected_mode_id() -> str:
 
 
 def set_selected_mode_id(mode_id: str) -> bool:
-    """Запоминает выбранный режим конференции."""
+    """Запоминает выбранный режим сената."""
 
     if get_mode(mode_id) is None:
         return False
@@ -92,7 +92,7 @@ def set_selected_mode_id(mode_id: str) -> bool:
 
 
 def get_conference_members() -> list[dict]:
-    """Возвращает отмеченных участников конференции."""
+    """Возвращает отмеченных участников сената."""
 
     return [
         model

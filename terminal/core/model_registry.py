@@ -1,6 +1,6 @@
 # Giperion/app/core/model_registry.py                              v012
 # Совместимый фасад каталога моделей, настроек и статистики.
-# Последнее изменение: публичный API участников конференции.
+# Последнее изменение: публичный API участников сената.
 
 from terminal.core.model_catalog import (
     COMPANION_GROUP,

@@ -1,10 +1,10 @@
-# Giperion/terminal/ui/panels_mixin.py                              v013
+# Giperion/terminal/ui/panels_mixin.py                              v014
 # Панели окна: подписи, модули, рост ядра, две плиты справа и голос.
-# Последнее изменение: «Открытые чаты» и «Система» — отдельные плиты.
+# Последнее изменение: плита чатов выровнена по низу зелёного экрана.
 
 import random
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QTabWidget,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -63,7 +64,7 @@ MODULE_INFO = {
         "",
     ),
     "conference": (
-        "Конференция",
+        "Сенат",
         "",
     ),
     "voice": (
@@ -506,7 +507,7 @@ class PanelsMixin:
         )
         self.conference_button = SideIconButton(
             "conference",
-            "Режим конференции",
+            "Вид сената",
             container,
         )
         self.personalities_button = SideIconButton(
@@ -549,6 +550,7 @@ class PanelsMixin:
 
         layout.addWidget(caption)
         layout.addLayout(row)
+        layout.addStretch(1)
 
         # Размерный уголок — в нижнем правом углу плиты «Система».
         grip = FuturisticGrip(container)
@@ -630,16 +632,16 @@ class PanelsMixin:
             members = get_conference_members()
 
             if not enabled:
-                note = "Конференция выключена. В чате отвечает одна модель."
+                note = "Сенат выключен. В чате отвечает одна модель."
             elif mode is not None and mode["id"] != "council":
                 note = (
-                    f"Конференция включена. Режим «{mode['name']}» "
+                    f"Сенат включён. Режим «{mode['name']}» "
                     "пока не реализован; сейчас работает только "
                     "«Параллельный совет»."
                 )
             elif not members:
                 note = (
-                    "Конференция включена, но участники не отмечены. "
+                    "Сенат включён, но участники не отмечены. "
                     "Поставь галочки в карточках моделей."
                 )
             else:
@@ -650,8 +652,8 @@ class PanelsMixin:
                     for index, model in enumerate(admitted)
                 )
                 note = (
-                    "Конференция включена. "
-                    f"Режим «{mode['name']}». Совет: {roster}."
+                    "Сенат включён. "
+                    f"Режим «{mode['name']}». Состав: {roster}."
                 )
 
                 if len(members) > MAX_CONFERENCE_MODELS:
@@ -663,7 +665,7 @@ class PanelsMixin:
                 if added_name:
                     note += (
                         f" Активная модель «{added_name}» "
-                        "добавлена в совет."
+                        "добавлена в сенат."
                     )
         else:
             note = (
@@ -806,3 +808,32 @@ class PanelsMixin:
 
         layout.addWidget(self.chats_panel, 1)
         layout.addWidget(system_panel, 0)
+
+        self.chat.resizeEvent = self._on_chat_resize
+        QTimer.singleShot(0, self._sync_chats_plate_height)
+
+    def _on_chat_resize(self, event) -> None:
+        """Следит за высотой зелёного экрана чата."""
+
+        QTextBrowser.resizeEvent(self.chat, event)
+        self._sync_chats_plate_height()
+
+    def _sync_chats_plate_height(self) -> None:
+        """Ставит нижний край плиты «Открытые чаты» по низу чата."""
+
+        if not hasattr(self, "chats_panel"):
+            return
+
+        panel_top = self.chats_panel.mapTo(
+            self.window,
+            QPoint(0, 0),
+        ).y()
+        chat_bottom = self.chat.mapTo(
+            self.window,
+            QPoint(0, self.chat.height()),
+        ).y()
+
+        height = chat_bottom - panel_top
+
+        if height > 120:
+            self.chats_panel.setFixedHeight(height)

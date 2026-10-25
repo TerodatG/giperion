@@ -1,5 +1,5 @@
 # Giperion/app/core/conference_roster.py                            v001
-# Состав конференции: не больше трёх моделей и должности сенаторов.
+# Состав сената: не больше трёх моделей и должности сенаторов.
 # Последнее изменение: отбор по репутации и нумерация сенаторов.
 
 from terminal.core.model_stats import get_reputation
@@ -40,7 +40,7 @@ def order_models_by_reputation(
 def select_conference_models(
     models: list[dict],
 ) -> list[dict]:
-    """Оставляет в совете трёх участников с лучшей репутацией."""
+    """Оставляет в сенате трёх участников с лучшей репутацией."""
 
     return order_models_by_reputation(models)[
         :MAX_CONFERENCE_MODELS

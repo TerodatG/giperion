@@ -1,6 +1,6 @@
 # Giperion/app/ui/models_dialog.py                                  v007
 # Окно «Модель»: каталог, карточка, свои модели и компаньоны.
-# Последнее изменение: сенаторы, значки и сортировка конференции.
+# Последнее изменение: сенаторы, значки и сортировка сената.
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QPixmap
@@ -101,8 +101,8 @@ def show_models_dialog(parent, on_activate=None) -> None:
     subtitle = QLabel(
         "Выбери модель и нажми «Активировать». Карточка показывает "
         "сильные стороны, функции, лимиты токенов и репутацию. Галочка "
-        "«Компаньон Гипериона» разрешает помощь моделей, а закладка "
-        "«Компаньоны» собирает отмеченные модели.",
+        "«Компаньон» отмечает модель, а закладка «Компаньоны» "
+        "собирает отмеченные модели.",
         dialog,
     )
     subtitle.setObjectName("dialogHint")
@@ -239,19 +239,18 @@ def show_models_dialog(parent, on_activate=None) -> None:
     status_label.setWordWrap(True)
 
     companion_checkbox = QCheckBox(
-        "Компаньон Гипериона",
+        "Компаньон",
         card,
     )
     companion_checkbox.setObjectName("companionCheck")
     companion_checkbox.setToolTip(
-        "Гиперион сможет обращаться к этой модели за помощью. "
-        "Можно отметить несколько моделей: для ответа выберется "
-        "лучшая по репутации и навыкам."
+        "Отмечает модель в закладке «Компаньоны». "
+        "Отмеченные модели доступны как помощники."
     )
     companion_checkbox.setVisible(False)
 
     conference_checkbox = QCheckBox(
-        "Участник конференции",
+        "Участник сената",
         card,
     )
     conference_checkbox.setObjectName("conferenceCheck")
@@ -661,22 +660,18 @@ def show_models_dialog(parent, on_activate=None) -> None:
         is_conference = model["id"] in state["conference"]
 
         if is_helper:
-            status += " · компаньон Гипериона."
+            status += " · компаньон."
 
         if is_conference:
-            status += " · участник конференции."
+            status += " · участник сената."
 
         status_label.setText(status)
 
         companion_checkbox.blockSignals(True)
         companion_checkbox.setChecked(is_helper)
         companion_checkbox.blockSignals(False)
-        companion_checkbox.setVisible(
-            model["id"] != DEFAULT_MODEL_ID
-        )
-        companion_checkbox.setEnabled(
-            model["id"] != DEFAULT_MODEL_ID
-        )
+        companion_checkbox.setVisible(True)
+        companion_checkbox.setEnabled(True)
 
         conference_checkbox.blockSignals(True)
         conference_checkbox.setChecked(is_conference)
@@ -806,7 +801,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
             )
         elif is_conference:
             empty_hint.setText(
-                "Участников конференции пока нет.\n"
+                "Участников сената пока нет.\n"
                 "Отметь модель галочкой в её карточке."
             )
         else:
@@ -872,7 +867,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
 
         model = selected_model()
 
-        if model is None or model["id"] == DEFAULT_MODEL_ID:
+        if model is None:
             return
 
         if not set_companion(model["id"], checked):
@@ -882,7 +877,7 @@ def show_models_dialog(parent, on_activate=None) -> None:
         refresh_list(model["id"])
 
     def toggle_conference(checked: bool) -> None:
-        """Включает или выключает модель в конференции."""
+        """Включает или выключает модель в сенате."""
 
         model = selected_model()
 

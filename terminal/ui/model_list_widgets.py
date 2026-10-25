@@ -1,5 +1,5 @@
 # Giperion/app/ui/model_list_widgets.py                             v001
-# Список моделей: значок «Сенатор» у первых трёх участников совета.
+# Список моделей: значок «Сенатор» у первых трёх участников сената.
 # Последнее изменение: пиктограмма человека за трибуной справа от названия.
 
 from PySide6.QtCore import QPointF, QRect, Qt
@@ -15,7 +15,7 @@ def draw_senator_icon(
     rect: QRect,
     color: str,
 ) -> None:
-    """Рисует человека за трибуной — как на кнопке конференции."""
+    """Рисует человека за трибуной — как на кнопке сената."""
 
     painter.save()
     painter.setRenderHint(QPainter.Antialiasing, True)

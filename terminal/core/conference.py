@@ -21,7 +21,7 @@ from terminal.core.opencode_client import OpenCodeError, ask_model
 
 @dataclass
 class ConferenceReply:
-    """Один ответ участника конференции."""
+    """Один ответ участника сената."""
 
     model_id: str
     name: str
@@ -98,7 +98,7 @@ def _ask_participant(
                 context,
             ),
             provider_id=model["provider_id"] or "opencode",
-            title=f"Конференция · {model['name']}",
+            title=f"Сенат · {model['name']}",
         )
     except OpenCodeError as error:
         return ConferenceReply(

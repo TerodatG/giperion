@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v017
+# Giperion/tests/test_gui_smoke.py                                 v018
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: две плиты правой колонки.
+# Последнее изменение: выравнивание плиты чатов по зелёному экрану.
 
 import copy
 import os
@@ -241,7 +241,7 @@ def test_model_activation_disables_conference(
     window,
     monkeypatch,
 ) -> None:
-    """Активация модели выключает конференцию, чтобы отвечала она."""
+    """Активация модели выключает сенат, чтобы отвечала она."""
 
     from terminal.core.model_registry import get_model
     from terminal.ui import model_controls_mixin
@@ -275,7 +275,7 @@ def test_model_activation_disables_conference(
     assert not button.isChecked()
     assert window.bot_name == model["name"]
     assert "Активна модель" in window.system_log.toPlainText()
-    assert "Конференция выключена" in window.system_log.toPlainText()
+    assert "Сенат выключен" in window.system_log.toPlainText()
 
 
 def test_startup_reconciles_stale_conference(
@@ -317,7 +317,7 @@ def test_startup_reconciles_stale_conference(
 
     assert window.modules["conference"] is False
     assert not button.isChecked()
-    assert "не входила в совет" in window.system_log.toPlainText()
+    assert "не входила в сенат" in window.system_log.toPlainText()
 
 
 def test_new_chat_uses_active_model_name(
@@ -491,7 +491,7 @@ def test_module_tooltips_have_no_extra_comments(window) -> None:
     assert window.models_button.toolTip() == "Модель"
     assert (
         window.conference_button.toolTip()
-        == "Режим конференции"
+        == "Вид сената"
     )
     assert (
         window.personalities_button.toolTip()
@@ -516,6 +516,30 @@ def test_system_buttons_live_in_system_panel(window) -> None:
         window.settings_button,
     ):
         assert button.parent() is window.system_panel
+
+
+def test_chats_plate_bottom_matches_chat(window) -> None:
+    """Нижний край плиты «Открытые чаты» совпадает с низом чата."""
+
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QApplication
+
+    window.window.resize(1080, 760)
+    window.window.show()
+    QApplication.processEvents()
+    window._sync_chats_plate_height()
+    QApplication.processEvents()
+
+    plate_bottom = window.chats_panel.mapTo(
+        window.window,
+        QPoint(0, window.chats_panel.height()),
+    ).y()
+    chat_bottom = window.chat.mapTo(
+        window.window,
+        QPoint(0, window.chat.height()),
+    ).y()
+
+    assert plate_bottom == chat_bottom
 
 
 def test_model_error_goes_to_system_field(window) -> None:

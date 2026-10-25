@@ -1,5 +1,5 @@
 # Giperion/tests/test_conference_catalog.py                        v001
-# Проверки трёх режимов конференции и выбранного режима.
+# Проверки трёх режимов сената и выбранного режима.
 
 from terminal.core import conference_catalog
 
