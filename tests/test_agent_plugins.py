@@ -4,7 +4,7 @@
 import json
 import time
 
-from terminal.core.agent import registry, settings
+from terminal.core.agent import registry, registry_plugins, settings
 from terminal.core.agent.plugin_runner import run_plugin_process
 from terminal.core.agent.protocol import ToolCall
 
@@ -49,7 +49,7 @@ def _install(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(registry, "PLUGIN_DIR", folder)
+    monkeypatch.setattr(registry_plugins, "PLUGIN_DIR", folder)
     registry.reload_plugins()
 
 

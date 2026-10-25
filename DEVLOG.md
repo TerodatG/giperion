@@ -4951,6 +4951,15 @@ un_tests и write_file).
   - `tools_write.py` — запись, резервные копии и патчи;
   - `tools_exec.py` — тесты и разрешённые команды;
   - `tools.py` — 739 → **70 строк**, фасад.
+- **Реестр инструментов разобран**:
+  - `registry_catalog.py` — каталог `ToolSpec` и разрешения плагинов;
+  - `registry_plugins.py` — манифесты, кэш и запуск плагинов;
+  - `registry_specs.py` — схемы, поиск и справка;
+  - `registry_exec.py` — проверка, подтверждение, предпросмотр, запуск;
+  - `registry.py` — 911 → **41 строка**, фасад.
+- **Файловые инструменты разобраны**:
+  - `tools_policy.py`, `tools_read.py`, `tools_write.py`,
+    `tools_exec.py`; `tools.py` — 739 → **70 строк**, фасад.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
@@ -4986,7 +4995,7 @@ un_tests и write_file).
 - `python -m pytest` — **551 passed за 31,4 с**.
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
-- `python -m tools.check_structure` — файлов >600 строк: 1,
+- `python -m tools.check_structure` — файлов >600 строк: **0**,
   функций >150: 12, функций C>20: 16 (было 16/16/20).
 
 **Ограничения**
