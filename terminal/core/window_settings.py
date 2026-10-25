@@ -1,6 +1,6 @@
-# Giperion/app/core/window_settings.py                             v007
+# Giperion/app/core/window_settings.py                             v008
 # Настройки окна: шрифт, цвета, стили текста, печать и модули.
-# Последнее изменение: группы шрифта трёх сенаторов.
+# Последнее изменение: доступ к файлам включается всегда.
 
 import copy
 from pathlib import Path

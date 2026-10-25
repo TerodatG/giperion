@@ -43,7 +43,9 @@ if reply is None:
 - `tools.py` — пути, чтение, поиск, патчи, запись, pytest, команды;
 - `commands.py` — белый список команд без shell;
 - `git_tools.py` — статус, дифф, журнал, коммит одного файла, откат;
-- `worktrees.py` — деревья и ветки `agent/*`, слияние и удаление;
+- `worktrees.py` — деревья и ветки `agent/*`, слияние в выбранную ветку
+  и удаление;
+- `diff_marks.py` — номера изменённых строк для side-by-side;
 - `providers.py` — провайдер с настоящими tool calls и `NativeBrain`;
 - `settings.py` — адрес, ключ и модель провайдера (файл вне git);
 - `runs.py` — журнал прогонов `data/agent_runs.jsonl`;

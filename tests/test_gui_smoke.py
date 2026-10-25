@@ -1,6 +1,6 @@
-# Giperion/tests/test_gui_smoke.py                                 v021
+# Giperion/tests/test_gui_smoke.py                                 v022
 # Дымовые проверки окна без показа на экране (offscreen).
-# Последнее изменение: окно «Обновление» и полный цикл патча.
+# Последнее изменение: пустой слот «Файлов ПК» и меню «плюса».
 
 import copy
 import os
@@ -675,8 +675,8 @@ def test_files_module_button_is_empty_slot(window) -> None:
     ]
 
     assert "files" not in window.module_buttons
-    assert kinds.count("empty") == 2
-    assert len(kinds) == 7
+    assert kinds.count("empty") == 1
+    assert len(kinds) == 6
 
 
 def test_attachment_plus_opens_menu(window, monkeypatch) -> None:

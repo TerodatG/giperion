@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/widgets.py                                   v008
+# Giperion/terminal/ui/widgets.py                                   v009
 # Самодостаточные виджеты: кнопки, светодиоды, шкалы и рамки.
-# Последнее изменение: круговая стрелка для «Обновления».
+# Последнее изменение: «плюс» вложения и пустой слот модуля.
 
 import math
 
@@ -714,16 +714,6 @@ class ModuleButton(QAbstractButton):
                     14,
                 )
             )
-        elif self.kind == "files":
-            path = QPainterPath()
-            path.moveTo(center.x() - 8, center.y() - 6)
-            path.lineTo(center.x() - 2, center.y() - 6)
-            path.lineTo(center.x() + 1, center.y() - 3)
-            path.lineTo(center.x() + 8, center.y() - 3)
-            path.lineTo(center.x() + 8, center.y() + 7)
-            path.lineTo(center.x() - 8, center.y() + 7)
-            path.closeSubpath()
-            painter.drawPath(path)
         elif self.kind == "models":
             top = QPointF(center.x(), center.y() - 7)
             left = QPointF(center.x() - 7, center.y() + 6)
@@ -899,7 +889,11 @@ class AttachButton(QAbstractButton):
                 5.0,
             )
 
-        color = QColor(157, 214, 160) if self.hovered else QColor(124, 196, 134)
+        color = (
+            QColor(157, 214, 160)
+            if self.hovered
+            else QColor(124, 196, 134)
+        )
 
         painter.setPen(
             QPen(color, 1.9, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)

@@ -1,5 +1,6 @@
-# Giperion/tests/test_ui_models_and_modules.py                     v003
+# Giperion/tests/test_ui_models_and_modules.py                     v004
 # Проверки названий модулей, умений моделей и сената.
+# Последнее изменение: «Файлы ПК» больше не модуль панели.
 
 from terminal.core.model_registry import get_model
 from terminal.ui.panels_mixin import MODULE_INFO

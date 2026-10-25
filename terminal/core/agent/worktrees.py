@@ -98,8 +98,12 @@ def list_worktrees(root: Path) -> str:
     return result.stdout.strip()
 
 
-def merge_worktree(root: Path, branch: str) -> str:
-    """Сливает ветку агента в текущую ветку основного дерева."""
+def merge_worktree(
+    root: Path,
+    branch: str,
+    target: str = "",
+) -> str:
+    """Сливает ветку агента в текущую или указанную ветку."""
 
     base = Path(root).resolve()
 
@@ -110,6 +114,25 @@ def merge_worktree(root: Path, branch: str) -> str:
 
     if not name.startswith("agent/"):
         raise WorktreeError("Сливать можно только ветки agent/*.")
+
+    current = _run(base, ["rev-parse", "--abbrev-ref", "HEAD"])
+
+    if current.returncode != 0:
+        raise WorktreeError("Не удалось определить текущую ветку.")
+
+    current_branch = current.stdout.strip()
+    target_branch = str(target or current_branch).strip()
+
+    if target_branch.startswith("agent/"):
+        raise WorktreeError("Целевой веткой не может быть ветка agent/*.")
+
+    if target_branch != current_branch:
+        exists = _run(base, ["rev-parse", "--verify", target_branch])
+
+        if exists.returncode != 0:
+            raise WorktreeError(
+                f"Ветки «{target_branch}» нет."
+            )
 
     dirty = _run(base, ["status", "--porcelain"])
 
@@ -128,6 +151,18 @@ def merge_worktree(root: Path, branch: str) -> str:
             "сначала закоммить или откати их."
         )
 
+    switched = False
+
+    if target_branch != current_branch:
+        switch = _run(base, ["switch", target_branch])
+
+        if switch.returncode != 0:
+            detail = (switch.stderr or switch.stdout).strip()[:300]
+
+            raise WorktreeError(f"Не удалось переключиться: {detail}")
+
+        switched = True
+
     result = _run(
         base,
         ["merge", "--no-ff", "-m", f"merge {name}", name],
@@ -137,9 +172,41 @@ def merge_worktree(root: Path, branch: str) -> str:
         _run(base, ["merge", "--abort"])
         detail = (result.stderr or result.stdout).strip()[:500]
 
+        if switched:
+            _run(base, ["switch", current_branch])
+
         raise WorktreeError(f"Слияние не удалось: {detail}")
 
+    if switched:
+        _run(base, ["switch", current_branch])
+
     return (result.stdout or "Слито.").strip()[:1000]
+
+
+def current_branch(root: Path) -> str:
+    """Возвращает имя текущей ветки."""
+
+    result = _run(Path(root).resolve(), ["rev-parse", "--abbrev-ref", "HEAD"])
+
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def list_branches(root: Path) -> list[str]:
+    """Перечисляет локальные ветки, кроме веток агента."""
+
+    result = _run(
+        Path(root).resolve(),
+        ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
+    )
+
+    if result.returncode != 0:
+        return []
+
+    return [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip() and not line.strip().startswith("agent/")
+    ]
 
 
 def remove_worktree(

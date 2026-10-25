@@ -5,9 +5,15 @@
 import time
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import (
+    QCloseEvent,
+    QColor,
+    QTextCharFormat,
+    QTextCursor,
+)
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialogButtonBox,
     QFrame,
     QHBoxLayout,
@@ -15,17 +21,21 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
+from terminal.core.agent.diff_marks import changed_lines
 from terminal.core.agent.providers import NativeBrain
 from terminal.core.agent.settings import provider_from_settings
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
+    current_branch,
+    list_branches,
     merge_worktree,
     remove_worktree,
 )
@@ -87,6 +97,11 @@ class AgentDialog(SkinDialog):
         self._timer = QTimer(self)
         self._timer.setInterval(POLL_MS)
         self._timer.timeout.connect(self._poll)
+
+        self._highlight_timer = QTimer(self)
+        self._highlight_timer.setSingleShot(True)
+        self._highlight_timer.setInterval(180)
+        self._highlight_timer.timeout.connect(self._refresh_highlights)
 
     def _build(self) -> None:
         """Собирает поля, кнопки и ленту шагов."""
@@ -171,9 +186,17 @@ class AgentDialog(SkinDialog):
         self.remove_button.setVisible(False)
         self.remove_button.clicked.connect(self._remove_branch)
 
+        self.target_combo = QComboBox(self)
+        self.target_combo.setObjectName("targetBranch")
+        self.target_combo.setVisible(False)
+        self.target_combo.setToolTip(
+            "В какую ветку слить результат задачи."
+        )
+
         worktree_row = QHBoxLayout()
         worktree_row.setSpacing(8)
         worktree_row.addWidget(self.merge_button)
+        worktree_row.addWidget(self.target_combo)
         worktree_row.addWidget(self.remove_button)
         worktree_row.addStretch(1)
 
@@ -221,6 +244,9 @@ class AgentDialog(SkinDialog):
         self.edit_area = QPlainTextEdit(self.edit_split)
         self.edit_area.setObjectName("agentTask")
         self.edit_area.setFixedHeight(200)
+        self.edit_area.textChanged.connect(
+            self._schedule_highlights
+        )
         new_column.addWidget(new_caption)
         new_column.addWidget(self.edit_area)
 
@@ -345,6 +371,7 @@ class AgentDialog(SkinDialog):
         self.stop_button.setEnabled(True)
         self.merge_button.setVisible(False)
         self.remove_button.setVisible(False)
+        self.target_combo.setVisible(False)
 
         branch_note = (
             f" · ветка {self.worktree_branch}"
@@ -381,18 +408,26 @@ class AgentDialog(SkinDialog):
         if not self.worktree_path or not self.worktree_branch:
             return
 
+        target = self.target_combo.currentText().strip()
+
         try:
-            message = merge_worktree(BASE_DIR, self.worktree_branch)
+            message = merge_worktree(
+                BASE_DIR,
+                self.worktree_branch,
+                target,
+            )
         except WorktreeError as error:
             self.status_label.setText(f"Слияние не удалось: {error}")
 
             return
 
+        where = f" в {target}" if target else ""
         self.status_label.setText(
-            "Слито: " + message.splitlines()[0][:200]
+            f"Слито{where}: " + message.splitlines()[0][:200]
         )
         self.merge_button.setVisible(False)
         self.remove_button.setVisible(False)
+        self.target_combo.setVisible(False)
 
     def _remove_branch(self) -> None:
         """Удаляет дерево и ветку задачи после подтверждения."""
@@ -427,7 +462,57 @@ class AgentDialog(SkinDialog):
         self.worktree_branch = ""
         self.merge_button.setVisible(False)
         self.remove_button.setVisible(False)
+        self.target_combo.setVisible(False)
         self.status_label.setText(message)
+
+    def _schedule_highlights(self) -> None:
+        """Пересчитывает подсветку после правки текста."""
+
+        self._highlight_timer.start()
+
+    def _mark_lines(
+        self,
+        view: QPlainTextEdit,
+        indexes: set[int],
+        color: str,
+    ) -> None:
+        """Красит указанные строки в редакторе."""
+
+        selections = []
+
+        for index in sorted(indexes):
+            block = view.document().findBlockByNumber(index)
+
+            if not block.isValid():
+                continue
+
+            cursor = QTextCursor(block)
+            cursor.select(QTextCursor.LineUnderCursor)
+
+            selection = QTextEdit.ExtraSelection()
+            selection.cursor = cursor
+
+            fmt = QTextCharFormat()
+            fmt.setBackground(QColor(color))
+            selection.format = fmt
+
+            selections.append(selection)
+
+        view.setExtraSelections(selections)
+
+    def _refresh_highlights(self) -> None:
+        """Подсвечивает изменённые строки слева и справа."""
+
+        if self.job is None or self.job.pending is None:
+            return
+
+        old_changed, new_changed = changed_lines(
+            self.old_view.toPlainText(),
+            self.edit_area.toPlainText(),
+        )
+
+        self._mark_lines(self.old_view, old_changed, "#4a1f1a")
+        self._mark_lines(self.edit_area, new_changed, "#123d1f")
 
     def _reset_edit(self) -> None:
         """Возвращает панель подтверждения к просмотру диффа."""
@@ -437,6 +522,8 @@ class AgentDialog(SkinDialog):
         self.edit_button.setEnabled(False)
         self.edit_split.setVisible(False)
         self.approval_detail.setVisible(True)
+        self.old_view.setExtraSelections([])
+        self.edit_area.setExtraSelections([])
 
     def _toggle_edit(self) -> None:
         """Переключает дифф и редактируемый текст."""
@@ -514,6 +601,7 @@ class AgentDialog(SkinDialog):
             self.edit_area.setPlainText(pending.new_text or "")
             self._reset_edit()
             self.edit_button.setEnabled(pending.new_text is not None)
+            self._refresh_highlights()
             self.approval_frame.setVisible(True)
         elif pending is None and self.approval_frame.isVisible():
             self.approval_frame.setVisible(False)
@@ -535,6 +623,17 @@ class AgentDialog(SkinDialog):
         show_worktree_actions = bool(self.worktree_path)
         self.merge_button.setVisible(show_worktree_actions)
         self.remove_button.setVisible(show_worktree_actions)
+        self.target_combo.setVisible(show_worktree_actions)
+
+        if show_worktree_actions:
+            branches = list_branches(BASE_DIR)
+            self.target_combo.clear()
+            self.target_combo.addItems(branches)
+
+            current = current_branch(BASE_DIR)
+
+            if current:
+                self.target_combo.setCurrentText(current)
 
         branch_note = (
             f" · ветка {self.worktree_branch}"

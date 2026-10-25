@@ -1,6 +1,6 @@
-# Giperion/tests/test_window_settings.py                             v005
+# Giperion/tests/test_window_settings.py                             v006
 # Проверки сохранения настроек окна, стилей и состояний модулей.
-# Последнее изменение: группы шрифта трёх сенаторов.
+# Последнее изменение: доступ к файлам нельзя выключить настройками.
 
 from terminal.core.window_settings import (
     DEFAULT_MODULE_STATES,

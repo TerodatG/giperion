@@ -1,7 +1,7 @@
-# Giperion/terminal/ui/window_style.py                             v027
+# Giperion/terminal/ui/window_style.py                             v028
 # Футуристическая шкура окна в духе «Кода доступа рай»: тёмный металл
 # с заклёпками и зелёный терминальный лог.
-# Последнее изменение: зелёные поля питомца и экран успехов обучения.
+# Последнее изменение: отступ подписи «СИСТЕМА» и шрифт меню.
 
 from config import BASE_DIR
 
@@ -551,6 +551,8 @@ QMenu {
     background-color: #1b1512;
     border: 1px solid #3d2f26;
     padding: 4px;
+    font-family: "Bahnschrift", "Segoe UI";
+    font-size: 9pt;
 }
 
 QMenu::item {

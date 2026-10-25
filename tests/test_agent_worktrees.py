@@ -11,7 +11,9 @@ from terminal.core.agent.commands import _git_executable
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
+    current_branch,
     is_repository,
+    list_branches,
     list_worktrees,
     merge_worktree,
     remove_worktree,
@@ -103,6 +105,41 @@ def test_merge_brings_changes_to_main(repo) -> None:
 
     assert "бета" in (repo / "a.txt").read_text(encoding="utf-8")
     assert message
+
+
+def test_merge_into_named_branch(repo) -> None:
+    """Можно слить задачу в выбранную ветку, а не только в текущую."""
+
+    _git(repo, "branch", "release")
+    folder, branch = create_worktree(repo, "named")
+
+    (folder / "a.txt").write_text("релиз\n", encoding="utf-8")
+    _git(folder, "add", "a.txt")
+    _git(folder, "commit", "-q", "-m", "change")
+
+    merge_worktree(repo, branch, "release")
+
+    shown = subprocess.run(
+        [GIT, "show", "release:a.txt"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    assert "релиз" in shown.stdout
+    assert current_branch(repo) not in ("release",)
+    assert set(list_branches(repo)) >= {"release"}
+
+
+def test_merge_rejects_missing_target(repo) -> None:
+    """Несуществующая целевая ветка отклоняется."""
+
+    _folder, branch = create_worktree(repo, "missing-target")
+
+    with pytest.raises(WorktreeError):
+        merge_worktree(repo, branch, "no-such-branch")
 
 
 def test_merge_requires_clean_main(repo) -> None:
