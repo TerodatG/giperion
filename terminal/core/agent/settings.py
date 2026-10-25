@@ -241,6 +241,29 @@ def set_model_choice(choice: str) -> None:
     write_json(SETTINGS_FILE, document)
 
 
+SANDBOX_MODES = ("process", "appcontainer")
+
+
+def plugin_sandbox() -> str:
+    """Режим изоляции плагинов: процесс или AppContainer."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = document.get("plugin_sandbox")
+
+    return value if value in SANDBOX_MODES else "process"
+
+
+def set_plugin_sandbox(mode: str) -> None:
+    """Сохраняет режим изоляции плагинов."""
+
+    if mode not in SANDBOX_MODES:
+        raise ValueError(f"Неизвестный режим песочницы: {mode}")
+
+    document = read_json_object(SETTINGS_FILE)
+    document["plugin_sandbox"] = mode
+    write_json(SETTINGS_FILE, document)
+
+
 POLICIES = ("read", "confirm", "trust")
 
 def approval_policy() -> str:

@@ -7,6 +7,7 @@ import threading
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
@@ -31,6 +32,7 @@ from terminal.core.agent.settings import (
     load_settings,
     mask_key,
     mcp_enabled,
+    plugin_sandbox,
     plugins_enabled,
     request_timeout,
     save_budget_limits,
@@ -39,6 +41,7 @@ from terminal.core.agent.settings import (
     set_browser_enabled,
     set_context_limit_chars,
     set_mcp_enabled,
+    set_plugin_sandbox,
     set_plugins_enabled,
     set_request_timeout,
     set_stream_enabled,
@@ -197,6 +200,19 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Опасные плагины", self.unsafe_check)
 
+        self.sandbox_combo = QComboBox(self)
+        self.sandbox_combo.setObjectName("approvalPolicy")
+        self.sandbox_combo.addItem("Процесс + сторож", "process")
+        self.sandbox_combo.addItem("AppContainer (Windows)", "appcontainer")
+        index = self.sandbox_combo.findData(plugin_sandbox())
+        self.sandbox_combo.setCurrentIndex(max(0, index))
+        self.sandbox_combo.setToolTip(
+            "AppContainer изолирует файловую систему и сеть на уровне ОС, "
+            "но требует подготовки: python -m tools.setup_plugin_container "
+            "--prepare. В этом режиме плагины только читают проект."
+        )
+        form.addRow("Песочница", self.sandbox_combo)
+
         self.mcp_check = QCheckBox(
             "Включить MCP-серверы",
             self,
@@ -337,6 +353,9 @@ class ProviderDialog(SkinDialog):
 
         set_plugins_enabled(self.plugins_check.isChecked())
         set_allow_unsafe_plugins(self.unsafe_check.isChecked())
+        set_plugin_sandbox(
+            str(self.sandbox_combo.currentData() or "process")
+        )
         set_stream_enabled(self.stream_check.isChecked())
         set_mcp_enabled(self.mcp_check.isChecked())
         set_browser_enabled(self.browser_check.isChecked())

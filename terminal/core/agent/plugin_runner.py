@@ -54,6 +54,16 @@ def install_guard(
 
     allowed_write = [Path(root).resolve()]
 
+    # AppContainer подменяет TEMP на папку своего профиля, поэтому
+    # разрешаем запись именно туда, а не в системный temp вообще.
+    container_temp = os.environ.get("TEMP") or os.environ.get("TMP")
+
+    if container_temp:
+        try:
+            allowed_write.append(Path(container_temp).resolve())
+        except (OSError, ValueError):
+            pass
+
     allow_net = "net" in permissions
     allow_exec = "exec" in permissions
 
@@ -215,6 +225,18 @@ def run_plugin_process(
         json.dumps(list(permissions), ensure_ascii=False),
     ]
 
+    mode = _sandbox_mode()
+
+    if mode == "appcontainer":
+        return _run_in_container(
+            module_path,
+            root,
+            args,
+            handler_name,
+            timeout,
+            permissions,
+        )
+
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     temp_dir = Path(root).resolve() / ".agent_plugin_tmp"
 
@@ -260,19 +282,35 @@ def run_plugin_process(
         sandbox.close(job)
 
     output = (stdout or "").strip()
-    lines = [line for line in output.splitlines() if line.strip()]
+
+    return _parse_output(output, process.returncode)
+
+
+def _sandbox_mode() -> str:
+    """Режим изоляции из настроек."""
+
+    try:
+        from terminal.core.agent import settings
+
+        return settings.plugin_sandbox()
+    except Exception:  # noqa: BLE001 — без настроек обычный процесс
+        return "process"
+
+
+def _parse_output(output: str, code: int) -> ToolResult:
+    """Разбирает JSON-ответ дочернего процесса."""
+
+    lines = [line for line in str(output).splitlines() if line.strip()]
 
     if not lines:
-        hint = _exit_hint(process.returncode)
-        detail = (stderr or "").strip()[:300]
+        hint = _exit_hint(code)
 
         if hint:
             return ToolResult(False, hint)
 
         return ToolResult(
             False,
-            f"Плагин завершился без ответа (код {process.returncode}): "
-            f"{detail or 'пусто'}",
+            f"Плагин завершился без ответа (код {code}).",
         )
 
     try:
@@ -280,7 +318,7 @@ def run_plugin_process(
     except json.JSONDecodeError:
         return ToolResult(
             False,
-            "Плагин вернул не JSON: " + output[-400:],
+            "Плагин вернул не JSON: " + str(output)[-400:],
         )
 
     if not isinstance(payload, dict):
@@ -290,6 +328,57 @@ def run_plugin_process(
         bool(payload.get("ok")),
         str(payload.get("text") or "")[:MAX_OUTPUT],
     )
+
+
+def _run_in_container(
+    module_path: Path,
+    root: Path,
+    args: dict,
+    handler_name: str,
+    timeout: int,
+    permissions: tuple[str, ...],
+) -> ToolResult:
+    """Запускает плагин в AppContainer с копией Python."""
+
+    try:
+        from terminal.core.agent import container
+    except Exception as error:  # noqa: BLE001 — Windows-only модуль
+        return ToolResult(
+            False,
+            f"Песочница AppContainer недоступна: {error}",
+        )
+
+    if not container.available():
+        return ToolResult(
+            False,
+            "Песочница AppContainer не подготовлена. Запусти "
+            "python -m tools.setup_plugin_container --prepare "
+            "или переключи режим в «Провайдере».",
+        )
+
+    command_args = [
+        "-m",
+        "terminal.core.agent.plugin_runner",
+        str(module_path),
+        str(root),
+        json.dumps(args, ensure_ascii=False),
+        handler_name,
+        json.dumps(list(permissions), ensure_ascii=False),
+    ]
+
+    try:
+        code, output = container.run_text(
+            command_args,
+            cwd=root,
+            timeout=timeout,
+        )
+    except container.ContainerError as error:
+        return ToolResult(False, str(error))
+
+    if code == -1:
+        return ToolResult(False, output.strip() or "Контейнер не ответил.")
+
+    return _parse_output(output.strip(), code)
 
 
 def main(argv: list[str]) -> int:

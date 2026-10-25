@@ -61,6 +61,10 @@ data/agent_mcp.json
 # --- Настройки наблюдателя за файлами ---
 data/agent_watch.json
 
+# --- Python для песочницы плагинов и её временная папка ---
+data/plugin_python/
+.agent_plugin_tmp/
+
 # --- Параллельные рабочие деревья агента ---
 .agent_worktrees/
 
