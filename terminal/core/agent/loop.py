@@ -111,6 +111,49 @@ def _call_detail(result: ToolResult) -> str:
     return "ошибка: " + first[:300]
 
 
+def _run_subagent(
+    call: ToolCall,
+    brain: "Brain",
+    root: Path,
+    depth: int,
+    allow_subagent: bool,
+    should_stop: Callable[[], bool] | None,
+) -> ToolResult:
+    """Запускает читающего подагента без права записи."""
+
+    if depth >= 1 or not allow_subagent:
+        return ToolResult(
+            False,
+            "Подагенты не могут вызывать других подагентов.",
+        )
+
+    task = str(call.args.get("task") or "").strip()
+
+    if not task:
+        return ToolResult(False, "Подагенту не передана задача.")
+
+    result = run_agent(
+        task,
+        brain,
+        root,
+        max_steps=4,
+        should_stop=should_stop,
+        require_tool_first=True,
+        ground_first=True,
+        approve=None,
+        depth=depth + 1,
+        allow_subagent=False,
+    )
+
+    if result.answer:
+        return ToolResult(True, result.answer)
+
+    if result.cancelled:
+        return ToolResult(False, "Подагент остановлен.")
+
+    return ToolResult(False, result.error or "Подагент не ответил.")
+
+
 def run_agent(
     task: str,
     brain: Brain,
@@ -121,6 +164,8 @@ def run_agent(
     require_tool_first: bool = True,
     ground_first: bool = True,
     approve: Callable[[ApprovalRequest], bool] | None = None,
+    depth: int = 0,
+    allow_subagent: bool = True,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -241,6 +286,29 @@ def run_agent(
         call = decision.call
 
         if call is None:
+            continue
+
+        if call.tool == "ask_subagent":
+            result = _run_subagent(
+                call,
+                brain,
+                root,
+                depth,
+                allow_subagent,
+                should_stop,
+            )
+
+            emit(
+                AgentStep(
+                    index,
+                    "subagent",
+                    "Подагент",
+                    result.text[:500],
+                )
+            )
+
+            history.append((call, result))
+
             continue
 
         if registry.needs_approval(call):

@@ -1,10 +1,13 @@
-# Giperion/terminal/ui/agent_dialog.py                               v001
-# Окно «Агент»: задача, лента шагов и остановка. Только чтение.
-# Последнее изменение: первый вариант — read-only цикл с трейсом.
+# Giperion/terminal/ui/agent_dialog.py                               v002
+# Окно «Агент»: задача, лента шагов, подтверждения и worktree.
+# Последнее изменение: отдельная ветка и параллельные задачи.
+
+import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialogButtonBox,
     QFrame,
     QHBoxLayout,
@@ -17,6 +20,10 @@ from PySide6.QtWidgets import (
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
+from terminal.core.agent.worktrees import (
+    WorktreeError,
+    create_worktree,
+)
 from terminal.core.helper_model import get_helper_model
 from terminal.core.model_registry import (
     DEFAULT_MODEL_ID,
@@ -33,6 +40,7 @@ STEP_MARKS = {
     "answer": "✓",
     "error": "!",
     "approval": "▣",
+    "subagent": "↳",
 }
 
 
@@ -64,6 +72,9 @@ class AgentDialog(SkinDialog):
 
         self.job: AgentJob | None = None
         self._shown = 0
+        self._parent = parent
+        self.worktree_path: Path | None = None
+        self.worktree_branch = ""
 
         self._build()
         self._timer = QTimer(self)
@@ -92,6 +103,15 @@ class AgentDialog(SkinDialog):
         )
         self.task_input.setFixedHeight(64)
 
+        self.worktree_checkbox = QCheckBox(
+            "Отдельная ветка (worktree)",
+            self,
+        )
+        self.worktree_checkbox.setToolTip(
+            "Создать отдельное рабочее дерево и ветку agent/…, "
+            "чтобы не мешать другим задачам."
+        )
+
         self.run_button = QPushButton("Запустить", self)
         self.run_button.setObjectName("workshopAction")
         self.run_button.clicked.connect(self._start)
@@ -101,6 +121,13 @@ class AgentDialog(SkinDialog):
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self._stop)
 
+        self.new_task_button = QPushButton("Новая задача", self)
+        self.new_task_button.setObjectName("workshopAction")
+        self.new_task_button.setToolTip(
+            "Открыть ещё одно окно агента и запустить задачу параллельно."
+        )
+        self.new_task_button.clicked.connect(self._open_new_task)
+
         self.status_label = QLabel("Готов к задаче.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -109,6 +136,7 @@ class AgentDialog(SkinDialog):
         controls.setSpacing(8)
         controls.addWidget(self.run_button)
         controls.addWidget(self.stop_button)
+        controls.addWidget(self.new_task_button)
         controls.addWidget(self.status_label, 1)
 
         self.approval_frame = QFrame(self)
@@ -167,6 +195,7 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(title)
         self.body_layout.addWidget(subtitle)
         self.body_layout.addWidget(self.task_input)
+        self.body_layout.addWidget(self.worktree_checkbox)
         self.body_layout.addLayout(controls)
         self.body_layout.addWidget(self.approval_frame)
         self.body_layout.addWidget(self.trace, 1)
@@ -197,20 +226,41 @@ class AgentDialog(SkinDialog):
             model.get("provider_id") or "opencode",
         )
 
+        root = BASE_DIR
+        self.worktree_path = None
+        self.worktree_branch = ""
+
+        if self.worktree_checkbox.isChecked():
+            try:
+                root, branch = create_worktree(BASE_DIR, task[:40])
+            except WorktreeError as error:
+                self.status_label.setText(f"Ветка не создана: {error}")
+                return
+
+            self.worktree_path = root
+            self.worktree_branch = branch
+
         self.trace.clear()
         self._shown = 0
         self.approval_frame.setVisible(False)
         self.job = AgentJob(
             task,
             brain,
-            BASE_DIR,
+            root,
             max_steps=MAX_STEPS,
         )
 
         self.run_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+
+        branch_note = (
+            f" · ветка {self.worktree_branch}"
+            if self.worktree_branch
+            else ""
+        )
         self.status_label.setText(
-            f"Модель: {model['name']} · шагов до {MAX_STEPS}."
+            f"Модель: {model['name']} · шагов до {MAX_STEPS}"
+            f"{branch_note}."
         )
         self._timer.start()
 
@@ -223,6 +273,14 @@ class AgentDialog(SkinDialog):
         self.job.cancel()
         self.stop_button.setEnabled(False)
         self.status_label.setText("Останавливаю после текущего шага…")
+
+    def _open_new_task(self) -> None:
+        """Открывает ещё одно окно агента для параллельной задачи."""
+
+        show_agent_dialog(
+            self._parent,
+            f"agent-{time.time_ns()}",
+        )
 
     def _approve(self) -> None:
         """Подтверждает запись или запуск тестов."""
@@ -287,16 +345,22 @@ class AgentDialog(SkinDialog):
         self.run_button.setEnabled(True)
         self.stop_button.setEnabled(False)
 
+        branch_note = (
+            f" · ветка {self.worktree_branch}"
+            if self.worktree_branch
+            else ""
+        )
+
         if job.cancelled:
-            self.status_label.setText("Остановлено.")
+            self.status_label.setText("Остановлено." + branch_note)
         elif job.error:
-            self.status_label.setText(job.error)
+            self.status_label.setText(job.error + branch_note)
 
             if job.error not in self.trace.toPlainText():
                 self.trace.appendPlainText("\n! " + job.error)
         else:
             self.status_label.setText(
-                f"Готово за {len(job.steps)} шаг(ов)."
+                f"Готово за {len(job.steps)} шаг(ов)." + branch_note
             )
 
         if job.answer:
@@ -312,8 +376,8 @@ class AgentDialog(SkinDialog):
         super().closeEvent(event)
 
 
-def show_agent_dialog(parent) -> None:
+def show_agent_dialog(parent, key: str = "agent") -> None:
     """Открывает немодальное окно агента."""
 
     dialog = AgentDialog(parent)
-    show_tool_window(parent, dialog, "agent")
+    show_tool_window(parent, dialog, key)

@@ -110,6 +110,15 @@ TOOL_SPECS = (
         args={"command": "команда одной строкой"},
         risk="exec",
     ),
+    ToolSpec(
+        name="ask_subagent",
+        description=(
+            "Поручить подзадачу отдельному читающему агенту: "
+            "он ищет и читает файлы, но не меняет их."
+        ),
+        args={"task": "короткая подзадача для подагента"},
+        risk="read",
+    ),
 )
 
 _TOOLS = {spec.name: spec for spec in TOOL_SPECS}

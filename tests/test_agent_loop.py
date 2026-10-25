@@ -154,6 +154,7 @@ def test_registry_has_read_write_and_exec_tools() -> None:
         "git_commit": "write",
         "git_restore": "write",
         "run_command": "exec",
+        "ask_subagent": "read",
     }
 
 
@@ -290,6 +291,32 @@ def test_run_command_requires_approval(tmp_path) -> None:
     assert requests[0].title == "Выполнить команду"
     assert "status" in requests[0].detail
     assert result.answer == "не разрешили"
+
+
+def test_subagent_answers_within_parent_task(tmp_path) -> None:
+    """Подагент читает сам, родитель получает его ответ."""
+
+    (tmp_path / "a.txt").write_text("альфа", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("ask_subagent", task="что в a.txt"),
+            _answer("внутри: альфа"),
+            _answer("снаружи: альфа"),
+        ]
+    )
+
+    result = run_agent(
+        "узнай, что в a.txt",
+        brain,
+        tmp_path,
+        max_steps=4,
+        ground_first=False,
+    )
+
+    assert result.answer == "снаружи: альфа"
+    assert any(step.kind == "subagent" for step in result.steps)
+    assert "внутри: альфа" in result.steps[0].detail
 
 
 def test_parse_decision_accepts_fenced_json() -> None:

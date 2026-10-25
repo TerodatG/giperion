@@ -581,8 +581,31 @@ def test_agent_dialog_opens_with_approval(window) -> None:
     assert dialog.stop_button.isEnabled() is False
     assert dialog.approval_frame.isHidden()
     assert dialog.task_input.toPlainText() == ""
+    assert dialog.worktree_checkbox.text().startswith("Отдельная ветка")
+    assert dialog.new_task_button.text() == "Новая задача"
 
     dialog.close()
+
+
+def test_agent_new_task_opens_second_window(window) -> None:
+    """«Новая задача» открывает второе окно, не закрывая первое."""
+
+    window.open_agent_dialog()
+
+    windows = window.window._tool_windows
+    first = windows["agent"]
+
+    first._open_new_task()
+
+    agent_keys = [
+        key for key in windows if key.startswith("agent")
+    ]
+
+    assert len(agent_keys) >= 2
+    assert windows[agent_keys[0]].isVisible()
+
+    for key in agent_keys:
+        windows[key].close()
 
 
 def test_system_buttons_live_in_system_panel(window) -> None:
