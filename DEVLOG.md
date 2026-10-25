@@ -4922,6 +4922,10 @@ un_tests и write_file).
   - `test_window.py`, `test_dialogs.py`, `test_panels.py`,
     `test_models_pets.py`, `test_settings.py` — 49 тестов вместо
     одного файла на 1787 строк.
+- **Виджеты разобраны** (`terminal/ui/widgets/`):
+  - `side_icon.py`, `indicators.py`, `module_button.py`, `attach.py`,
+    `decorations.py`; `widgets.py` стал пакетом с реэкспортом.
+  Самый большой файл — 407 строк вместо 967.
 - **Индекс символов кэшируется в памяти**: повторный `find_symbol`
   не читает 307 КБ JSON; кэш сбрасывается по `mtime` и размеру файла.
   Замер: **26 мс → 0,06 мс** на вызов.
@@ -4957,7 +4961,7 @@ un_tests и write_file).
 - `python -m pytest` — **551 passed за 31,4 с**.
 - `python -m ruff check ...` — ok.
 - `python -m compileall -q ...` — ok.
-- `python -m tools.check_structure` — файлов >600 строк: 8,
+- `python -m tools.check_structure` — файлов >600 строк: 7,
   функций >150: 12, функций C>20: 16 (было 16/16/20).
 
 **Ограничения**
