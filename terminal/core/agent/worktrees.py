@@ -175,7 +175,16 @@ def merge_worktree(
         if switched:
             _run(base, ["switch", current_branch])
 
-        raise WorktreeError(f"Слияние не удалось: {detail}")
+        hint = ""
+
+        if "CONFLICT" in (result.stdout or "") or "CONFLICT" in detail:
+            hint = (
+                " Ветки разошлись по одним и тем же строкам: слияние "
+                "отменено, файлы не тронуты. Открой задачу заново на "
+                "свежей базе или перенеси правки вручную."
+            )
+
+        raise WorktreeError(f"Слияние не удалось: {detail}{hint}")
 
     if switched:
         _run(base, ["switch", current_branch])

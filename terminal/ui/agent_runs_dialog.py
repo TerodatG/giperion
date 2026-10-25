@@ -57,6 +57,11 @@ def format_runs(limit: int = 30) -> str:
                 if record.get("cost")
                 else ""
             )
+            + (
+                f" · повторов: {int(record.get('retries') or 0)}"
+                if record.get("retries")
+                else ""
+            )
         )
 
         error = str(record.get("error", "")).strip()

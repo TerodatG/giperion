@@ -22,6 +22,7 @@ def record_run(
     cancelled: bool = False,
     tokens: int = 0,
     cost: float = 0.0,
+    retries: int = 0,
 ) -> None:
     """Добавляет одну строку в журнал; ошибки записи не ломают агента."""
 
@@ -37,6 +38,7 @@ def record_run(
         "cancelled": bool(cancelled),
         "tokens": int(tokens),
         "cost": round(float(cost), 6),
+        "retries": int(retries),
     }
 
     try:

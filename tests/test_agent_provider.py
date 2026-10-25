@@ -332,3 +332,151 @@ def test_http_messages_explain_cause() -> None:
     assert _http_message("http://x/v1", 500, "boom") == (
         "Провайдер ответил 500: boom"
     )
+
+
+def _ok_reply():
+    return {"choices": [{"message": {"content": "ок"}}]}
+
+
+def test_provider_retries_transient_error() -> None:
+    """Временная ошибка повторяется с растущей паузой."""
+
+    from terminal.core.agent.providers import ProviderRetry
+
+    calls: list[int] = []
+    waits: list[float] = []
+
+    def transport(url, key, payload, timeout):
+        calls.append(1)
+
+        if len(calls) < 3:
+            raise ProviderRetry("сеть моргнула")
+
+        return _ok_reply()
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+        retries=3,
+        backoff=0.5,
+        sleep=waits.append,
+    )
+
+    reply = provider.complete([{"role": "user", "content": "привет"}])
+
+    assert reply.text == "ок"
+    assert len(calls) == 3
+    assert provider.retry_count == 2
+    assert waits == [0.5, 1.0]
+
+
+def test_provider_retries_rate_limit_with_server_hint() -> None:
+    """Пауза из Retry-After важнее собственного backoff."""
+
+    from terminal.core.agent.providers import ProviderRetry
+
+    calls: list[int] = []
+    waits: list[float] = []
+
+    def transport(url, key, payload, timeout):
+        calls.append(1)
+
+        if len(calls) == 1:
+            raise ProviderRetry("слишком часто", retry_after=2.5)
+
+        return _ok_reply()
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+        retries=3,
+        backoff=0.5,
+        sleep=waits.append,
+    )
+
+    provider.complete([{"role": "user", "content": "привет"}])
+
+    assert waits == [2.5]
+
+
+def test_provider_does_not_retry_permanent_error() -> None:
+    """Ошибка ключа не повторяется: это не лечится ожиданием."""
+
+    calls: list[int] = []
+
+    def transport(url, key, payload, timeout):
+        calls.append(1)
+
+        raise ProviderError("Провайдер отклонил ключ")
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+        retries=3,
+        sleep=lambda seconds: None,
+    )
+
+    with pytest.raises(ProviderError):
+        provider.complete([{"role": "user", "content": "привет"}])
+
+    assert len(calls) == 1
+
+
+def test_provider_gives_up_after_last_attempt() -> None:
+    """После последней попытки ошибка уходит наружу."""
+
+    from terminal.core.agent.providers import ProviderRetry
+
+    calls: list[int] = []
+
+    def transport(url, key, payload, timeout):
+        calls.append(1)
+
+        raise ProviderRetry("всё ещё нет связи")
+
+    provider = OpenAICompatibleProvider(
+        "http://x/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+        retries=2,
+        backoff=0.1,
+        sleep=lambda seconds: None,
+    )
+
+    with pytest.raises(ProviderRetry):
+        provider.complete([{"role": "user", "content": "привет"}])
+
+    assert len(calls) == 2
+
+
+def _http_error(value: str):
+    import urllib.error
+    from email.message import Message
+
+    headers = Message()
+    headers["Retry-After"] = value
+
+    return urllib.error.HTTPError(
+        "http://x/v1",
+        429,
+        "too many",
+        headers,
+        None,
+    )
+
+
+def test_retry_after_header_is_read() -> None:
+    """Заголовок Retry-After разбирается и ограничивается разумным."""
+
+    from terminal.core.agent.providers import _retry_after
+
+    assert _retry_after(_http_error("3")) == 3.0
+    assert _retry_after(_http_error("900")) == 60.0
+    assert _retry_after(_http_error("скоро")) is None

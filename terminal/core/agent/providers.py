@@ -5,6 +5,7 @@
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -59,6 +60,21 @@ class ProviderError(RuntimeError):
     """Провайдер недоступен или ответил ошибкой."""
 
 
+class ProviderRetry(ProviderError):
+    """Временная ошибка: запрос имеет смысл повторить."""
+
+    def __init__(
+        self,
+        message: str,
+        retry_after: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+RETRYABLE_CODES = {408, 425, 429, 500, 502, 503, 504}
+
+
 @dataclass(frozen=True)
 class ProviderReply:
     """Ответ модели: текст и/или вызовы инструментов."""
@@ -111,6 +127,28 @@ def _http_message(url: str, code: int, detail: str) -> str:
     return f"Провайдер ответил {code}: {detail}"
 
 
+def _retry_after(error: urllib.error.HTTPError) -> float | None:
+    """Сколько секунд просит подождать сервер (заголовок Retry-After)."""
+
+    try:
+        value = error.headers.get("Retry-After")
+    except (AttributeError, TypeError):
+        return None
+
+    if value is None:
+        return None
+
+    try:
+        seconds = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+    if seconds < 0:
+        return None
+
+    return min(seconds, 60.0)
+
+
 def _post_json(
     url: str,
     api_key: str,
@@ -139,12 +177,17 @@ def _post_json(
             raw = response.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", "replace")[:300]
+        message = _http_message(url, error.code, detail)
 
-        raise ProviderError(
-            _http_message(url, error.code, detail)
-        ) from error
+        if error.code in RETRYABLE_CODES:
+            raise ProviderRetry(
+                message,
+                retry_after=_retry_after(error),
+            ) from error
+
+        raise ProviderError(message) from error
     except (urllib.error.URLError, TimeoutError) as error:
-        raise ProviderError(_offline_message(url, error)) from error
+        raise ProviderRetry(_offline_message(url, error)) from error
 
     try:
         value = json.loads(raw)
@@ -167,12 +210,52 @@ class OpenAICompatibleProvider:
         model: str,
         timeout: int = TIMEOUT,
         transport: Callable[..., dict] | None = None,
+        retries: int = 3,
+        backoff: float = 0.5,
+        max_backoff: float = 8.0,
+        sleep: Callable[[float], None] | None = None,
     ) -> None:
         self.base_url = str(base_url).rstrip("/")
         self.api_key = str(api_key)
         self.model = str(model)
         self.timeout = timeout
+        self.retries = max(1, int(retries))
+        self.backoff = max(0.0, float(backoff))
+        self.max_backoff = max(self.backoff, float(max_backoff))
+        self.retry_count = 0
         self._post = transport or _post_json
+        self._sleep = sleep or time.sleep
+
+    def _wait(self, attempt: int, retry_after: float | None) -> float:
+        """Пауза перед повтором: просьба сервера или рост с множителем."""
+
+        if retry_after is not None:
+            return min(retry_after, self.max_backoff)
+
+        return min(self.backoff * (2 ** (attempt - 1)), self.max_backoff)
+
+    def _send(self, payload: dict) -> dict:
+        """Отправляет запрос, повторяя временные ошибки."""
+
+        url = self.base_url + "/chat/completions"
+        attempt = 1
+
+        while True:
+            try:
+                return self._post(
+                    url,
+                    self.api_key,
+                    payload,
+                    self.timeout,
+                )
+            except ProviderRetry as error:
+                if attempt >= self.retries:
+                    raise
+
+                delay = self._wait(attempt, error.retry_after)
+                self.retry_count += 1
+                attempt += 1
+                self._sleep(delay)
 
     def complete(
         self,
@@ -193,12 +276,7 @@ class OpenAICompatibleProvider:
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-        data = self._post(
-            self.base_url + "/chat/completions",
-            self.api_key,
-            payload,
-            self.timeout,
-        )
+        data = self._send(payload)
 
         choices = data.get("choices")
 

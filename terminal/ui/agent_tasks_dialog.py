@@ -3,6 +3,7 @@
 # Последнее изменение: первый вариант — список, детали, resume.
 
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
@@ -100,8 +101,18 @@ class AgentTasksDialog(SkinDialog):
         self.refresh_button.setObjectName("workshopAction")
         self.refresh_button.clicked.connect(self._refresh)
 
+        self.filter_combo = QComboBox(self)
+        self.filter_combo.setObjectName("approvalPolicy")
+        self.filter_combo.addItem("Все задачи", "")
+        self.filter_combo.addItem("Незавершённые", "running")
+        self.filter_combo.addItem("Готовые", "done")
+        self.filter_combo.addItem("С ошибкой", "error")
+        self.filter_combo.addItem("Остановленные", "cancelled")
+        self.filter_combo.currentIndexChanged.connect(self._refresh)
+
         row = QHBoxLayout()
         row.setSpacing(8)
+        row.addWidget(self.filter_combo)
         row.addWidget(self.resume_button)
         row.addWidget(self.remove_button)
         row.addWidget(self.refresh_button)
@@ -118,7 +129,20 @@ class AgentTasksDialog(SkinDialog):
         self.body_layout.addWidget(buttons)
 
     def _refresh(self) -> None:
-        self._states = list_states()
+        status_filter = ""
+
+        if hasattr(self, "filter_combo"):
+            status_filter = str(
+                self.filter_combo.currentData() or ""
+            )
+
+        states = list_states()
+        self._states = [
+            state
+            for state in states
+            if not status_filter
+            or str(state.get("status")) == status_filter
+        ]
         self.view.clear()
 
         for state in self._states:
@@ -139,10 +163,15 @@ class AgentTasksDialog(SkinDialog):
         self.remove_button.setEnabled(False)
 
         if not self._states:
-            self.details.setText(
-                "Сохранённых задач нет. Запусти агента — задача "
-                "появится здесь."
-            )
+            if states:
+                self.details.setText(
+                    "Под этот фильтр задачи не подходят."
+                )
+            else:
+                self.details.setText(
+                    "Сохранённых задач нет. Запусти агента — задача "
+                    "появится здесь."
+                )
 
     def _selected(self) -> dict | None:
         item = self.view.currentItem()

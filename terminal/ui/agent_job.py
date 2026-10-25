@@ -113,6 +113,14 @@ class AgentJob:
 
         return float(getattr(self._brain, "cost", 0.0) or 0.0)
 
+    @property
+    def retries(self) -> int:
+        """Сколько раз провайдер повторял временно неудачные запросы."""
+
+        provider = getattr(self._brain, "provider", None)
+
+        return int(getattr(provider, "retry_count", 0) or 0)
+
     def cancel(self) -> None:
         """Просит цикл остановиться после текущего шага."""
 
@@ -223,6 +231,7 @@ class AgentJob:
                 self.cancelled,
                 self.tokens,
                 self.cost,
+                self.retries,
             )
 
             if self._persist:

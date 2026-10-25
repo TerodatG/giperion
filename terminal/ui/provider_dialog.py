@@ -28,9 +28,11 @@ from terminal.core.agent.settings import (
     load_settings,
     mask_key,
     plugins_enabled,
+    request_timeout,
     save_budget_limits,
     save_settings,
     set_plugins_enabled,
+    set_request_timeout,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
@@ -138,6 +140,17 @@ class ProviderDialog(SkinDialog):
         form.addRow("Лимит задачи", self.token_limit_input)
         form.addRow("Лимит стоимости", self.cost_limit_input)
         form.addRow("Цена токенов", prices_row)
+
+        self.timeout_input = QSpinBox(self)
+        self.timeout_input.setRange(10, 900)
+        self.timeout_input.setSingleStep(10)
+        self.timeout_input.setSuffix(" с")
+        self.timeout_input.setValue(int(request_timeout()))
+        self.timeout_input.setToolTip(
+            "Сколько ждать ответа модели на один запрос. "
+            "Временные ошибки провайдер повторяет сам."
+        )
+        form.addRow("Таймаут запроса", self.timeout_input)
 
         self.plugins_check = QCheckBox(
             "Разрешить плагины инструментов",
@@ -250,6 +263,8 @@ class ProviderDialog(SkinDialog):
             self.price_in_input.value(),
             self.price_out_input.value(),
         )
+
+        set_request_timeout(self.timeout_input.value())
 
         set_plugins_enabled(self.plugins_check.isChecked())
         reload_plugins()

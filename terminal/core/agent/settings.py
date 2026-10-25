@@ -108,6 +108,7 @@ def provider_from_settings():
         values["base_url"],
         values["api_key"],
         values["model"],
+        timeout=request_timeout(),
     )
 
 
@@ -207,4 +208,24 @@ def save_budget_limits(
     document["cost_limit"] = max(0.0, float(cost))
     document["price_in"] = max(0.0, float(price_in))
     document["price_out"] = max(0.0, float(price_out))
+    write_json(SETTINGS_FILE, document)
+
+
+DEFAULT_TIMEOUT = 120
+
+
+def request_timeout() -> int:
+    """Таймаут одного запроса к провайдеру в секундах."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = _number(document, "request_timeout", DEFAULT_TIMEOUT, as_int=True)
+
+    return min(900, max(10, int(value)))
+
+
+def set_request_timeout(seconds: int) -> None:
+    """Сохраняет таймаут запроса."""
+
+    document = read_json_object(SETTINGS_FILE)
+    document["request_timeout"] = min(900, max(10, int(seconds)))
     write_json(SETTINGS_FILE, document)

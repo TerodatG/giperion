@@ -82,6 +82,29 @@ REMEMBER_TITLES = {
     "run_command": "Больше не спрашивать эту команду",
 }
 
+TASK_TEMPLATES = (
+    (
+        "Найти функцию",
+        "Найди, где объявлена функция <имя> и назови файл.",
+    ),
+    (
+        "Прочитать и пересказать",
+        "Прочитай <файл> и кратко перескажи содержание.",
+    ),
+    (
+        "Исправить падающий тест",
+        "Тест <файл> падает: прочитай код, исправь и запусти тесты.",
+    ),
+    (
+        "Проверить тесты",
+        "Запусти тесты и коротко скажи, сколько прошло и что упало.",
+    ),
+    (
+        "Обновить документ",
+        "Обнови <документ> под текущее поведение кода.",
+    ),
+)
+
 
 def _pick_model() -> dict | None:
     """Берёт активную внешнюю модель или лучшего помощника."""
@@ -131,6 +154,8 @@ class AgentDialog(SkinDialog):
 
         if resume is not None:
             self._apply_resume(resume)
+        else:
+            self._hint_unfinished()
 
     def _build(self) -> None:
         """Собирает поля, кнопки и ленту шагов."""
@@ -153,6 +178,20 @@ class AgentDialog(SkinDialog):
             "Например: как устроена граница модели и агента?"
         )
         self.task_input.setFixedHeight(64)
+
+        self.template_combo = QComboBox(self)
+        self.template_combo.setObjectName("approvalPolicy")
+        self.template_combo.setToolTip(
+            "Готовые формулировки задач: выбери — текст подставится."
+        )
+        self.template_combo.addItem("Шаблон задачи…", "")
+
+        for template_title, template_text in TASK_TEMPLATES:
+            self.template_combo.addItem(template_title, template_text)
+
+        self.template_combo.currentIndexChanged.connect(
+            self._apply_template
+        )
 
         self.worktree_checkbox = QCheckBox(
             "Отдельная ветка (worktree)",
@@ -365,12 +404,53 @@ class AgentDialog(SkinDialog):
         self.body_layout.addWidget(title)
         self.body_layout.addWidget(subtitle)
         self.body_layout.addWidget(self.task_input)
+        self.body_layout.addWidget(self.template_combo)
         self.body_layout.addLayout(model_row)
         self.body_layout.addLayout(controls)
         self.body_layout.addLayout(worktree_row)
         self.body_layout.addWidget(self.approval_frame)
         self.body_layout.addWidget(self.trace, 1)
         self.body_layout.addWidget(buttons)
+
+    def _apply_template(self, index: int) -> None:
+        """Подставляет текст шаблона в поле задачи."""
+
+        text = str(self.template_combo.itemData(index) or "")
+
+        if not text:
+            return
+
+        self.task_input.setPlainText(text)
+        self.task_input.setFocus()
+
+        self.template_combo.blockSignals(True)
+        self.template_combo.setCurrentIndex(0)
+        self.template_combo.blockSignals(False)
+
+    def _hint_unfinished(self) -> None:
+        """Подсказывает про незавершённую задачу при открытии окна."""
+
+        from terminal.core.agent.tasks import (
+            STATUS_RUNNING,
+            list_states,
+        )
+
+        running = [
+            state
+            for state in list_states(limit=20)
+            if state.get("status") == STATUS_RUNNING
+        ]
+
+        if not running:
+            return
+
+        task = str(running[0].get("task") or "").splitlines()
+
+        self.status_label.setText(
+            "Есть незавершённая задача"
+            + (f": «{task[0][:60]}»" if task else "")
+            + ". Открой «Задачи…», чтобы продолжить."
+        )
 
     def _apply_resume(self, state: dict) -> None:
         """Заполняет окно сохранённой задачей."""

@@ -152,6 +152,29 @@ def test_merge_requires_clean_main(repo) -> None:
         merge_worktree(repo, branch)
 
 
+def test_merge_conflict_explains_what_to_do(repo) -> None:
+    """Конфликт отменяет слияние и объясняет, что делать дальше."""
+
+    folder, branch = create_worktree(repo, "conflict")
+
+    (folder / "a.txt").write_text("из ветки\n", encoding="utf-8")
+    _git(folder, "commit", "-qam", "branch change")
+
+    (repo / "a.txt").write_text("из основной\n", encoding="utf-8")
+    _git(repo, "commit", "-qam", "main change")
+
+    with pytest.raises(WorktreeError) as error:
+        merge_worktree(repo, branch)
+
+    message = str(error.value)
+
+    assert "Слияние не удалось" in message
+    assert "разошлись" in message
+
+    # Слияние отменено: основная ветка осталась со своими правками.
+    assert (repo / "a.txt").read_text(encoding="utf-8") == "из основной\n"
+
+
 def test_remove_worktree_and_branch(repo) -> None:
     """Дерево и ветка удаляются, основное дерево остаётся."""
 

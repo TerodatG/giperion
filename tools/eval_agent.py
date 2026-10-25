@@ -200,6 +200,60 @@ TASKS = (
         answer_has("worktrees.py"),
         max_steps=6,
     ),
+    EvalTask(
+        "find-base-dir",
+        "Где BASE_DIR",
+        "Где в проекте задан BASE_DIR? Назови файл.",
+        answer_has("config.py"),
+        max_steps=5,
+    ),
+    EvalTask(
+        "find-native-brain",
+        "Где NativeBrain",
+        "Найди, в каком файле объявлен класс NativeBrain.",
+        answer_has("providers.py"),
+        max_steps=5,
+    ),
+    EvalTask(
+        "find-max-prompt",
+        "Лимит контекста",
+        "Где задан MAX_PROMPT — лимит контекста агента? Назови файл.",
+        answer_has("context.py"),
+        max_steps=5,
+    ),
+    EvalTask(
+        "docs-passport",
+        "Раздел про паспорт",
+        "Прочитай docs/architecture.md и назови раздел про паспорт модели.",
+        answer_has("паспорт"),
+        max_steps=4,
+    ),
+    EvalTask(
+        "docs-plugins",
+        "Плагины в документации",
+        "Прочитай docs/agent_tools.md и скажи, из каких двух файлов "
+        "состоит плагин.",
+        lambda root, answer: (
+            ".json" in str(answer).casefold()
+            and ".py" in str(answer).casefold(),
+            "оба расширения названы"
+            if ".json" in str(answer).casefold()
+            and ".py" in str(answer).casefold()
+            else "расширения не названы",
+        ),
+        max_steps=4,
+    ),
+    EvalTask(
+        "create-two-lines",
+        "Файл из двух строк",
+        "Создай файл eval_lines.txt с двумя строками: «альфа» и «бета».",
+        lambda root, _answer: (
+            _text(root / "eval_lines.txt").strip().splitlines()
+            == ["альфа", "бета"],
+            "две строки на месте",
+        ),
+        max_steps=5,
+    ),
 )
 
 

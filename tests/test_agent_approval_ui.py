@@ -118,3 +118,46 @@ def test_commit_has_no_remember_option(qapp) -> None:
 
     dialog.job = None
     dialog.close()
+
+
+def test_template_fills_task_input(qapp) -> None:
+    """Шаблон подставляет текст и возвращает список к началу."""
+
+    dialog = _make_dialog(qapp)
+
+    assert dialog.template_combo.count() > 1
+    assert dialog.task_input.toPlainText() == ""
+
+    dialog.template_combo.setCurrentIndex(1)
+
+    assert dialog.task_input.toPlainText() == (
+        "Найди, где объявлена функция <имя> и назови файл."
+    )
+    assert dialog.template_combo.currentIndex() == 0
+
+    dialog.close()
+
+
+def test_dialog_hints_unfinished_task(qapp, monkeypatch) -> None:
+    """При открытии окно напоминает про незавершённую задачу."""
+
+    from terminal.core.agent import tasks
+
+    monkeypatch.setattr(
+        tasks,
+        "list_states",
+        lambda limit=50: [
+            {
+                "id": "20261025-1",
+                "task": "доделай отчёт",
+                "status": tasks.STATUS_RUNNING,
+            }
+        ],
+    )
+
+    dialog = _make_dialog(qapp)
+
+    assert "незавершённая" in dialog.status_label.text()
+    assert "доделай отчёт" in dialog.status_label.text()
+
+    dialog.close()
