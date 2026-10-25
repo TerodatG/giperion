@@ -33,6 +33,8 @@ from terminal.core.agent.diff_marks import (
     LineSpan,
     diff_marks as build_marks,
 )
+from terminal.core.agent.rollback import rollback_run
+from terminal.core.agent.summary import format_changes
 from terminal.core.agent.providers import NativeBrain
 from terminal.core.agent.settings import (
     approval_policy,
@@ -142,6 +144,7 @@ class AgentDialog(SkinDialog):
         self._resume = resume
         self.worktree_path: Path | None = None
         self.worktree_branch = ""
+        self._summary_job = None
 
         self._build()
         self._timer = QTimer(self)
@@ -263,6 +266,14 @@ class AgentDialog(SkinDialog):
             lambda: show_agent_tasks_dialog(self._parent)
         )
 
+        self.undo_button = QPushButton("Откатить изменения", self)
+        self.undo_button.setObjectName("workshopAction")
+        self.undo_button.setVisible(False)
+        self.undo_button.setToolTip(
+            "Вернуть файлы задачи к состоянию до её запуска."
+        )
+        self.undo_button.clicked.connect(self._undo_changes)
+
         self.status_label = QLabel("Готов к задаче.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -273,6 +284,7 @@ class AgentDialog(SkinDialog):
         controls.addWidget(self.stop_button)
         controls.addWidget(self.new_task_button)
         controls.addWidget(self.tasks_button)
+        controls.addWidget(self.undo_button)
         controls.addWidget(self.status_label, 1)
 
         self.merge_button = QPushButton("Слить ветку", self)
@@ -507,6 +519,9 @@ class AgentDialog(SkinDialog):
         if not task:
             self.status_label.setText("Сначала опиши задачу.")
             return
+
+        self.undo_button.setVisible(False)
+        self._summary_job = None
 
         native = provider_from_settings()
         limits = budget_limits()
@@ -977,6 +992,66 @@ class AgentDialog(SkinDialog):
 
         if job.answer:
             self.trace.appendPlainText("\nОТВЕТ:\n" + job.answer)
+
+        changes = list(getattr(job, "changes", []) or [])
+        has_changes = bool(getattr(job, "changed", set()))
+
+        self.undo_button.setVisible(has_changes)
+        self.undo_button.setEnabled(bool(changes))
+
+        if changes and self._summary_job is not job:
+            self._summary_job = job
+            self.trace.appendPlainText(
+                "\nИЗМЕНЕНИЯ:\n" + format_changes(changes)
+            )
+
+    def _undo_changes(self) -> None:
+        """Возвращает файлы задачи к состоянию до запуска."""
+
+        job = self.job
+
+        if job is None or not getattr(job, "changed", set()):
+            return
+
+        record = job.rollback_record()
+        ready = [
+            item["path"]
+            for item in (getattr(job, "changes", []) or [])
+            if item.get("available")
+        ]
+
+        if not ready:
+            self.status_label.setText(
+                "Откат невозможен: резервные копии не найдены."
+            )
+
+            return
+
+        answer = QMessageBox.question(
+            self,
+            "Откатить изменения",
+            "Вернуть к состоянию до задачи:\n\n"
+            + "\n".join(ready[:10])
+            + (
+                f"\n… и ещё {len(ready) - 10}"
+                if len(ready) > 10
+                else ""
+            )
+            + "\n\nТекущие изменения этих файлов будут потеряны.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+
+        if answer != QMessageBox.Yes:
+            return
+
+        lines = rollback_run(Path(record["root"]), record)
+
+        self.trace.appendPlainText("\nОТКАТ:\n" + "\n".join(lines))
+        self.status_label.setText(
+            "Файлы возвращены к состоянию до задачи."
+        )
+        self.undo_button.setEnabled(False)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Останавливает задачу, чтобы поток не жил после закрытия."""

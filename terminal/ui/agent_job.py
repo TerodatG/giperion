@@ -14,6 +14,7 @@ from terminal.core.agent.protocol import (
     ApprovalResult,
 )
 from terminal.core.agent.runs import record_run
+from terminal.core.agent.summary import changes_of
 
 
 class AgentJob:
@@ -53,7 +54,9 @@ class AgentJob:
         self.partial = ""
         # Файлы, которые агент изменил: нужны для отката прогона.
         self.changed: set[str] = set()
+        self.changes: list[dict] = []
         self._started_at = self._now()
+        self._finished_at = ""
         self._budget = budget
         self._max_prompt_chars = max(8_000, int(max_prompt_chars))
 
@@ -131,6 +134,16 @@ class AgentJob:
         provider = getattr(self._brain, "provider", None)
 
         return int(getattr(provider, "retry_count", 0) or 0)
+
+    def rollback_record(self) -> dict:
+        """Запись для summary.rollback: файлы и окно времени прогона."""
+
+        return {
+            "root": str(self._root),
+            "files": sorted(self.changed),
+            "started_at": self._started_at,
+            "created_at": self._finished_at or self._now(),
+        }
 
     def cancel(self) -> None:
         """Просит цикл остановиться после текущего шага."""
@@ -247,6 +260,16 @@ class AgentJob:
             self.duration_s = time.monotonic() - self._started
             self.tokens = int(getattr(self._brain, "total_tokens", 0) or 0)
             self.cost = float(getattr(self._brain, "cost", 0.0) or 0.0)
+            self._finished_at = self._now()
+
+            if self.changed:
+                try:
+                    self.changes = changes_of(
+                        self._root,
+                        self.rollback_record(),
+                    )
+                except Exception:  # noqa: BLE001 — сводка не должна ломать
+                    self.changes = []
 
             record_run(
                 self._task,
