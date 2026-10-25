@@ -158,154 +158,157 @@ class ModuleButton(QAbstractButton):
         )
         painter.setBrush(Qt.NoBrush)
 
-        center = rect.center()
+        drawers = {
+            "internet": self._draw_internet,
+            "models": self._draw_models,
+            "conference": self._draw_conference,
+            "voice": self._draw_voice,
+            "personality": self._draw_personality,
+        }
 
-        if self.kind == "internet":
-            painter.drawEllipse(
-                QRectF(
-                    center.x() - 7,
-                    center.y() - 7,
-                    14,
-                    14,
-                )
-            )
-            painter.drawLine(
-                QPointF(center.x() - 7, center.y()),
-                QPointF(center.x() + 7, center.y()),
-            )
-            painter.drawEllipse(
-                QRectF(
-                    center.x() - 3.5,
-                    center.y() - 7,
-                    7,
-                    14,
-                )
-            )
-        elif self.kind == "models":
-            top = QPointF(center.x(), center.y() - 7)
-            left = QPointF(center.x() - 7, center.y() + 6)
-            right = QPointF(center.x() + 7, center.y() + 6)
-
-            painter.drawLine(top, left)
-            painter.drawLine(top, right)
-            painter.drawLine(left, right)
-
-            for point in (top, left, right):
-                painter.setBrush(QColor(18, 14, 11))
-                painter.drawEllipse(point, 2.7, 2.7)
-        elif self.kind == "conference":
-            # Человек за трибуной с микрофоном.
-            painter.drawEllipse(
-                QPointF(center.x() - 2, center.y() - 7),
-                2.0,
-                2.0,
-            )
-            painter.drawLine(
-                QPointF(center.x() - 2, center.y() - 5),
-                QPointF(center.x() - 2, center.y() + 1),
-            )
-            painter.drawLine(
-                QPointF(center.x() - 5, center.y() - 2),
-                QPointF(center.x() + 1, center.y() - 2),
-            )
-
-            podium = QPainterPath()
-            podium.moveTo(center.x() - 8, center.y() + 1)
-            podium.lineTo(center.x() + 4, center.y() + 1)
-            podium.lineTo(center.x() + 2, center.y() + 8)
-            podium.lineTo(center.x() - 6, center.y() + 8)
-            podium.closeSubpath()
-            painter.drawPath(podium)
-
-            painter.drawLine(
-                QPointF(center.x() + 6, center.y() + 2),
-                QPointF(center.x() + 6, center.y() - 5),
-            )
-            painter.drawEllipse(
-                QPointF(center.x() + 6, center.y() - 7),
-                1.6,
-                2.2,
-            )
-        elif self.kind == "voice":
-            path = QPainterPath()
-            path.moveTo(center.x() - 8, center.y() - 3)
-            path.lineTo(center.x() - 4, center.y() - 3)
-            path.lineTo(center.x() + 1, center.y() - 8)
-            path.lineTo(center.x() + 1, center.y() + 8)
-            path.lineTo(center.x() - 4, center.y() + 3)
-            path.lineTo(center.x() - 8, center.y() + 3)
-            path.closeSubpath()
-            painter.drawPath(path)
-
-            painter.drawArc(
-                QRectF(
-                    center.x() - 1,
-                    center.y() - 6,
-                    10,
-                    12,
-                ),
-                -60 * 16,
-                120 * 16,
-            )
-            painter.drawArc(
-                QRectF(
-                    center.x() - 1,
-                    center.y() - 9,
-                    15,
-                    18,
-                ),
-                -55 * 16,
-                110 * 16,
-            )
-        elif self.kind == "personality":
-            # Витрувианская фигура с раскинутыми руками и ногами.
-            painter.drawEllipse(
-                QPointF(center.x(), center.y() - 6),
-                1.8,
-                1.8,
-            )
-            painter.drawLine(
-                QPointF(center.x(), center.y() - 4),
-                QPointF(center.x(), center.y() + 1),
-            )
-            painter.drawLine(
-                QPointF(center.x() - 7, center.y() - 1),
-                QPointF(center.x() + 7, center.y() - 1),
-            )
-            painter.drawLine(
-                QPointF(center.x(), center.y() + 1),
-                QPointF(center.x() - 5, center.y() + 7),
-            )
-            painter.drawLine(
-                QPointF(center.x(), center.y() + 1),
-                QPointF(center.x() + 5, center.y() + 7),
-            )
-
-            painter.setBrush(color)
-            painter.drawEllipse(
-                QPointF(center.x(), center.y() - 6),
-                1.8,
-                1.8,
-            )
-
-            for point in (
-                QPointF(center.x() - 7, center.y() - 1),
-                QPointF(center.x() + 7, center.y() - 1),
-                QPointF(center.x() - 5, center.y() + 7),
-                QPointF(center.x() + 5, center.y() + 7),
-            ):
-                painter.drawEllipse(point, 1.1, 1.1)
-
-            painter.setBrush(Qt.NoBrush)
-        else:
-            painter.drawLine(
-                QPointF(center.x() - 6, center.y()),
-                QPointF(center.x() + 6, center.y()),
-            )
-            painter.drawLine(
-                QPointF(center.x(), center.y() - 6),
-                QPointF(center.x(), center.y() + 6),
-            )
-
+        drawer = drawers.get(self.kind, self._draw_plus)
+        drawer(painter, rect.center(), color)
         painter.restore()
+
+    def _draw_internet(self, painter, center, color) -> None:
+        """Глобус."""
+
+        painter.drawEllipse(
+            QRectF(center.x() - 7, center.y() - 7, 14, 14)
+        )
+        painter.drawLine(
+            QPointF(center.x() - 7, center.y()),
+            QPointF(center.x() + 7, center.y()),
+        )
+        painter.drawEllipse(
+            QRectF(center.x() - 3.5, center.y() - 7, 7, 14)
+        )
+
+    def _draw_models(self, painter, center, color) -> None:
+        """Три узла сети."""
+
+        top = QPointF(center.x(), center.y() - 7)
+        left = QPointF(center.x() - 7, center.y() + 6)
+        right = QPointF(center.x() + 7, center.y() + 6)
+
+        painter.drawLine(top, left)
+        painter.drawLine(top, right)
+        painter.drawLine(left, right)
+
+        for point in (top, left, right):
+            painter.setBrush(QColor(18, 14, 11))
+            painter.drawEllipse(point, 2.7, 2.7)
+
+    def _draw_conference(self, painter, center, color) -> None:
+        """Человек за трибуной с микрофоном."""
+
+        painter.drawEllipse(
+            QPointF(center.x() - 2, center.y() - 7),
+            2.0,
+            2.0,
+        )
+        painter.drawLine(
+            QPointF(center.x() - 2, center.y() - 5),
+            QPointF(center.x() - 2, center.y() + 1),
+        )
+        painter.drawLine(
+            QPointF(center.x() - 5, center.y() - 2),
+            QPointF(center.x() + 1, center.y() - 2),
+        )
+
+        podium = QPainterPath()
+        podium.moveTo(center.x() - 8, center.y() + 1)
+        podium.lineTo(center.x() + 4, center.y() + 1)
+        podium.lineTo(center.x() + 2, center.y() + 8)
+        podium.lineTo(center.x() - 6, center.y() + 8)
+        podium.closeSubpath()
+        painter.drawPath(podium)
+
+        painter.drawLine(
+            QPointF(center.x() + 6, center.y() + 2),
+            QPointF(center.x() + 6, center.y() - 5),
+        )
+        painter.drawEllipse(
+            QPointF(center.x() + 6, center.y() - 7),
+            1.6,
+            2.2,
+        )
+
+    def _draw_voice(self, painter, center, color) -> None:
+        """Динамик со звуковыми дугами."""
+
+        path = QPainterPath()
+        path.moveTo(center.x() - 8, center.y() - 3)
+        path.lineTo(center.x() - 4, center.y() - 3)
+        path.lineTo(center.x() + 1, center.y() - 8)
+        path.lineTo(center.x() + 1, center.y() + 8)
+        path.lineTo(center.x() - 4, center.y() + 3)
+        path.lineTo(center.x() - 8, center.y() + 3)
+        path.closeSubpath()
+        painter.drawPath(path)
+
+        painter.drawArc(
+            QRectF(center.x() - 1, center.y() - 6, 10, 12),
+            -60 * 16,
+            120 * 16,
+        )
+        painter.drawArc(
+            QRectF(center.x() - 1, center.y() - 9, 15, 18),
+            -55 * 16,
+            110 * 16,
+        )
+
+    def _draw_personality(self, painter, center, color) -> None:
+        """Витрувианская фигура."""
+
+        painter.drawEllipse(
+            QPointF(center.x(), center.y() - 6),
+            1.8,
+            1.8,
+        )
+        painter.drawLine(
+            QPointF(center.x(), center.y() - 4),
+            QPointF(center.x(), center.y() + 1),
+        )
+        painter.drawLine(
+            QPointF(center.x() - 7, center.y() - 1),
+            QPointF(center.x() + 7, center.y() - 1),
+        )
+        painter.drawLine(
+            QPointF(center.x(), center.y() + 1),
+            QPointF(center.x() - 5, center.y() + 7),
+        )
+        painter.drawLine(
+            QPointF(center.x(), center.y() + 1),
+            QPointF(center.x() + 5, center.y() + 7),
+        )
+
+        painter.setBrush(color)
+        painter.drawEllipse(
+            QPointF(center.x(), center.y() - 6),
+            1.8,
+            1.8,
+        )
+
+        for point in (
+            QPointF(center.x() - 7, center.y() - 1),
+            QPointF(center.x() + 7, center.y() - 1),
+            QPointF(center.x() - 5, center.y() + 7),
+            QPointF(center.x() + 5, center.y() + 7),
+        ):
+            painter.drawEllipse(point, 1.1, 1.1)
+
+        painter.setBrush(Qt.NoBrush)
+
+    def _draw_plus(self, painter, center, color) -> None:
+        """Запасной знак «плюс»."""
+
+        painter.drawLine(
+            QPointF(center.x() - 6, center.y()),
+            QPointF(center.x() + 6, center.y()),
+        )
+        painter.drawLine(
+            QPointF(center.x(), center.y() - 6),
+            QPointF(center.x(), center.y() + 6),
+        )
 

@@ -72,8 +72,17 @@ class GiperionWindow(
     """Соединяет окно Qt с логикой консольного Гипериона."""
 
     def __init__(self) -> None:
-        loader = QUiLoader()
+        self._load_window()
+        self._resolve_speaker()
+        self._setup_timers()
+        self._load_appearance()
+        self._build_interface()
+        self._announce_start()
 
+    def _load_window(self) -> None:
+        """Загружает .ui и собирает безрамочную оболочку."""
+
+        loader = QUiLoader()
         self.window = loader.load(str(WINDOW_FILE))
 
         if self.window is None:
@@ -81,10 +90,7 @@ class GiperionWindow(
                 f"Не удалось загрузить окно: {WINDOW_FILE}"
             )
 
-        # Настройки окна переживают перезапуск.
         self.window_settings = load_window_settings()
-
-        # Собственная футуристическая шкура вместо рамки Windows.
         self.window.setStyleSheet(WINDOW_STYLE)
         self._build_window_shell()
 
@@ -92,12 +98,11 @@ class GiperionWindow(
         self.input = self.window.messageInput
         self.button = self.window.sendButton
         self.personality_title = self.window.personalityTitle
-
-        # Надпись «Параметры ИИ» сдвинута вправо на пару символов.
         self.personality_title.setGeometry(19, 11, 250, 20)
 
-        # Имя того, кто отвечает в чате: Гиперион или внешняя модель.
-        # В терминале связи показывается короткий ник, в карточке — имя.
+    def _resolve_speaker(self) -> None:
+        """Определяет, кто отвечает в чате: модель или дрон."""
+
         active_model = get_active_model()
         self.bot_name = (
             active_model["name"] if active_model else BOT_NAME
@@ -108,8 +113,6 @@ class GiperionWindow(
             else BOT_NICKNAME
         )
 
-        # Дрон, закреплённый за терминалом, важнее активной модели:
-        # он отвечает локальным ядром от своего имени.
         self.attached_pet = get_active_pet()
 
         if self.attached_pet is not None:
@@ -120,11 +123,11 @@ class GiperionWindow(
             )
 
         self.update_input_placeholder()
-
-        # У кнопок — обычная стрелка, а не курсор растягивания окна.
         self.button.setCursor(Qt.ArrowCursor)
 
-        # Ожидание ответа и анимация индикатора «обрабатываю запрос…».
+    def _setup_timers(self) -> None:
+        """Таймеры ожидания, печати и голоса."""
+
         self.answering = False
         self.thinking_frame = 0
 
@@ -132,18 +135,18 @@ class GiperionWindow(
         self.thinking_timer.setInterval(THINKING_STEP_MS)
         self.thinking_timer.timeout.connect(self._animate_thinking)
 
-        # Эмуляция печати: состояние одной печатающейся реплики.
         self.typing_state = None
         self.typing_timer = QTimer(self.window)
         self.typing_timer.setInterval(TYPING_STEP_MS)
         self.typing_timer.timeout.connect(self._type_tick)
 
-        # Голосовой модуль: необязательные реплики по таймеру.
         self.voice_timer = QTimer(self.window)
         self.voice_timer.setSingleShot(True)
         self.voice_timer.timeout.connect(self._voice_tick)
 
-        # Гарнитура и размер шрифта истории чата.
+    def _load_appearance(self) -> None:
+        """Шрифт, цвета, стили, модули и списки чатов."""
+
         self.chat_font_family = str(
             self.window_settings.get(
                 "chat_font_family",
@@ -156,61 +159,40 @@ class GiperionWindow(
                 DEFAULT_CHAT_FONT_SIZE,
             )
         )
-
-        # Цвета текста (меняются в настройках).
         self.colors = {
             **DEFAULT_COLORS,
             **dict(self.window_settings.get("colors", {})),
         }
-
-        # Виды шрифта для групп текста.
         self.styles = {
             **DEFAULT_STYLES,
             **dict(self.window_settings.get("styles", {})),
         }
-
-        # Свой размер шрифта у групп текста (0 — как у всего чата).
         self.font_sizes = {
             **DEFAULT_FONT_SIZES,
             **dict(self.window_settings.get("font_sizes", {})),
         }
-
-        # Настройки печати и задержки, а также состояния модулей.
         self.response_settings = {
             **DEFAULT_RESPONSE_SETTINGS,
-            **dict(
-                self.window_settings.get("response", {})
-            ),
+            **dict(self.window_settings.get("response", {})),
         }
         self.modules = {
             **DEFAULT_MODULE_STATES,
-            **dict(
-                self.window_settings.get("modules", {})
-            ),
+            **dict(self.window_settings.get("modules", {})),
         }
 
-        # Модули влияют не только на окно, но и на логику ответов.
         set_modules(self.modules)
 
-        # Кнопки модулей: ключ → кнопка.
         self.module_buttons = {}
-
-        # Тексты ответов Гипериона для ссылок «копировать».
         self.bot_messages = []
-
-        # Тексты сообщений пользователя для ссылок «копировать»/«править».
         self.user_messages = []
-
-        # Журнал чата для перерисовки при смене цветов.
-        # Элементы: («user»/«bot»/«system», текст) или («level», уровень, ранг).
         self.chat_log = []
-
-        # Независимые открытые чаты. Каждый хранит свой журнал и списки
-        # копирования; переключение не смешивает диалоги.
         self.chats = []
         self.active_chat_index = -1
         self.chat_sequence = 0
         self.chat_epoch = 0
+
+    def _build_interface(self) -> None:
+        """Панели, кнопки, чаты и связи сигналов."""
 
         self._add_panel_captions()
         self._show_avatar()
@@ -240,16 +222,16 @@ class GiperionWindow(
         if self.modules["voice"]:
             self._schedule_voice()
 
+    def _announce_start(self) -> None:
+        """Пишет приветствие и состояние собеседника."""
+
         add_action("Гиперион запущен (окно)")
 
         self.append_system(
             "Гиперион запущен. Для системных команд используй формат: "
             "«Гиперион, система: команда»."
         )
-        self.append_system(
-            "Для завершения работы напиши: выход."
-        )
-
+        self.append_system("Для завершения работы напиши: выход.")
         self.update_core_panel()
 
         if self.attached_pet is not None:
@@ -266,17 +248,13 @@ class GiperionWindow(
             )
         elif self.modules.get("conference"):
             members = get_conference_members()
-            names = ", ".join(
-                model["name"] for model in members
-            )
+            names = ", ".join(model["name"] for model in members)
             self.append_system(
                 "Сенат включён. Отвечают: "
                 f"{names or 'участники не выбраны'}."
             )
         elif get_current_model_id() == DEFAULT_MODEL_ID:
-            self.append_bot(
-                "Привет! Я Гиперион. О чём поговорим?"
-            )
+            self.append_bot("Привет! Я Гиперион. О чём поговорим?")
         else:
             self.append_system(
                 f"Активна модель «{self.bot_name}». "

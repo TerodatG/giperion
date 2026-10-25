@@ -136,10 +136,21 @@ class SparkChart(QWidget):
 
             return
 
-        # Сетка: три горизонтали и редкие вертикали.
-        painter.setPen(
-            QPen(QColor(35, 66, 31, 200), 1.0, Qt.DotLine)
-        )
+        self._draw_grid(painter, inner, frame)
+
+        if not any(values for values, _ in self._series):
+            self._draw_empty(painter, inner)
+            painter.end()
+
+            return
+
+        self._draw_series(painter, inner)
+        painter.end()
+
+    def _draw_grid(self, painter: QPainter, inner: QRectF, frame: QRectF) -> None:
+        """Сетка и подпись масштаба."""
+
+        painter.setPen(QPen(QColor(35, 66, 31, 200), 1.0, Qt.DotLine))
 
         for step in range(1, 4):
             y = inner.top() + inner.height() * step / 4.0
@@ -157,42 +168,38 @@ class SparkChart(QWidget):
                 QPointF(x, inner.bottom()),
             )
 
-        if self._scale_text:
-            font = painter.font()
-            font.setPointSizeF(7.0)
-            font.setBold(False)
-
-            painter.setFont(font)
-            painter.setPen(QColor(79, 122, 87))
-
-            painter.drawText(
-                QRectF(
-                    inner.left(),
-                    frame.top() + 1.0,
-                    inner.width(),
-                    9.0,
-                ),
-                Qt.AlignRight | Qt.AlignVCenter,
-                self._scale_text,
-            )
-
-        has_data = any(values for values, _ in self._series)
-
-        if not has_data:
-            font = painter.font()
-            font.setPointSizeF(8.0)
-
-            painter.setFont(font)
-            painter.setPen(QColor(79, 122, 87))
-
-            painter.drawText(
-                inner,
-                Qt.AlignCenter,
-                "сбор данных…",
-            )
-            painter.end()
-
+        if not self._scale_text:
             return
+
+        font = painter.font()
+        font.setPointSizeF(7.0)
+        font.setBold(False)
+
+        painter.setFont(font)
+        painter.setPen(QColor(79, 122, 87))
+        painter.drawText(
+            QRectF(
+                inner.left(),
+                frame.top() + 1.0,
+                inner.width(),
+                9.0,
+            ),
+            Qt.AlignRight | Qt.AlignVCenter,
+            self._scale_text,
+        )
+
+    def _draw_empty(self, painter: QPainter, inner: QRectF) -> None:
+        """Подпись «сбор данных…»."""
+
+        font = painter.font()
+        font.setPointSizeF(8.0)
+
+        painter.setFont(font)
+        painter.setPen(QColor(79, 122, 87))
+        painter.drawText(inner, Qt.AlignCenter, "сбор данных…")
+
+    def _draw_series(self, painter: QPainter, inner: QRectF) -> None:
+        """Линии и заливка рядов."""
 
         step = inner.width() / max(1, SERIES_POINTS - 1)
 
@@ -207,7 +214,6 @@ class SparkChart(QWidget):
                 x = inner.left() + (offset + index) * step
                 ratio = min(1.0, max(0.0, value / self._maximum))
                 y = inner.bottom() - ratio * inner.height()
-
                 points.append(QPointF(x, y))
 
             if len(points) == 1:
@@ -217,62 +223,66 @@ class SparkChart(QWidget):
 
                 continue
 
-            area = QPainterPath(points[0])
+            self._fill_area(painter, points, inner, color)
+            self._draw_line(painter, points, color)
+            self._draw_last_point(painter, points[-1], color)
 
-            for point in points[1:]:
-                area.lineTo(point)
+    def _fill_area(self, painter, points, inner, color) -> None:
+        """Заливка под линией."""
 
-            area.lineTo(QPointF(points[-1].x(), inner.bottom()))
-            area.lineTo(QPointF(points[0].x(), inner.bottom()))
-            area.closeSubpath()
+        area = QPainterPath(points[0])
 
-            gradient = QLinearGradient(
-                inner.topLeft(),
-                inner.bottomLeft(),
+        for point in points[1:]:
+            area.lineTo(point)
+
+        area.lineTo(QPointF(points[-1].x(), inner.bottom()))
+        area.lineTo(QPointF(points[0].x(), inner.bottom()))
+        area.closeSubpath()
+
+        gradient = QLinearGradient(inner.topLeft(), inner.bottomLeft())
+        top = QColor(color)
+        top.setAlpha(95)
+        bottom = QColor(color)
+        bottom.setAlpha(0)
+        gradient.setColorAt(0.0, top)
+        gradient.setColorAt(1.0, bottom)
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(gradient)
+        painter.drawPath(area)
+
+    def _draw_line(self, painter, points, color) -> None:
+        """Сама линия ряда."""
+
+        line = QPainterPath(points[0])
+
+        for point in points[1:]:
+            line.lineTo(point)
+
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(
+            QPen(
+                color,
+                1.6,
+                Qt.SolidLine,
+                Qt.RoundCap,
+                Qt.RoundJoin,
             )
+        )
+        painter.drawPath(line)
 
-            top = QColor(color)
-            top.setAlpha(95)
+    def _draw_last_point(self, painter, point, color) -> None:
+        """Свечение на последней точке."""
 
-            bottom = QColor(color)
-            bottom.setAlpha(0)
+        glow = QColor(color)
+        glow.setAlpha(90)
 
-            gradient.setColorAt(0.0, top)
-            gradient.setColorAt(1.0, bottom)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(glow)
+        painter.drawEllipse(point, 4.0, 4.0)
 
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(gradient)
-            painter.drawPath(area)
-
-            line = QPainterPath(points[0])
-
-            for point in points[1:]:
-                line.lineTo(point)
-
-            painter.setBrush(Qt.NoBrush)
-            painter.setPen(
-                QPen(
-                    color,
-                    1.6,
-                    Qt.SolidLine,
-                    Qt.RoundCap,
-                    Qt.RoundJoin,
-                )
-            )
-            painter.drawPath(line)
-
-            # Свечение на последней точке.
-            glow = QColor(color)
-            glow.setAlpha(90)
-
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(glow)
-            painter.drawEllipse(points[-1], 4.0, 4.0)
-
-            painter.setBrush(color)
-            painter.drawEllipse(points[-1], 2.0, 2.0)
-
-        painter.end()
+        painter.setBrush(color)
+        painter.drawEllipse(point, 2.0, 2.0)
 
 
 class CoreBars(QWidget):

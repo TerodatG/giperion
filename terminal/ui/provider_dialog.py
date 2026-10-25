@@ -72,6 +72,8 @@ class ProviderDialog(SkinDialog):
         self._timer.timeout.connect(self._poll)
 
     def _build(self) -> None:
+        """Собирает окно провайдера."""
+
         title = QLabel("ПРОВАЙДЕР АГЕНТА", self)
         title.setObjectName("dialogTitle")
 
@@ -84,6 +86,42 @@ class ProviderDialog(SkinDialog):
         )
         hint.setObjectName("dialogHint")
         hint.setWordWrap(True)
+
+        form = self._build_connection_form()
+        self._add_budget_rows(form)
+        self._add_option_rows(form)
+
+        self.status_label = QLabel("Готово к настройке.", self)
+        self.status_label.setObjectName("dialogHint")
+        self.status_label.setWordWrap(True)
+
+        self.check_button = QPushButton("Проверить", self)
+        self.check_button.setObjectName("workshopAction")
+        self.check_button.clicked.connect(self._check)
+
+        self.save_button = QPushButton("Сохранить", self)
+        self.save_button.setObjectName("workshopAction")
+        self.save_button.clicked.connect(self._save)
+
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(self.check_button)
+        row.addWidget(self.save_button)
+        row.addStretch(1)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Close, self)
+        buttons.button(QDialogButtonBox.Close).setText("Закрыть")
+        buttons.rejected.connect(self.reject)
+
+        self.body_layout.addWidget(title)
+        self.body_layout.addWidget(hint)
+        self.body_layout.addLayout(form)
+        self.body_layout.addLayout(row)
+        self.body_layout.addWidget(self.status_label, 1)
+        self.body_layout.addWidget(buttons)
+
+    def _build_connection_form(self) -> QFormLayout:
+        """Адрес, модель и ключ провайдера."""
 
         values = load_settings()
 
@@ -106,6 +144,11 @@ class ProviderDialog(SkinDialog):
         form.addRow("Base URL", self.base_input)
         form.addRow("Модель", self.model_input)
         form.addRow("API-ключ", self.key_input)
+
+        return form
+
+    def _add_budget_rows(self, form: QFormLayout) -> None:
+        """Лимиты, цены, таймаут и бюджет контекста."""
 
         limits = budget_limits()
 
@@ -176,6 +219,9 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Бюджет контекста", self.context_input)
 
+    def _add_option_rows(self, form: QFormLayout) -> None:
+        """Плагины, песочница, MCP, веб и поток."""
+
         self.plugins_check = QCheckBox(
             "Разрешить плагины инструментов",
             self,
@@ -212,10 +258,7 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Песочница", self.sandbox_combo)
 
-        self.mcp_check = QCheckBox(
-            "Включить MCP-серверы",
-            self,
-        )
+        self.mcp_check = QCheckBox("Включить MCP-серверы", self)
         self.mcp_check.setChecked(mcp_enabled())
         self.mcp_check.setToolTip(
             "Серверы из data/agent_mcp.json: внешние инструменты по "
@@ -245,35 +288,6 @@ class ProviderDialog(SkinDialog):
             "умеет поток, агент молча вернётся к обычному запросу."
         )
         form.addRow("Поток", self.stream_check)
-
-        self.status_label = QLabel("Готово к настройке.", self)
-        self.status_label.setObjectName("dialogHint")
-        self.status_label.setWordWrap(True)
-
-        self.check_button = QPushButton("Проверить", self)
-        self.check_button.setObjectName("workshopAction")
-        self.check_button.clicked.connect(self._check)
-
-        self.save_button = QPushButton("Сохранить", self)
-        self.save_button.setObjectName("workshopAction")
-        self.save_button.clicked.connect(self._save)
-
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        row.addWidget(self.check_button)
-        row.addWidget(self.save_button)
-        row.addStretch(1)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Close, self)
-        buttons.button(QDialogButtonBox.Close).setText("Закрыть")
-        buttons.rejected.connect(self.reject)
-
-        self.body_layout.addWidget(title)
-        self.body_layout.addWidget(hint)
-        self.body_layout.addLayout(form)
-        self.body_layout.addLayout(row)
-        self.body_layout.addWidget(self.status_label, 1)
-        self.body_layout.addWidget(buttons)
 
     def _provider(self) -> OpenAICompatibleProvider:
         return OpenAICompatibleProvider(
