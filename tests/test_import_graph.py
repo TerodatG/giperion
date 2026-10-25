@@ -1,6 +1,6 @@
 # Giperion/tests/test_import_graph.py                                v001
 # Граф импортов: не даём появиться новым циклам между модулями.
-# Последнее изменение: три известных цикла зафиксированы до рефакторинга.
+# Последнее изменение: циклов нет — агент, модель и UI развязаны.
 
 import ast
 from collections import defaultdict
@@ -11,31 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE_ROOTS = ("giperion", "terminal", "shared", "tools")
 
 # Циклы, которые уже есть и разбираются отдельным этапом.
-# После развязки агента список должен стать пустым.
-KNOWN_CYCLES = {
-    frozenset(
-        {
-            "giperion.neural_engine",
-            "giperion.neural_loader",
-        }
-    ),
-    frozenset(
-        {
-            "terminal.core.agent.context",
-            "terminal.core.agent.mcp",
-            "terminal.core.agent.plugin_runner",
-            "terminal.core.agent.providers",
-            "terminal.core.agent.registry",
-            "terminal.core.agent.settings",
-        }
-    ),
-    frozenset(
-        {
-            "terminal.ui.agent_dialog",
-            "terminal.ui.agent_tasks_dialog",
-        }
-    ),
-}
+# Сейчас их нет: агент, модель и UI-диалоги развязаны.
+KNOWN_CYCLES: set[frozenset[str]] = set()
 
 
 def module_name(path: Path) -> str:

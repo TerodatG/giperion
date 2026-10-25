@@ -32,7 +32,7 @@ STATUS_TITLES = {
 class AgentTasksDialog(SkinDialog):
     """Список сохранённых задач агента."""
 
-    def __init__(self, parent) -> None:
+    def __init__(self, parent, on_resume=None) -> None:
         super().__init__(
             parent,
             "Задачи агента",
@@ -41,6 +41,7 @@ class AgentTasksDialog(SkinDialog):
         )
 
         self._parent = parent
+        self._on_resume = on_resume
         self._states: list[dict] = []
 
         self._build()
@@ -228,16 +229,10 @@ class AgentTasksDialog(SkinDialog):
         if state is None:
             return
 
-        task_id = str(state.get("id") or "")
         self.accept()
 
-        from terminal.ui.agent_dialog import show_agent_dialog
-
-        show_agent_dialog(
-            self._parent,
-            f"agent-resume-{task_id}",
-            resume=state,
-        )
+        if self._on_resume is not None:
+            self._on_resume(state)
 
     def _remove(self) -> None:
         state = self._selected()
@@ -249,8 +244,8 @@ class AgentTasksDialog(SkinDialog):
         self._refresh()
 
 
-def show_agent_tasks_dialog(parent) -> None:
+def show_agent_tasks_dialog(parent, on_resume=None) -> None:
     """Открывает немодальный список задач агента."""
 
-    dialog = AgentTasksDialog(parent)
+    dialog = AgentTasksDialog(parent, on_resume)
     show_tool_window(parent, dialog, "agent-tasks")

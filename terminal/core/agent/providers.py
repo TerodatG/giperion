@@ -11,6 +11,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Callable
 
+from terminal.core.agent import settings
+from terminal.core.agent.prompts import NATIVE_SYSTEM_PROMPT
 from terminal.core.agent.protocol import AgentDecision, ToolCall
 from terminal.core.agent.registry import get_spec, tool_schemas
 
@@ -589,8 +591,6 @@ class NativeBrain:
     def begin(self, task: str, blocks: list[str] | None = None) -> list[dict]:
         """Первые сообщения переписки: система, задача и стартовые данные."""
 
-        from terminal.core.agent.context import NATIVE_SYSTEM_PROMPT
-
         content = str(task or "").strip()
 
         if blocks:
@@ -745,3 +745,20 @@ def provider_from_env() -> OpenAICompatibleProvider | None:
         return None
 
     return OpenAICompatibleProvider(base_url, api_key, model)
+
+
+def provider_from_settings() -> OpenAICompatibleProvider | None:
+    """Собирает провайдера из файла/окружения или возвращает None."""
+
+    values = settings.resolve_provider_values()
+
+    if not settings.has_settings(values):
+        return None
+
+    return OpenAICompatibleProvider(
+        values["base_url"],
+        values["api_key"],
+        values["model"],
+        timeout=settings.request_timeout(),
+        stream=settings.stream_enabled(),
+    )

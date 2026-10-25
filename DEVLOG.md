@@ -4860,11 +4860,20 @@ un_tests и write_file).
   получил `ruff`.
 - CI `.github/workflows/ci.yml`: Windows, Python 3.13, ruff,
   `compileall`, pytest, отчёт о структуре.
-- `tests/test_import_graph.py` фиксирует три известных цикла импорта и
-  падает при появлении нового; после развязки агента список станет
-  пустым.
+- `tests/test_import_graph.py` фиксирует циклы импорта: теперь список
+  известных циклов пуст, любой новый падает тестом.
 - `tools/check_structure.py` показывает файлы >600 строк, функции
   >150 строк и сложность >20.
+- **Циклы импортов развязаны**:
+  - `provider_from_settings()` переехал из `settings.py` в
+    `providers.py`: настройки стали листовым модулем;
+  - `NATIVE_SYSTEM_PROMPT` и `DATA_RULE` вынесены в `agent/prompts.py`;
+    `context` и `providers` больше не тянут друг друга;
+  - `neural_loader.load_components()` возвращает части движка, а
+    `neural_engine` собирает `NeuralEngine` сам;
+  - список задач агента получает `on_resume` callback и не импортирует
+    окно агента;
+  - итог: **0 циклов импорта** (было 3).
 - **Исправлены скрытые ошибки**, найденные ruff:
   - `registry.py` ссылался на неопределённый `ToolError` — теперь
     `tools.ToolError`;
@@ -4902,8 +4911,6 @@ un_tests и write_file).
 
 **Ограничения**
 
-- Три цикла импорта пока в списке известных: агент (6 модулей),
-  `neural_engine`/`neural_loader`, два UI-диалога. Это следующий этап.
 - `data/model_settings.json` сейчас с `free: false`; файл вне git,
   поэтому решение о рабочем состоянии остаётся за пользователем.
 - `data/custom_models.json` с `custom-1` без канала оставлен как пример.

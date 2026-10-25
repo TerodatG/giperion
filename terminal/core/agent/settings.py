@@ -92,27 +92,6 @@ def resolve_provider_values() -> dict[str, str]:
     return env_provider_values()
 
 
-def provider_from_settings():
-    """Собирает провайдера из файла/окружения или возвращает None."""
-
-    from terminal.core.agent.providers import (
-        OpenAICompatibleProvider,
-    )
-
-    values = resolve_provider_values()
-
-    if not has_settings(values):
-        return None
-
-    return OpenAICompatibleProvider(
-        values["base_url"],
-        values["api_key"],
-        values["model"],
-        timeout=request_timeout(),
-        stream=stream_enabled(),
-    )
-
-
 def settings_file() -> Path:
     """Путь к файлу настроек агента."""
 

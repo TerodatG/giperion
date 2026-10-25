@@ -4,6 +4,7 @@
 import pytest
 
 from terminal.core.agent import settings
+from terminal.core.agent.providers import provider_from_settings
 
 
 def test_save_and_load(tmp_path, monkeypatch) -> None:
@@ -99,7 +100,7 @@ def test_provider_is_none_without_settings(
     monkeypatch.delenv("AGENT_API_KEY", raising=False)
     monkeypatch.delenv("AGENT_MODEL", raising=False)
 
-    assert settings.provider_from_settings() is None
+    assert provider_from_settings() is None
 
 
 def test_provider_is_created_from_file(
@@ -119,7 +120,7 @@ def test_provider_is_created_from_file(
         "model-x",
     )
 
-    provider = settings.provider_from_settings()
+    provider = provider_from_settings()
 
     assert provider is not None
     assert provider.model == "model-x"

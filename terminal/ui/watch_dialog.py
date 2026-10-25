@@ -16,11 +16,13 @@ from PySide6.QtWidgets import (
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
-from terminal.core.agent.providers import NativeBrain
+from terminal.core.agent.providers import (
+    NativeBrain,
+    provider_from_settings,
+)
 from terminal.core.agent.settings import (
     budget_limits,
     context_limit_chars,
-    provider_from_settings,
 )
 from terminal.core.agent.watch import (
     Changes,

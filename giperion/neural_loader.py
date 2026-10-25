@@ -6,12 +6,7 @@ import json
 
 import torch
 
-from giperion.neural_engine import (
-    CLASSIFIER_FILE,
-    INTENTS_FILE,
-    SEQ2SEQ_FILE,
-    NeuralEngine,
-)
+from config import DATA_DIR, MODELS_DIR
 from giperion.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
@@ -19,6 +14,10 @@ from giperion.training.char_tokenizer import (
 from giperion.training.model_charcnn import HybridTextClassifier
 from giperion.training.model_seq2seq import Seq2Seq
 from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+
+CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
+SEQ2SEQ_FILE = MODELS_DIR / "seq2seq.pt"
+INTENTS_FILE = DATA_DIR / "intents.json"
 
 
 def load_responses() -> dict[str, list[str]]:
@@ -39,8 +38,8 @@ def load_responses() -> dict[str, list[str]]:
     }
 
 
-def build_engine() -> NeuralEngine | None:
-    """Собирает движок из файлов моделей; при ошибке — None."""
+def load_components() -> dict | None:
+    """Собирает компоненты движка; при ошибке — None."""
 
     try:
         device = torch.device(
@@ -103,22 +102,18 @@ def build_engine() -> NeuralEngine | None:
 
         generator.eval()
 
-        return NeuralEngine(
-            classifier=classifier,
-            generator=generator,
-            word_tokenizer=word_tokenizer,
-            char_tokenizer=char_tokenizer,
-            labels=classifier_checkpoint["labels"],
-            responses_by_tag=load_responses(),
-            device=device,
-            max_word_len=classifier_checkpoint["max_len"],
-            max_src_len=generator_checkpoint[
-                "max_src_len"
-            ],
-            max_tgt_len=generator_checkpoint[
-                "max_tgt_len"
-            ],
-        )
+        return {
+            "classifier": classifier,
+            "generator": generator,
+            "word_tokenizer": word_tokenizer,
+            "char_tokenizer": char_tokenizer,
+            "labels": classifier_checkpoint["labels"],
+            "responses_by_tag": load_responses(),
+            "device": device,
+            "max_word_len": classifier_checkpoint["max_len"],
+            "max_src_len": generator_checkpoint["max_src_len"],
+            "max_tgt_len": generator_checkpoint["max_tgt_len"],
+        }
     except Exception as error:
         # Нейросеть — усиление, а не обязательное условие:
         # без моделей бот продолжает работать на правилах.

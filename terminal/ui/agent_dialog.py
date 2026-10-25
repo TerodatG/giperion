@@ -36,7 +36,10 @@ from terminal.core.agent.diff_marks import (
 from terminal.core.agent.diff_marks import (
     diff_marks as build_marks,
 )
-from terminal.core.agent.providers import NativeBrain
+from terminal.core.agent.providers import (
+    NativeBrain,
+    provider_from_settings,
+)
 from terminal.core.agent.rollback import rollback_run
 from terminal.core.agent.settings import (
     approval_policy,
@@ -44,7 +47,6 @@ from terminal.core.agent.settings import (
     context_limit_chars,
     max_steps,
     model_choice,
-    provider_from_settings,
     set_approval_policy,
     set_context_limit_chars,
     set_max_steps,
@@ -309,7 +311,10 @@ class AgentDialog(SkinDialog):
             "Сохранённые задачи: продолжить или удалить."
         )
         self.tasks_button.clicked.connect(
-            lambda: show_agent_tasks_dialog(self._parent)
+            lambda: show_agent_tasks_dialog(
+                self._parent,
+                on_resume=self._resume_task,
+            )
         )
 
         self.undo_button = QPushButton("Откатить изменения", self)
@@ -791,6 +796,17 @@ class AgentDialog(SkinDialog):
         show_agent_dialog(
             self._parent,
             f"agent-{time.time_ns()}",
+        )
+
+    def _resume_task(self, state: dict) -> None:
+        """Открывает выбранную задачу с сохранённой историей."""
+
+        task_id = str(state.get("id") or "")
+
+        show_agent_dialog(
+            self._parent,
+            f"agent-resume-{task_id}",
+            resume=state,
         )
 
     def _merge_branch(self) -> None:

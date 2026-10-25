@@ -6,18 +6,10 @@ import random
 
 import torch
 
-from config import MODELS_DIR
 from giperion.training.char_tokenizer import CharTokenizer
 from giperion.training.model_charcnn import HybridTextClassifier
 from giperion.training.model_seq2seq import Seq2Seq
 from giperion.training.tokenizer import WordTokenizer
-
-CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
-SEQ2SEQ_FILE = MODELS_DIR / "seq2seq.pt"
-
-INTENTS_FILE = (
-    MODELS_DIR.parent / "data" / "intents.json"
-)
 
 # Ниже порога диагнозу не верим — отвечать пусть правила.
 CONFIDENCE_THRESHOLD = 0.45
@@ -187,9 +179,14 @@ class NeuralEngine:
 def _build_engine() -> NeuralEngine | None:
     """Собирает движок через загрузчик; при ошибке — None."""
 
-    from giperion.neural_loader import build_engine
+    from giperion.neural_loader import load_components
 
-    return build_engine()
+    parts = load_components()
+
+    if parts is None:
+        return None
+
+    return NeuralEngine(**parts)
 
 
 _engine: NeuralEngine | None = None
