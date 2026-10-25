@@ -39,6 +39,75 @@ def list_models(base_url: str) -> list[str]:
     ]
 
 
+def _read_stream(response) -> tuple[dict, list[str], float | None, float | None]:
+    """Читает SSE и возвращает usage, текст и метки времени."""
+
+    usage: dict = {}
+    parts: list[str] = []
+    first_token = None
+    last_token = None
+
+    for raw_line in response:
+        line = raw_line.decode("utf-8", "replace").strip()
+
+        if not line.startswith("data: "):
+            continue
+
+        payload = line[6:]
+
+        if payload == "[DONE]":
+            break
+
+        try:
+            chunk = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+
+        if chunk.get("usage"):
+            usage = chunk["usage"]
+
+        choices = chunk.get("choices") or []
+
+        if not choices:
+            continue
+
+        delta = choices[0].get("delta") or {}
+        text = delta.get("content")
+
+        if not text:
+            continue
+
+        now = time.perf_counter()
+
+        if first_token is None:
+            first_token = now
+
+        last_token = now
+        parts.append(str(text))
+
+    return usage, parts, first_token, last_token
+
+
+def _speeds(
+    total: float,
+    ttft: float,
+    generation: float,
+    completion: int,
+) -> tuple[float, float]:
+    """Скорость генерации и end-to-end."""
+
+    generation_tps = 0.0
+
+    if generation > 0 and completion > 1:
+        generation_tps = (completion - 1) / generation
+    elif total > ttft and completion:
+        generation_tps = completion / (total - ttft)
+
+    end_to_end = completion / total if total else 0.0
+
+    return generation_tps, end_to_end
+
+
 def measure(
     base_url: str,
     model: str,
@@ -67,73 +136,28 @@ def measure(
     )
 
     started = time.perf_counter()
-    first_token = None
-    last_token = None
-    usage = {}
-    answer_parts = []
 
     with urllib.request.urlopen(request, timeout=timeout) as response:
-        for raw_line in response:
-            line = raw_line.decode("utf-8", "replace").strip()
-
-            if not line.startswith("data: "):
-                continue
-
-            payload = line[6:]
-
-            if payload == "[DONE]":
-                break
-
-            try:
-                chunk = json.loads(payload)
-            except json.JSONDecodeError:
-                continue
-
-            if chunk.get("usage"):
-                usage = chunk["usage"]
-
-            choices = chunk.get("choices") or []
-
-            if not choices:
-                continue
-
-            delta = choices[0].get("delta") or {}
-            text = delta.get("content")
-
-            if not text:
-                continue
-
-            now = time.perf_counter()
-
-            if first_token is None:
-                first_token = now
-
-            last_token = now
-            answer_parts.append(str(text))
+        usage, parts, first_token, last_token = _read_stream(response)
 
     finished = time.perf_counter()
 
-    ttft = (
-        (first_token - started)
-        if first_token is not None
-        else 0.0
-    )
+    ttft = (first_token - started) if first_token is not None else 0.0
     generation = (
         (last_token - first_token)
         if first_token is not None and last_token is not None
         else 0.0
     )
-
     completion = int(usage.get("completion_tokens", 0) or 0)
     prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
     total = finished - started
-
-    generation_tps = 0.0
-
-    if generation > 0 and completion > 1:
-        generation_tps = (completion - 1) / generation
-    elif total > ttft and completion:
-        generation_tps = completion / (total - ttft)
+    generation_tps, end_to_end = _speeds(
+        total,
+        ttft,
+        generation,
+        completion,
+    )
+    answer = "".join(parts)
 
     return {
         "ttft": ttft,
@@ -142,9 +166,9 @@ def measure(
         "prompt": prompt_tokens,
         "completion": completion,
         "generation_tps": generation_tps,
-        "end_to_end_tps": completion / total if total else 0.0,
-        "chars": len("".join(answer_parts)),
-        "answer": "".join(answer_parts),
+        "end_to_end_tps": end_to_end,
+        "chars": len(answer),
+        "answer": answer,
     }
 
 

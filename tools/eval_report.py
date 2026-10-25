@@ -13,29 +13,31 @@ LATEST = OUTPUT_DIR / "latest.json"
 
 
 
-def summarize(results: list[dict]) -> dict:
-    """Считает сводные метрики прогона и стабильность по задачам."""
+def _empty_summary() -> dict:
+    """Пустая сводка для нулевого прогона."""
 
-    total = len(results)
+    return {
+        "total": 0,
+        "passed": 0,
+        "success_rate": 0.0,
+        "avg_steps": 0.0,
+        "avg_duration_s": 0.0,
+        "max_context": 0,
+        "tokens": 0,
+        "cost": 0.0,
+        "runs": 0,
+        "stable_tasks": 0,
+        "flaky_tasks": 0,
+        "task_ids": [],
+        "per_task": {},
+    }
 
-    if not total:
-        return {
-            "total": 0,
-            "passed": 0,
-            "success_rate": 0.0,
-            "avg_steps": 0.0,
-            "avg_duration_s": 0.0,
-            "max_context": 0,
-            "tokens": 0,
-            "cost": 0.0,
-            "runs": 0,
-            "stable_tasks": 0,
-            "flaky_tasks": 0,
-            "task_ids": [],
-            "per_task": {},
-        }
 
-    passed = sum(1 for item in results if item["ok"])
+def _group_results(
+    results: list[dict],
+) -> tuple[dict[str, list[dict]], dict[str, dict], int, int]:
+    """Группирует результаты по задачам и считает стабильность."""
+
     groups: dict[str, list[dict]] = {}
 
     for number, item in enumerate(results):
@@ -74,6 +76,19 @@ def summarize(results: list[dict]) -> dict:
             elif ok_count:
                 flaky_tasks += 1
 
+    return groups, per_task, stable_tasks, flaky_tasks
+
+
+def summarize(results: list[dict]) -> dict:
+    """Считает сводные метрики прогона и стабильность по задачам."""
+
+    total = len(results)
+
+    if not total:
+        return _empty_summary()
+
+    passed = sum(1 for item in results if item["ok"])
+    groups, per_task, stable_tasks, flaky_tasks = _group_results(results)
     runs = max(int(item.get("attempt") or 1) for item in results)
 
     return {

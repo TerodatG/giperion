@@ -88,40 +88,42 @@ def _show_history() -> None:
 
 
 
-def _report(
-    *,
+def _print_stability(tasks, summary: dict, attempts: int) -> None:
+    """Печатает стабильность по задачам."""
+
+    if attempts <= 1:
+        return
+
+    print()
+    print("=== Стабильность ===")
+
+    for task in tasks:
+        stats = summary["per_task"].get(task.id)
+
+        if not stats:
+            continue
+
+        passed = stats["passed"]
+        total = stats["attempts"]
+        mark = (
+            "стабильно"
+            if passed == total
+            else ("плавает" if passed else "падает")
+        )
+
+        print(
+            f"  {task.id:24} {passed}/{total} · {mark} · "
+            f"{stats['avg_duration_s']} с"
+        )
+
+
+def _print_totals(
     tasks,
     results: list[dict],
     summary: dict,
-    path,
-    previous: dict,
-    args,
+    attempts: int,
 ) -> None:
-    """Печатает стабильность, итог и сравнение с прошлым прогоном."""
-
-    attempts = max(1, int(args.repeat))
-    if attempts > 1:
-        print()
-        print("=== Стабильность ===")
-
-        for task in tasks:
-            stats = summary["per_task"].get(task.id)
-
-            if not stats:
-                continue
-
-            passed = stats["passed"]
-            total = stats["attempts"]
-            mark = (
-                "стабильно"
-                if passed == total
-                else ("плавает" if passed else "падает")
-            )
-
-            print(
-                f"  {task.id:24} {passed}/{total} · {mark} · "
-                f"{stats['avg_duration_s']} с"
-            )
+    """Печатает итог и предупреждение об остановке."""
 
     print()
     print("=== Итог ===")
@@ -143,7 +145,7 @@ def _report(
 
     if summary.get("tokens"):
         money = (
-            f", ${summary['cost']:.4f}"
+            ", "
             if summary.get("cost")
             else ""
         )
@@ -157,36 +159,59 @@ def _report(
             "провайдер исчерпал лимит."
         )
 
-    if previous:
-        old_ids = previous.get("task_ids")
-        new_ids = summary.get("task_ids")
-        same_set = (
-            not isinstance(old_ids, list)
-            or not isinstance(new_ids, list)
-            or not old_ids
-            or not new_ids
-            or sorted(old_ids) == sorted(new_ids)
+
+def _print_comparison(previous: dict, summary: dict) -> None:
+    """Сравнивает успех с прошлым прогоном."""
+
+    if not previous:
+        return
+
+    old_ids = previous.get("task_ids")
+    new_ids = summary.get("task_ids")
+    same_set = (
+        not isinstance(old_ids, list)
+        or not isinstance(new_ids, list)
+        or not old_ids
+        or not new_ids
+        or sorted(old_ids) == sorted(new_ids)
+    )
+
+    if not same_set:
+        print(
+            "Прошлый прогон: другой набор задач — сравнение пропущено."
         )
 
-        if not same_set:
-            print(
-                "Прошлый прогон: другой набор задач — сравнение пропущено."
-            )
-        else:
-            old_total = int(previous.get("total") or 0)
-            old_passed = int(previous.get("passed") or 0)
-            old_rate = float(previous.get("success_rate") or 0.0)
-            delta_points = (
-                summary["success_rate"] - old_rate
-            ) * 100
-            sign = "+" if delta_points >= 0 else ""
+        return
 
-            print(
-                "Прошлый прогон: "
-                f"{old_passed}/{old_total} "
-                f"({old_rate * 100:.0f} %) · "
-                f"{sign}{delta_points:.0f} п.п."
-            )
+    old_total = int(previous.get("total") or 0)
+    old_passed = int(previous.get("passed") or 0)
+    old_rate = float(previous.get("success_rate") or 0.0)
+    delta_points = (summary["success_rate"] - old_rate) * 100
+    sign = "+" if delta_points >= 0 else ""
+
+    print(
+        "Прошлый прогон: "
+        f"{old_passed}/{old_total} ({old_rate * 100:.0f} %) · "
+        f"{sign}{delta_points:.0f} п.п."
+    )
+
+
+def _report(
+    *,
+    tasks,
+    results: list[dict],
+    summary: dict,
+    path,
+    previous: dict,
+    args,
+) -> None:
+    """Печатает стабильность, итог и сравнение с прошлым прогоном."""
+
+    attempts = max(1, int(args.repeat))
+
+    _print_stability(tasks, summary, attempts)
+    _print_totals(tasks, results, summary, attempts)
+    _print_comparison(previous, summary)
 
     note = regression_note(previous, summary, args.threshold)
 
