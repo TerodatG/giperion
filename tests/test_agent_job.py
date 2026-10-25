@@ -160,3 +160,54 @@ def test_run_agent_without_approval_callback_denies_write(tmp_path) -> None:
 
     assert target.read_text(encoding="utf-8") == "старое"
     assert result.answer == "без подтверждения нельзя"
+
+
+def test_job_remember_keeps_permission_for_task(tmp_path) -> None:
+    """Галочка «не спрашивать» доходит до цикла и снимает вопрос."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("альфа\n", encoding="utf-8")
+
+    def tool(old: str, new: str) -> str:
+        return json.dumps(
+            {
+                "action": "tool",
+                "tool": "apply_patch",
+                "args": {"path": "a.txt", "old": old, "new": new},
+            },
+            ensure_ascii=False,
+        )
+
+    brain = ScriptedBrain(
+        [
+            tool("альфа", "гамма"),
+            tool("гамма", "дельта"),
+            json.dumps(
+                {"action": "answer", "text": "готово"},
+                ensure_ascii=False,
+            ),
+        ]
+    )
+
+    job = AgentJob(
+        "правь дважды",
+        brain,
+        tmp_path,
+        max_steps=5,
+        persist=False,
+    )
+
+    _wait_for(lambda: job.pending is not None or job.done)
+
+    assert job.pending is not None
+    assert job.pending.key == "file:a.txt"
+
+    job.resolve_approval(True, None, True)
+    _wait_for(lambda: job.done)
+
+    assert job.allowed == {"file:a.txt"}
+    assert target.read_text(encoding="utf-8") == "дельта\n"
+    assert any(
+        step.title.startswith("Без вопроса") for step in job.steps
+    )
+    assert job.answer == "готово"

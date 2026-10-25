@@ -54,6 +54,9 @@ class AgentJob:
         self._model_name = model_name
         self._policy = policy
         self._initial_history = list(initial_history or [])
+        # Разрешения «до конца задачи»: только для этого прогона.
+        self.allowed: set[str] = set()
+        self._remember = False
         self._stop = threading.Event()
         self._approval = threading.Event()
         self._approved = False
@@ -110,6 +113,7 @@ class AgentJob:
         self.approvals += 1
         self._approved = False
         self._approval_text = None
+        self._remember = False
         self._approval.clear()
 
         while not self._approval.wait(0.2):
@@ -120,17 +124,23 @@ class AgentJob:
 
         self.pending = None
 
-        return ApprovalResult(self._approved, self._approval_text)
+        return ApprovalResult(
+            self._approved,
+            self._approval_text,
+            self._remember,
+        )
 
     def resolve_approval(
         self,
         approved: bool,
         text: str | None = None,
+        remember: bool = False,
     ) -> None:
-        """Передаёт решение кнопки и, если нужно, правку текста."""
+        """Передаёт решение кнопки, правку текста и «не спрашивать»."""
 
         self._approved = bool(approved)
         self._approval_text = text
+        self._remember = bool(remember)
         self._approval.set()
 
     def _on_step(self, step: AgentStep) -> None:
@@ -168,6 +178,7 @@ class AgentJob:
                 policy=self._policy,
                 initial_history=self._initial_history,
                 on_history=self._on_history,
+                allowed=self.allowed,
             )
 
             self.answer = result.answer

@@ -73,6 +73,13 @@ STEP_MARKS = {
     "secret": "▤",
 }
 
+REMEMBER_TITLES = {
+    "apply_patch": "Больше не спрашивать этот файл",
+    "write_file": "Больше не спрашивать этот файл",
+    "run_tests": "Больше не спрашивать про тесты",
+    "run_command": "Больше не спрашивать эту команду",
+}
+
 
 def _pick_model() -> dict | None:
     """Берёт активную внешнюю модель или лучшего помощника."""
@@ -304,6 +311,13 @@ class AgentDialog(SkinDialog):
         approval_buttons = QHBoxLayout()
         approval_buttons.setSpacing(8)
 
+        self.allow_checkbox = QCheckBox(
+            "Не спрашивать это до конца задачи",
+            self.approval_frame,
+        )
+        self.allow_checkbox.setObjectName("approvalPolicy")
+        self.allow_checkbox.setVisible(False)
+
         self.approve_button = QPushButton(
             "Одобрить",
             self.approval_frame,
@@ -334,6 +348,7 @@ class AgentDialog(SkinDialog):
         approval_layout.addWidget(self.approval_title)
         approval_layout.addWidget(self.approval_detail)
         approval_layout.addWidget(self.edit_split)
+        approval_layout.addWidget(self.allow_checkbox)
         approval_layout.addLayout(approval_buttons)
 
         self.trace = QPlainTextEdit(self)
@@ -733,10 +748,20 @@ class AgentDialog(SkinDialog):
         ):
             text = self.edit_area.toPlainText()
 
-        self.job.resolve_approval(True, text)
+        remember = bool(
+            pending is not None
+            and pending.key
+            and self.allow_checkbox.isChecked()
+        )
+
+        self.job.resolve_approval(True, text, remember)
         self.approval_frame.setVisible(False)
         self._reset_edit()
-        self.status_label.setText("Одобрено, продолжаю…")
+        self.status_label.setText(
+            "Одобрено до конца задачи, продолжаю…"
+            if remember
+            else "Одобрено, продолжаю…"
+        )
 
     def _reject(self) -> None:
         """Отклоняет действие и возвращает агента к плану."""
@@ -773,6 +798,15 @@ class AgentDialog(SkinDialog):
             self.edit_area.setPlainText(pending.new_text or "")
             self._reset_edit()
             self.edit_button.setEnabled(pending.new_text is not None)
+
+            remember_title = REMEMBER_TITLES.get(pending.kind, "")
+
+            self.allow_checkbox.setText(remember_title)
+            self.allow_checkbox.setChecked(False)
+            self.allow_checkbox.setVisible(
+                bool(remember_title and pending.key)
+            )
+
             self._refresh_highlights()
             self.approval_frame.setVisible(True)
         elif pending is None and self.approval_frame.isVisible():
@@ -821,11 +855,18 @@ class AgentDialog(SkinDialog):
             if job.error not in self.trace.toPlainText():
                 self.trace.appendPlainText("\n! " + job.error)
         else:
+            allowed = (
+                f" · разрешено до конца: {len(job.allowed)}"
+                if job.allowed
+                else ""
+            )
+
             self.status_label.setText(
                 f"Готово за {len(job.steps)} шаг(ов)"
                 f" · {job.duration_s:.1f} с"
                 f" · подтверждений: {job.approvals}"
                 f" · контекст {job.context_chars // 1000}k"
+                + allowed
                 + branch_note
             )
 

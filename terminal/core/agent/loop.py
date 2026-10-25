@@ -116,6 +116,29 @@ def _call_detail(result: ToolResult) -> str:
 
 WRITE_TOOLS = {"apply_patch", "write_file", "git_restore"}
 
+# Что можно разрешить до конца задачи одним нажатием. Коммит и откат
+# остаются отдельными решениями: они меняют историю репозитория.
+REMEMBERABLE = {"apply_patch", "write_file", "run_tests", "run_command"}
+
+
+def approval_key(call: ToolCall) -> str:
+    """Стабильный ключ действия для «не спрашивать до конца задачи»."""
+
+    if call.tool not in REMEMBERABLE:
+        return ""
+
+    if call.tool in ("apply_patch", "write_file"):
+        path = str(call.args.get("path") or "").strip()
+
+        return "file:" + path if path else ""
+
+    if call.tool == "run_command":
+        command = str(call.args.get("command") or "").strip()
+
+        return "command:" + command if command else ""
+
+    return call.tool
+
 
 def _repeated_call(
     history: list[tuple[ToolCall, ToolResult]],
@@ -202,7 +225,8 @@ def run_agent(
     should_stop: Callable[[], bool] | None = None,
     require_tool_first: bool = True,
     ground_first: bool = True,
-    approve: Callable[[ApprovalRequest], bool] | None = None,
+    approve: Callable[[ApprovalRequest], bool | ApprovalResult]
+    | None = None,
     depth: int = 0,
     allow_subagent: bool = True,
     max_prompt_chars: int = MAX_PROMPT,
@@ -211,6 +235,7 @@ def run_agent(
     on_history: Callable[
         [list[tuple[ToolCall, ToolResult]]], None
     ] | None = None,
+    allowed: set[str] | None = None,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -230,6 +255,9 @@ def run_agent(
     context_peak = 0
     native = bool(getattr(brain, "native", False))
     position = 0
+    # Разрешения «до конца задачи»: ключи действий, которые пользователь
+    # больше не хочет подтверждать. Живут только в этом прогоне.
+    remembered: set[str] = allowed if allowed is not None else set()
 
     def remember(call: ToolCall, result: ToolResult) -> None:
         # Секреты не попадают ни в промпт, ни в историю задачи, ни в
@@ -527,6 +555,19 @@ def run_agent(
                 )
                 requires_approval = False
 
+            key = approval_key(call)
+
+            if requires_approval and key and key in remembered:
+                emit(
+                    AgentStep(
+                        index,
+                        "approval",
+                        "Без вопроса · " + _approval_title(call),
+                        "Разрешено до конца задачи: " + key,
+                    )
+                )
+                requires_approval = False
+
             if requires_approval:
                 preview = registry.preview(root, call)
 
@@ -554,6 +595,7 @@ def run_agent(
                     path=payload_path,
                     new_text=payload_text,
                     old_text=payload_old,
+                    key=key,
                 )
 
                 answer = approve(request) if approve else None
@@ -561,9 +603,11 @@ def run_agent(
                 if isinstance(answer, ApprovalResult):
                     approved = bool(answer.approved)
                     edited = answer.text
+                    keep = bool(answer.remember)
                 else:
                     approved = bool(answer)
                     edited = None
+                    keep = False
 
                 emit(
                     AgentStep(
@@ -578,6 +622,20 @@ def run_agent(
                         preview.text[:300],
                     )
                 )
+
+                if approved and keep and key:
+                    if key not in remembered:
+                        remembered.add(key)
+
+                    emit(
+                        AgentStep(
+                            index,
+                            "approval",
+                            "Разрешено до конца задачи · "
+                            + _approval_title(call),
+                            key,
+                        )
+                    )
 
                 if not approved:
                     remember(

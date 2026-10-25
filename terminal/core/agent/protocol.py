@@ -52,14 +52,16 @@ class ApprovalRequest:
     path: str = ""
     new_text: str | None = None
     old_text: str | None = None
+    key: str = ""
 
 
 @dataclass(frozen=True)
 class ApprovalResult:
-    """Ответ пользователя: разрешение и, возможно, правка текста."""
+    """Ответ пользователя: разрешение, правка текста и «не спрашивать»."""
 
     approved: bool
     text: str | None = None
+    remember: bool = False
 
 
 @dataclass(frozen=True)

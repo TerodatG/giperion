@@ -68,6 +68,49 @@ class ProviderReply:
     usage: dict | None = None
 
 
+def _is_local(url: str) -> bool:
+    """Адрес ведёт на этот компьютер, а не в интернет."""
+
+    host = url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+
+    return host in ("127.0.0.1", "localhost", "::1", "0.0.0.0")
+
+
+def _offline_message(url: str, error: Exception) -> str:
+    """Понятное объяснение, если сервер не отвечает."""
+
+    if _is_local(url):
+        return (
+            "Локальный сервер моделей не отвечает. Запусти LM Studio "
+            "(или другой локальный сервер), нажми Start Server и проверь "
+            f"адрес в окне «Провайдер…». Детали: {error}"
+        )
+
+    return f"Провайдер недоступен: {error}"
+
+
+def _http_message(url: str, code: int, detail: str) -> str:
+    """Подсказка к коду ответа: ключ, адрес или модель."""
+
+    if code in (401, 403):
+        hint = "Провайдер отклонил ключ — проверь его в «Провайдер…»."
+
+        return f"{hint} Код {code}: {detail}"
+
+    if code == 404:
+        hint = (
+            "Адрес или модель не найдены — проверь base URL и имя модели "
+            "в «Провайдер…»."
+        )
+
+        return f"{hint} Код {code}: {detail}"
+
+    if code == 429:
+        return f"Провайдер ограничил частоту запросов. Код 429: {detail}"
+
+    return f"Провайдер ответил {code}: {detail}"
+
+
 def _post_json(
     url: str,
     api_key: str,
@@ -98,10 +141,10 @@ def _post_json(
         detail = error.read().decode("utf-8", "replace")[:300]
 
         raise ProviderError(
-            f"Провайдер ответил {error.code}: {detail}"
+            _http_message(url, error.code, detail)
         ) from error
     except (urllib.error.URLError, TimeoutError) as error:
-        raise ProviderError(f"Провайдер недоступен: {error}") from error
+        raise ProviderError(_offline_message(url, error)) from error
 
     try:
         value = json.loads(raw)

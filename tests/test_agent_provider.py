@@ -289,3 +289,46 @@ def test_native_brain_summarize_without_tools() -> None:
 
     assert text == "итог"
     assert seen["tools"] is None
+
+
+def test_offline_message_names_lm_studio() -> None:
+    """Для локального адреса подсказка про LM Studio."""
+
+    from terminal.core.agent.providers import _offline_message
+
+    text = _offline_message(
+        "http://127.0.0.1:1234/v1/chat/completions",
+        OSError("нет связи"),
+    )
+
+    assert "LM Studio" in text
+    assert "Start Server" in text
+    assert "Провайдер…" in text
+
+
+def test_offline_message_for_remote_provider() -> None:
+    """Для внешнего адреса остаётся общая формулировка."""
+
+    from terminal.core.agent.providers import _offline_message
+
+    text = _offline_message(
+        "https://api.example.com/v1/chat/completions",
+        OSError("нет связи"),
+    )
+
+    assert text.startswith("Провайдер недоступен")
+    assert "LM Studio" not in text
+
+
+def test_http_messages_explain_cause() -> None:
+    """Коды ответа сопровождаются подсказкой, а не только цифрой."""
+
+    from terminal.core.agent.providers import _http_message
+
+    assert "ключ" in _http_message("http://x/v1", 401, "unauthorized")
+    assert "ключ" in _http_message("http://x/v1", 403, "forbidden")
+    assert "модель" in _http_message("http://x/v1", 404, "not found")
+    assert "429" in _http_message("http://x/v1", 429, "slow down")
+    assert _http_message("http://x/v1", 500, "boom") == (
+        "Провайдер ответил 500: boom"
+    )

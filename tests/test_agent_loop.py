@@ -692,7 +692,6 @@ def test_repeated_call_is_refused_with_previous_result(tmp_path) -> None:
 
 def test_step_limit_asks_for_summary(tmp_path) -> None:
     """Когда шаги кончились, модель просят подвести итог."""
-
     from terminal.core.agent.protocol import AgentDecision, ToolCall
 
     brain = NativeBrainStub(
@@ -717,3 +716,169 @@ def test_step_limit_asks_for_summary(tmp_path) -> None:
     assert result.error == ""
     assert result.steps[-1].kind == "answer"
     assert "Шаги закончились" in brain.prompts[-1]
+
+
+def test_remembered_approval_skips_second_question(tmp_path) -> None:
+    """«Не спрашивать» избавляет от повторного вопроса для того же файла."""
+
+    from terminal.core.agent.protocol import ApprovalResult
+
+    target = tmp_path / "a.txt"
+    target.write_text("альфа\nбета\n", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("apply_patch", path="a.txt", old="альфа", new="гамма"),
+            _tool("apply_patch", path="a.txt", old="бета", new="дельта"),
+            _answer("готово"),
+        ]
+    )
+
+    asked: list[str] = []
+
+    def approve(request) -> ApprovalResult:
+        asked.append(request.key)
+
+        return ApprovalResult(True, None, True)
+
+    result = run_agent(
+        "правь файл",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=approve,
+    )
+
+    assert asked == ["file:a.txt"]
+    assert target.read_text(encoding="utf-8") == "гамма\nдельта\n"
+    assert result.answer == "готово"
+
+    titles = [step.title for step in result.steps]
+    assert any(
+        title.startswith("Разрешено до конца задачи")
+        for title in titles
+    )
+    assert any(title.startswith("Без вопроса") for title in titles)
+
+
+def test_allowlist_is_per_file(tmp_path) -> None:
+    """Разрешение одного файла не открывает другие."""
+
+    from terminal.core.agent.protocol import ApprovalResult
+
+    first = tmp_path / "a.txt"
+    second = tmp_path / "b.txt"
+    first.write_text("альфа\n", encoding="utf-8")
+    second.write_text("бета\n", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("apply_patch", path="a.txt", old="альфа", new="гамма"),
+            _tool("apply_patch", path="b.txt", old="бета", new="дельта"),
+            _answer("готово"),
+        ]
+    )
+
+    asked: list[str] = []
+
+    def approve(request) -> ApprovalResult:
+        asked.append(request.key)
+
+        return ApprovalResult(True, None, True)
+
+    run_agent(
+        "правь два файла",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=approve,
+    )
+
+    assert asked == ["file:a.txt", "file:b.txt"]
+
+
+def test_rejected_action_is_not_remembered(tmp_path) -> None:
+    """Отклонённое действие не попадает в разрешённые."""
+
+    from terminal.core.agent.protocol import ApprovalResult
+
+    target = tmp_path / "a.txt"
+    target.write_text("альфа\n", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("apply_patch", path="a.txt", old="альфа", new="гамма"),
+            _answer("ладно"),
+        ]
+    )
+
+    asked = 0
+
+    def approve(request) -> ApprovalResult:
+        nonlocal asked
+        asked += 1
+
+        return ApprovalResult(False, None, True)
+
+    result = run_agent(
+        "правь файл",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=approve,
+    )
+
+    assert asked == 1
+    assert target.read_text(encoding="utf-8") == "альфа\n"
+    assert result.answer == "ладно"
+
+
+def test_preset_allowlist_skips_question(tmp_path) -> None:
+    """Разрешение, переданное снаружи, действует с первого шага."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("альфа\n", encoding="utf-8")
+
+    brain = ScriptedBrain(
+        [
+            _tool("apply_patch", path="a.txt", old="альфа", new="гамма"),
+            _answer("готово"),
+        ]
+    )
+
+    def approve(request) -> bool:
+        raise AssertionError("Спрашивать не должны")
+
+    allowed = {"file:a.txt"}
+
+    result = run_agent(
+        "правь файл",
+        brain,
+        tmp_path,
+        ground_first=False,
+        approve=approve,
+        allowed=allowed,
+    )
+
+    assert result.answer == "готово"
+    assert "гамма" in target.read_text(encoding="utf-8")
+    assert allowed == {"file:a.txt"}
+
+
+def test_approval_key_for_commands_and_tests() -> None:
+    """Ключ действия учитывает команду, тесты и файл."""
+
+    from terminal.core.agent.loop import approval_key
+    from terminal.core.agent.protocol import ToolCall
+
+    assert approval_key(
+        ToolCall("run_command", {"command": "git status"})
+    ) == "command:git status"
+    assert approval_key(ToolCall("run_tests", {})) == "run_tests"
+    assert approval_key(
+        ToolCall("apply_patch", {"path": "a.txt"})
+    ) == "file:a.txt"
+
+    # Коммит и откат не разрешаются оптом.
+    assert approval_key(ToolCall("git_commit", {"message": "x"})) == ""
+    assert approval_key(ToolCall("git_restore", {"path": "a.txt"})) == ""
