@@ -87,9 +87,9 @@ python -m tools.eval_retrieval         # hit@1 и hit@5 на наборе зап
 python -m tools.eval_retrieval --fail  # код 2, если есть промахи
 ```
 
-`eval_retrieval` использует `tools/retrieval_cases.py`: двенадцать запросов
+`eval_retrieval` использует `tools/retrieval_cases.py`: двадцать запросов
 с ожидаемыми файлами. Текущий результат на BM25+синонимах — **hit@5 =
-12/12**; с эмбеддингами — тоже 12/12, hit@1 около 4–5/8.
+20/20**; с эмбеддингами — тоже 20/20, hit@1 около 4–5/8.
 
 ## Ограничения
 

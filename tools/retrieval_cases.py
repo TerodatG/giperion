@@ -51,4 +51,36 @@ CASES = (
         "как работает наблюдатель за файлами",
         "terminal/core/agent/watch.py",
     ),
+    (
+        "где проверяются подтверждения записи файлов",
+        "terminal/core/agent/loop_tools.py",
+    ),
+    (
+        "как работает откат изменений агента",
+        "terminal/core/agent/rollback.py",
+    ),
+    (
+        "настройка MCP серверов",
+        "terminal/core/agent/mcp.py",
+    ),
+    (
+        "где включается песочница AppContainer",
+        "tools/setup_plugin_container.py",
+    ),
+    (
+        "как считается расход токенов",
+        "terminal/core/agent/budget.py",
+    ),
+    (
+        "где описан стенд оценки агента",
+        "tools/eval_agent.py",
+    ),
+    (
+        "как работает сессия браузера",
+        "terminal/core/agent/browser_session.py",
+    ),
+    (
+        "где проверяется белый список команд",
+        "terminal/core/agent/commands.py",
+    ),
 )
