@@ -16,6 +16,7 @@ from terminal.core.agent.context import (
 from terminal.core.agent.guard import find_instructions, mark_untrusted
 from terminal.core.agent.loop_helpers import (
     Brain,
+    StepTimeout,
     _call_detail,
     _call_title,
     _chat_chars,
@@ -23,6 +24,7 @@ from terminal.core.agent.loop_helpers import (
     _observation_block,
     _trim_chat,
     budget_state,
+    call_with_timeout,
     grounding_calls,
 )
 from terminal.core.agent.protocol import (
@@ -281,8 +283,110 @@ def _reject_premature_answer(
     return True
 
 
+def _context_error(state: "_RunState", max_chars: int) -> AgentResult:
+    """Ошибка превышения бюджета контекста."""
+
+    return AgentResult(
+        steps=state.steps,
+        error=f"Контекст превысил бюджет {max_chars} символов.",
+        context_chars=state.context_peak,
+    )
+
+
+def _model_error(
+    state: "_RunState",
+    index: int,
+    error: Exception,
+    timed_out: bool,
+) -> AgentResult:
+    """Ошибка модели: таймаут шага или отказ провайдера."""
+
+    if timed_out:
+        title = "Таймаут шага"
+        detail = str(error)
+        text = str(error)
+    else:
+        title = "Модель не ответила"
+        detail = f"{type(error).__name__}: {error}"
+        text = f"Модель не ответила: {error}"
+
+    state.emit(AgentStep(index, "error", title, detail))
+
+    return AgentResult(
+        steps=state.steps,
+        error=text,
+        context_chars=state.context_peak,
+    )
+
+
+def _decide_chat(
+    state: "_RunState",
+    index: int,
+    brain: Brain,
+    max_prompt_chars: int,
+    step_timeout: float,
+) -> AgentResult | tuple[AgentDecision, dict]:
+    """Шаг в режиме переписки."""
+
+    _compact_chat(state.chat)
+    state.context_peak = max(state.context_peak, _chat_chars(state.chat))
+
+    if _chat_chars(state.chat) > max_prompt_chars:
+        state.chat = _trim_chat(state.chat, max_prompt_chars)
+        state.context_peak = max(state.context_peak, _chat_chars(state.chat))
+
+    if _chat_chars(state.chat) > max_prompt_chars:
+        return _context_error(state, max_prompt_chars)
+
+    try:
+        return call_with_timeout(
+            lambda: brain.decide_chat(state.chat),
+            step_timeout,
+        )
+    except StepTimeout as error:
+        return _model_error(state, index, error, True)
+    except Exception as error:  # noqa: BLE001 — покажем в трейсе
+        return _model_error(state, index, error, False)
+
+
+def _decide_prompt(
+    state: "_RunState",
+    index: int,
+    brain: Brain,
+    *,
+    task: str,
+    native: bool,
+    max_prompt_chars: int,
+    final_note: str,
+    step_timeout: float,
+) -> AgentResult | object:
+    """Шаг с одним текстовым промптом."""
+
+    builder = build_native_prompt if native else build_prompt
+    prompt = builder(
+        task,
+        state.history,
+        max_chars=max_prompt_chars,
+        final_note=final_note,
+    )
+    state.context_peak = max(state.context_peak, len(prompt))
+
+    if not is_within_budget(prompt, max_prompt_chars):
+        return _context_error(state, max_prompt_chars)
+
+    try:
+        return call_with_timeout(
+            lambda: brain.decide(prompt),
+            step_timeout,
+        )
+    except StepTimeout as error:
+        return _model_error(state, index, error, True)
+    except Exception as error:  # noqa: BLE001 — покажем в трейсе
+        return _model_error(state, index, error, False)
+
+
 def _decide(
-    state: _RunState,
+    state: "_RunState",
     index: int,
     *,
     task: str,
@@ -292,86 +396,40 @@ def _decide(
     max_prompt_chars: int,
     final_note: str,
     budget,
+    step_timeout: float = 180.0,
 ) -> AgentResult | tuple[AgentDecision, dict] | None:
     """Спрашивает модель и проверяет бюджет шага."""
-
-    prompt_builder = build_native_prompt if native else build_prompt
 
     assistant_raw: dict = {}
 
     if chat_mode:
-        _compact_chat(state.chat)
-        state.context_peak = max(state.context_peak, _chat_chars(state.chat))
-
-        if _chat_chars(state.chat) > max_prompt_chars:
-            state.chat = _trim_chat(state.chat, max_prompt_chars)
-            state.context_peak = max(state.context_peak, _chat_chars(state.chat))
-
-        if _chat_chars(state.chat) > max_prompt_chars:
-            return AgentResult(
-                steps=state.steps,
-                error=(
-                    "Контекст превысил бюджет "
-                    f"{max_prompt_chars} символов."
-                ),
-                context_chars=state.context_peak,
-            )
-
-        try:
-            decision, assistant_raw = brain.decide_chat(state.chat)
-        except Exception as error:  # noqa: BLE001 — покажем в трейсе
-            state.emit(
-                AgentStep(
-                    index,
-                    "error",
-                    "Модель не ответила",
-                    f"{type(error).__name__}: {error}",
-                )
-            )
-
-            return AgentResult(
-                steps=state.steps,
-                error=f"Модель не ответила: {error}",
-                context_chars=state.context_peak,
-            )
-    else:
-        prompt = prompt_builder(
-            task,
-            state.history,
-            max_chars=max_prompt_chars,
-            final_note=final_note,
+        outcome = _decide_chat(
+            state,
+            index,
+            brain,
+            max_prompt_chars,
+            step_timeout,
         )
-        state.context_peak = max(state.context_peak, len(prompt))
 
-        if not is_within_budget(prompt, max_prompt_chars):
-            return AgentResult(
-                steps=state.steps,
-                error=(
-                    "Контекст превысил бюджет "
-                    f"{max_prompt_chars} символов."
-                ),
-                context_chars=state.context_peak,
-            )
+        if isinstance(outcome, AgentResult):
+            return outcome
 
-        try:
-            raw = brain.decide(prompt)
-        except Exception as error:  # noqa: BLE001 — покажем в трейсе
-            state.emit(
-                AgentStep(
-                    index,
-                    "error",
-                    "Модель не ответила",
-                    f"{type(error).__name__}: {error}",
-                )
-            )
+        decision, assistant_raw = outcome
+    else:
+        raw = _decide_prompt(
+            state,
+            index,
+            brain,
+            task=task,
+            native=native,
+            max_prompt_chars=max_prompt_chars,
+            final_note=final_note,
+            step_timeout=step_timeout,
+        )
 
-            return AgentResult(
-                steps=state.steps,
-                error=f"Модель не ответила: {error}",
-                context_chars=state.context_peak,
-            )
+        if isinstance(raw, AgentResult):
+            return raw
 
-    if not chat_mode:
         try:
             decision = (
                 raw

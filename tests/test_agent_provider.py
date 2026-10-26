@@ -620,3 +620,54 @@ def test_tool_call_names_are_merged_from_deltas() -> None:
     assert _merge_name("read_file", "file") == "read_file"
     assert _merge_name("read_", "file") == "read_file"
     assert _merge_name("read", "read_file") == "read_file"
+
+def test_empty_response_is_retried() -> None:
+    """Пустой ответ провайдера повторяется один раз."""
+
+    calls: list[int] = []
+
+    def transport(url, key, payload, timeout):
+        calls.append(1)
+
+        if len(calls) == 1:
+            return {
+                "choices": [{"message": {"role": "assistant", "content": ""}}]
+            }
+
+        return {
+            "choices": [
+                {"message": {"role": "assistant", "content": "ок"}}
+            ]
+        }
+
+    provider = OpenAICompatibleProvider(
+        "http://localhost/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+    )
+
+    decision = NativeBrain(provider).decide("задача")
+
+    assert decision.action == "answer"
+    assert decision.text == "ок"
+    assert len(calls) == 2
+
+
+def test_empty_answer_is_reported_after_retries() -> None:
+    """Если пусто и после повтора — понятная ошибка."""
+
+    def transport(url, key, payload, timeout):
+        return {
+            "choices": [{"message": {"role": "assistant", "content": ""}}]
+        }
+
+    provider = OpenAICompatibleProvider(
+        "http://localhost/v1",
+        "secret",
+        "test-model",
+        transport=transport,
+    )
+
+    with pytest.raises(ProviderError):
+        NativeBrain(provider).decide("задача")

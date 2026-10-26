@@ -220,6 +220,7 @@ def run_agent(
     ] | None = None,
     allowed: set[str] | None = None,
     budget=None,
+    step_timeout: float = 180.0,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -268,6 +269,7 @@ def run_agent(
             max_prompt_chars=max_prompt_chars,
             final_note=_step_note(index, max_steps, native),
             budget=budget,
+            step_timeout=step_timeout,
         )
 
         if outcome is None:

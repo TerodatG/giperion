@@ -210,3 +210,38 @@ def test_task_controls_show_saved_model(qapp, monkeypatch) -> None:
     assert current["model"]["id"] == "m1"
 
     dialog.close()
+
+def test_save_defaults_writes_settings(qapp, monkeypatch) -> None:
+    """Кнопка «Запомнить» сохраняет модель, шаги и контекст."""
+
+    from terminal.ui.agent import dialog as agent_module
+
+    captured: dict = {}
+
+    monkeypatch.setattr(
+        agent_module,
+        "set_max_steps",
+        lambda value: captured.update(steps=value),
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "set_context_limit_chars",
+        lambda value: captured.update(context=value),
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "set_model_choice",
+        lambda value: captured.update(model=value),
+    )
+
+    dialog = _make_dialog(qapp)
+    dialog.steps_input.setValue(5)
+    dialog.context_input.setValue(120_000)
+
+    dialog._save_defaults()
+
+    assert captured["steps"] == 5
+    assert captured["context"] == 120_000
+    assert captured["model"]
+
+    dialog.close()

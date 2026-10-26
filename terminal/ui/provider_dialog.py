@@ -43,7 +43,9 @@ from terminal.core.agent.settings import (
     set_plugin_sandbox,
     set_plugins_enabled,
     set_request_timeout,
+    set_step_timeout,
     set_stream_enabled,
+    step_timeout,
     stream_enabled,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
@@ -207,6 +209,18 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Таймаут запроса", self.timeout_input)
 
+        self.step_timeout_input = QSpinBox(self)
+        self.step_timeout_input.setRange(0, 3600)
+        self.step_timeout_input.setSingleStep(30)
+        self.step_timeout_input.setSuffix(" с")
+        self.step_timeout_input.setSpecialValueText("без лимита")
+        self.step_timeout_input.setValue(int(step_timeout()))
+        self.step_timeout_input.setToolTip(
+            "Сколько ждать один шаг модели. 0 — без ограничения. "
+            "Уже начатый запрос не прерывается, но цикл перестаёт ждать."
+        )
+        form.addRow("Таймаут шага", self.step_timeout_input)
+
         self.context_input = QSpinBox(self)
         self.context_input.setRange(8_000, 2_000_000)
         self.context_input.setSingleStep(10_000)
@@ -362,6 +376,7 @@ class ProviderDialog(SkinDialog):
         )
 
         set_request_timeout(self.timeout_input.value())
+        set_step_timeout(self.step_timeout_input.value())
         set_context_limit_chars(self.context_input.value())
 
         set_plugins_enabled(self.plugins_check.isChecked())

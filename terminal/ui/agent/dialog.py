@@ -12,6 +12,11 @@ from PySide6.QtWidgets import (
     QLabel,
 )
 
+from terminal.core.agent.settings import (
+    set_context_limit_chars,
+    set_max_steps,
+    set_model_choice,
+)
 from terminal.core.agent.tasks import (
     deserialize_steps,
 )
@@ -25,6 +30,7 @@ from terminal.ui.agent_job import AgentJob
 from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.provider_dialog import show_provider_dialog
+from terminal.ui.trace_dialog import format_trace, show_trace_dialog
 from terminal.ui.watch_dialog import show_watch_dialog
 
 
@@ -94,6 +100,8 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         self.controls.new_task_requested.connect(self._open_new_task)
         self.controls.tasks_requested.connect(self._open_tasks)
         self.controls.watch_requested.connect(self._open_watch)
+        self.controls.trace_requested.connect(self._open_trace)
+        self.controls.save_defaults_requested.connect(self._save_defaults)
         self.controls.undo_requested.connect(self._undo_changes)
         self.controls.provider_requested.connect(
             lambda: show_provider_dialog(self)
@@ -217,6 +225,43 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         """Открывает наблюдатель за файлами."""
 
         show_watch_dialog(self._parent)
+
+    def _open_trace(self) -> None:
+        """Показывает полный трейс текущей задачи."""
+
+        job = self.job
+
+        if job is None or not job.steps:
+            return
+
+        task = self.task_input.toPlainText().strip().splitlines()
+        title = "Трейс · " + (task[0][:40] if task else "задача")
+
+        show_trace_dialog(
+            self._parent,
+            title,
+            format_trace(job.steps, job.answer, job.error),
+            key="agent-trace",
+        )
+
+    def _save_defaults(self) -> None:
+        """Запоминает модель, шаги и контекст как умолчание."""
+
+        set_max_steps(int(self.steps_input.value()))
+        set_context_limit_chars(int(self.context_input.value()))
+
+        choice = self.model_combo.currentData()
+
+        if isinstance(choice, dict):
+            if choice.get("kind") == "native":
+                set_model_choice("native")
+            else:
+                model = choice.get("model") or {}
+                set_model_choice(str(model.get("id") or ""))
+
+        self.status_label.setText(
+            "Значения сохранены по умолчанию для новых окон."
+        )
 
     def _hint_unfinished(self) -> None:
         """Подсказывает про незавершённую задачу при открытии окна."""

@@ -12,7 +12,10 @@ from terminal.core.agent.providers import (
     NativeBrain,
     provider_from_settings,
 )
-from terminal.core.agent.settings import context_limit_chars
+from terminal.core.agent.settings import (
+    context_limit_chars,
+    step_timeout,
+)
 from terminal.core.agent.worktrees import (
     WorktreeError,
     create_worktree,
@@ -108,6 +111,7 @@ def run_task(task: EvalTask, brain, base: Path) -> dict:
                 ground_first=True,
                 approve=lambda request: approvals.append(request) or True,
                 max_prompt_chars=context_limit_chars(),
+                step_timeout=step_timeout(),
             )
 
         duration = time.monotonic() - started

@@ -17,6 +17,17 @@ from terminal.core.agent.runs import record_run
 from terminal.core.agent.summary import changes_of
 
 
+def _step_timeout_setting() -> int:
+    """Таймаут шага из настроек; при ошибке — 180 секунд."""
+
+    try:
+        from terminal.core.agent.settings import step_timeout
+
+        return int(step_timeout())
+    except Exception:  # noqa: BLE001 — настройки не обязательны
+        return 180
+
+
 class AgentJob:
     """Выполняет задачу агента в отдельном потоке.
 
@@ -39,6 +50,7 @@ class AgentJob:
         persist: bool = True,
         budget=None,
         max_prompt_chars: int = 60_000,
+        step_timeout: float | None = None,
     ) -> None:
         self.steps: list[AgentStep] = list(initial_steps or [])
         self.answer = ""
@@ -59,6 +71,11 @@ class AgentJob:
         self._finished_at = ""
         self._budget = budget
         self._max_prompt_chars = max(8_000, int(max_prompt_chars))
+        self._step_timeout = (
+            float(step_timeout)
+            if step_timeout is not None
+            else float(_step_timeout_setting())
+        )
 
         self._task = task
         self._brain = brain
@@ -246,6 +263,7 @@ class AgentJob:
                 allowed=self.allowed,
                 budget=self._budget,
                 max_prompt_chars=self._max_prompt_chars,
+                step_timeout=self._step_timeout,
             )
 
             self.answer = result.answer

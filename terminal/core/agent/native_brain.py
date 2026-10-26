@@ -82,6 +82,31 @@ class NativeBrain:
         self.completion_tokens += completion
         self.cost += cost_of(prompt, completion, self.limits)
 
+    def _complete(self, messages: list[dict], tools):
+        """Запрос к провайдеру с повтором пустого ответа."""
+
+        attempts = max(1, int(getattr(self, "empty_retries", 1)) + 1)
+        reply = None
+
+        for _ in range(attempts):
+            reply = self.provider.complete(
+                messages,
+                tools,
+                on_delta=self.on_delta,
+            )
+            self._account(reply)
+
+            if reply.calls:
+                return reply
+
+            if _salvage_call(reply.text) is not None:
+                return reply
+
+            if reply.text.strip():
+                return reply
+
+        return reply
+
     def begin(self, task: str, blocks: list[str] | None = None) -> list[dict]:
         """Первые сообщения переписки: система, задача и стартовые данные."""
 
@@ -101,13 +126,7 @@ class NativeBrain:
     def decide_chat(self, messages: list[dict]) -> tuple[AgentDecision, dict]:
         """Шаг переписки: решение и исходное сообщение ассистента."""
 
-        reply = self.provider.complete(
-            messages,
-            tool_schemas(),
-            on_delta=self.on_delta,
-        )
-
-        self._account(reply)
+        reply = self._complete(messages, tool_schemas())
 
         raw = reply.raw or {
             "role": "assistant",
@@ -171,26 +190,17 @@ class NativeBrain:
             }
         ]
 
-        reply = self.provider.complete(
-            thread,
-            None,
-            on_delta=self.on_delta,
-        )
-
-        self._account(reply)
+        reply = self._complete(thread, None)
 
         return reply.text.strip()
 
     def decide(self, prompt: str) -> AgentDecision:
         """Возвращает решение по одному текстовому промпту."""
 
-        reply = self.provider.complete(
+        reply = self._complete(
             [{"role": "user", "content": prompt}],
             tool_schemas(),
-            on_delta=self.on_delta,
         )
-
-        self._account(reply)
 
         if reply.calls:
             return AgentDecision(
@@ -217,13 +227,10 @@ class NativeBrain:
     def summarize(self, prompt: str) -> str:
         """Итог без инструментов: когда шаги кончились."""
 
-        reply = self.provider.complete(
+        reply = self._complete(
             [{"role": "user", "content": prompt}],
             None,
-            on_delta=self.on_delta,
         )
-
-        self._account(reply)
 
         return reply.text.strip()
 

@@ -333,3 +333,38 @@ def _append_chat_step(
                 "content": _observation_block(call, result, 4000),
             }
         )
+
+
+class StepTimeout(RuntimeError):
+    """Модель не уложилась в отведённое на шаг время."""
+
+
+def call_with_timeout(func, timeout: float):
+    """Выполняет вызов в отдельном потоке с ограничением ожидания.
+
+    Прервать уже начатый HTTP-запрос нельзя, поэтому поток продолжает
+    жить до ответа сервера, но цикл больше его не ждёт и задачу
+    останавливает.
+    """
+
+    if not timeout or float(timeout) <= 0:
+        return func()
+
+    from concurrent.futures import (
+        ThreadPoolExecutor,
+        TimeoutError as FutureTimeout,
+    )
+
+    pool = ThreadPoolExecutor(max_workers=1)
+    future = pool.submit(func)
+
+    try:
+        return future.result(timeout=float(timeout))
+    except FutureTimeout as error:
+        future.cancel()
+
+        raise StepTimeout(
+            f"Модель не ответила за {float(timeout):g} с."
+        ) from error
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)

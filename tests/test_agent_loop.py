@@ -2,6 +2,7 @@
 # Цикл агента: шаги, ошибки, лимит и отмена.
 
 import json
+import time
 
 from terminal.core.agent import registry
 from terminal.core.agent.context import (
@@ -931,3 +932,32 @@ def test_approval_key_for_commands_and_tests() -> None:
     # Коммит и откат не разрешаются оптом.
     assert approval_key(ToolCall("git_commit", {"message": "x"})) == ""
     assert approval_key(ToolCall("git_restore", {"path": "a.txt"})) == ""
+
+def test_step_timeout_stops_task(tmp_path) -> None:
+    """Модель, задумавшаяся дольше лимита, останавливает задачу."""
+
+    class SlowBrain:
+        def decide(self, prompt: str) -> str:
+            time.sleep(1.0)
+
+            return json.dumps(
+                {"action": "answer", "text": "поздно"},
+                ensure_ascii=False,
+            )
+
+    started = time.monotonic()
+
+    result = run_agent(
+        "задача",
+        SlowBrain(),
+        tmp_path,
+        ground_first=False,
+        require_tool_first=False,
+        step_timeout=0.2,
+    )
+
+    elapsed = time.monotonic() - started
+
+    assert "не ответила" in result.error
+    assert elapsed < 0.8
+    assert any(step.title == "Таймаут шага" for step in result.steps)

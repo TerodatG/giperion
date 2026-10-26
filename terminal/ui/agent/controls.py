@@ -52,6 +52,8 @@ class AgentControls(QWidget):
     watch_requested = Signal()
     undo_requested = Signal()
     provider_requested = Signal()
+    trace_requested = Signal()
+    save_defaults_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -173,6 +175,17 @@ class AgentControls(QWidget):
         row.addWidget(self.model_combo)
         row.addWidget(self.steps_input)
         row.addWidget(self.context_input)
+
+        self.save_defaults_button = QPushButton("Запомнить", self)
+        self.save_defaults_button.setObjectName("workshopAction")
+        self.save_defaults_button.setToolTip(
+            "Использовать эти модель, шаги и контекст по умолчанию "
+            "для новых окон агента."
+        )
+        self.save_defaults_button.clicked.connect(
+            self.save_defaults_requested.emit
+        )
+        row.addWidget(self.save_defaults_button)
         row.addStretch(1)
 
         return row
@@ -220,6 +233,14 @@ class AgentControls(QWidget):
         )
         self.watch_button.clicked.connect(self.watch_requested.emit)
 
+        self.trace_button = QPushButton("Трейс…", self)
+        self.trace_button.setObjectName("workshopAction")
+        self.trace_button.setEnabled(False)
+        self.trace_button.setToolTip(
+            "Полный трейс задачи в отдельном окне."
+        )
+        self.trace_button.clicked.connect(self.trace_requested.emit)
+
         self.status_label = QLabel("Готов к задаче.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -231,6 +252,7 @@ class AgentControls(QWidget):
         row.addWidget(self.new_task_button)
         row.addWidget(self.tasks_button)
         row.addWidget(self.watch_button)
+        row.addWidget(self.trace_button)
         row.addWidget(self.undo_button)
         row.addWidget(self.status_label, 1)
 

@@ -16,9 +16,6 @@ from terminal.core.agent.rollback import rollback_run
 from terminal.core.agent.settings import (
     budget_limits,
     set_approval_policy,
-    set_context_limit_chars,
-    set_max_steps,
-    set_model_choice,
 )
 from terminal.core.agent.summary import format_changes
 from terminal.core.agent.tasks import (
@@ -50,14 +47,12 @@ class AgentRunnerMixin:
             return
 
         self.undo_button.setVisible(False)
+        self.controls.trace_button.setEnabled(False)
         self._summary_job = None
 
         limits = budget_limits()
         context_chars = int(self.context_input.value())
         steps_limit = int(self.steps_input.value())
-
-        set_max_steps(steps_limit)
-        set_context_limit_chars(context_chars)
 
         choice = self.model_combo.currentData()
 
@@ -80,7 +75,6 @@ class AgentRunnerMixin:
 
             brain = NativeBrain(native, limits)
             model_name = f"native · {native.model}"
-            set_model_choice("native")
         else:
             model = choice.get("model") or {}
             model_id = str(model.get("model_id") or "")
@@ -96,7 +90,6 @@ class AgentRunnerMixin:
                 model.get("provider_id") or "opencode",
             )
             model_name = str(model.get("name") or model_id)
-            set_model_choice(str(model.get("id") or model_id))
 
         if self._resume_current(
             task,
@@ -299,6 +292,7 @@ class AgentRunnerMixin:
 
         self._append_steps(job)
         self._sync_approval(job)
+        self.controls.trace_button.setEnabled(bool(job.steps))
 
         if not job.done:
             self._show_progress(job)

@@ -361,3 +361,28 @@ def set_request_timeout(seconds: int) -> None:
     _update_fields(
         {"request_timeout": min(900, max(10, int(seconds)))}
     )
+
+
+DEFAULT_STEP_TIMEOUT = 180
+
+
+def step_timeout() -> int:
+    """Сколько секунд отводится на один шаг модели (0 — без лимита)."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = _number(
+        document,
+        "step_timeout",
+        DEFAULT_STEP_TIMEOUT,
+        as_int=True,
+    )
+
+    return min(3600, max(0, int(value)))
+
+
+def set_step_timeout(seconds: int) -> None:
+    """Сохраняет таймаут шага."""
+
+    _update_fields(
+        {"step_timeout": min(3600, max(0, int(seconds)))}
+    )

@@ -225,3 +225,23 @@ def test_task_controls_settings(tmp_path, monkeypatch) -> None:
 
     settings.set_model_choice("")
     assert settings.model_choice() == ""
+
+def test_step_timeout_setting(tmp_path, monkeypatch) -> None:
+    """Таймаут шага сохраняется и подрезается."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+
+    assert settings.step_timeout() == 180
+
+    settings.set_step_timeout(300)
+    assert settings.step_timeout() == 300
+
+    settings.set_step_timeout(0)
+    assert settings.step_timeout() == 0
+
+    settings.set_step_timeout(9999)
+    assert settings.step_timeout() == 3600
