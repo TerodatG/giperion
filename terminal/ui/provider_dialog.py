@@ -28,6 +28,7 @@ from terminal.core.agent.settings import (
     browser_enabled,
     budget_limits,
     context_limit_chars,
+    embedding_model,
     load_settings,
     mask_key,
     mcp_enabled,
@@ -36,13 +37,16 @@ from terminal.core.agent.settings import (
     request_timeout,
     save_budget_limits,
     save_settings,
+    semantic_enabled,
     set_allow_unsafe_plugins,
     set_browser_enabled,
     set_context_limit_chars,
+    set_embedding_model,
     set_mcp_enabled,
     set_plugin_sandbox,
     set_plugins_enabled,
     set_request_timeout,
+    set_semantic_enabled,
     set_step_timeout,
     set_stream_enabled,
     step_timeout,
@@ -292,6 +296,29 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Веб", self.browser_check)
 
+        self.semantic_check = QCheckBox(
+            "Смысловой поиск по проекту",
+            self,
+        )
+        self.semantic_check.setChecked(semantic_enabled())
+        self.semantic_check.setToolTip(
+            "Инструмент find_relevant: ищет код и документацию по смыслу "
+            "задачи. Эмбеддинги запрашиваются только у локального "
+            "провайдера (/embeddings); если его нет — работает поиск по "
+            "словам (BM25)."
+        )
+        form.addRow("Смысловой поиск", self.semantic_check)
+
+        self.embedding_input = QLineEdit(self)
+        self.embedding_input.setText(embedding_model())
+        self.embedding_input.setPlaceholderText("определить автоматически")
+        self.embedding_input.setToolTip(
+            "Имя модели эмбеддингов на локальном провайдере, например "
+            "text-embedding-nomic-embed-text-v1.5. Пусто — найти модель "
+            "в /models по слову embed."
+        )
+        form.addRow("Модель эмбеддингов", self.embedding_input)
+
         self.stream_check = QCheckBox(
             "Показывать ответ по мере генерации",
             self,
@@ -387,10 +414,13 @@ class ProviderDialog(SkinDialog):
         set_stream_enabled(self.stream_check.isChecked())
         set_mcp_enabled(self.mcp_check.isChecked())
         set_browser_enabled(self.browser_check.isChecked())
+        set_semantic_enabled(self.semantic_check.isChecked())
+        set_embedding_model(self.embedding_input.text())
 
-        from terminal.core.agent import mcp
+        from terminal.core.agent import mcp, semantic
 
         mcp.reload_mcp()
+        semantic.reset_cache()
         reload_plugins()
 
         if all(values.values()):

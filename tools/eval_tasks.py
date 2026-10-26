@@ -294,6 +294,25 @@ def _subagents_inspect(folder: Path, result) -> tuple[bool, str]:
     )
 
 
+def _semantic_inspect(folder: Path, result) -> tuple[bool, str]:
+    """Проверяет, что модель звала find_relevant и назвала файл."""
+
+    used = any(
+        step.kind == "tool" and "find_relevant" in step.title
+        for step in result.steps
+    )
+    named = "semantic" in str(result.answer).casefold()
+
+    if used and named:
+        return True, "find_relevant вызван, файл назван"
+
+    return (
+        False,
+        f"find_relevant: {'да' if used else 'нет'}, "
+        f"файл: {'да' if named else 'нет'}",
+    )
+
+
 TASKS = (
     EvalTask(
         "find-load-models",
@@ -476,6 +495,15 @@ TASKS = (
         answer_has("providers.py"),
         max_steps=6,
         inspect=_subagents_inspect,
+    ),
+    EvalTask(
+        "semantic-embeddings",
+        "Поиск по смыслу",
+        "Через find_relevant найди, где в проекте описан смысловой поиск "
+        "и эмбеддинги, и назови файл. Точных имён не подсказываю.",
+        answer_has("semantic"),
+        max_steps=5,
+        inspect=_semantic_inspect,
     ),
     EvalTask(
         "mcp-echo",

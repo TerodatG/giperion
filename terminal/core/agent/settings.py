@@ -360,6 +360,34 @@ def set_context_auto(enabled: bool) -> None:
     _update_fields({"context_auto": bool(enabled)})
 
 
+def semantic_enabled() -> bool:
+    """Использовать ли смысловой поиск в задачах (по умолчанию да)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("semantic_search") is not False
+
+
+def set_semantic_enabled(enabled: bool) -> None:
+    """Включает или выключает смысловой поиск."""
+
+    _update_fields({"semantic_search": bool(enabled)})
+
+
+def embedding_model() -> str:
+    """Модель эмбеддингов; пусто — определить автоматически."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return str(document.get("embedding_model") or "").strip()
+
+
+def set_embedding_model(name: str) -> None:
+    """Сохраняет имя модели эмбеддингов."""
+
+    _update_fields({"embedding_model": str(name or "").strip()})
+
+
 def request_timeout() -> int:
     """Таймаут одного запроса к провайдеру в секундах."""
 

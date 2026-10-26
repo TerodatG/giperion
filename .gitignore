@@ -78,3 +78,5 @@ data/agent_plugin_out/
 
 # --- Python-окружение для MCP-серверов ---
 data/mcp_venv/
+data/agent_semantic.json
+data/agent_vectors.json

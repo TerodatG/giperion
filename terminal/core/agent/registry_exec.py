@@ -375,6 +375,15 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
 
         return index.find_symbol(root, _string_arg(call, "query"))
 
+    if call.tool == "find_relevant":
+        from terminal.core.agent import semantic
+
+        return semantic.find_relevant(
+            root,
+            _string_arg(call, "query"),
+            _int_arg(call, "limit", semantic.DEFAULT_LIMIT),
+        )
+
     if call.tool == "run_tests":
         return tools.run_tests(root)
 

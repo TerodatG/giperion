@@ -34,6 +34,20 @@ TOOL_SPECS = (
         required=("query",),
     ),
     ToolSpec(
+        name="find_relevant",
+        description=(
+            "Найти по смыслу, где в проекте говорится о задаче: код, "
+            "документация и конфиги. Лучше search_text, когда не знаешь "
+            "точных слов; возвращает путь, строку и отрывок."
+        ),
+        args={
+            "query": "описание задачи словами",
+            "limit": "сколько фрагментов, по умолчанию 8",
+        },
+        types={"limit": "integer"},
+        required=("query",),
+    ),
+    ToolSpec(
         name="search_text",
         description="Найти строку в файлах проекта (регистр не важен).",
         args={

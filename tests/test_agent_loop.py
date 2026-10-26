@@ -193,6 +193,7 @@ def test_registry_has_read_write_and_exec_tools() -> None:
         "read_file": "read",
         "search_text": "read",
         "find_symbol": "read",
+        "find_relevant": "read",
         "apply_patch": "write",
         "write_file": "write",
         "run_tests": "exec",
