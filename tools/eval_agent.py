@@ -153,6 +153,12 @@ def _print_totals(
             f"плавающих {summary['flaky_tasks']}"
         )
 
+    if summary.get("retried_tasks"):
+        print(
+            "Повторных проходов после провала: "
+            f"{summary['retried_tasks']}"
+        )
+
     if summary.get("tokens"):
         money = (
             ", "
@@ -262,6 +268,39 @@ def _worktree_failure(task: EvalTask, error: Exception) -> dict:
     }
 
 
+def _run_with_retries(task: EvalTask, brain, args) -> dict:
+    """Запускает задачу и повторяет провал до --retry раз."""
+
+    result = run_task(task, brain, BASE_DIR)
+    retries = 0
+
+    while not result.get("ok") and retries < args.retry:
+        retries += 1
+        extra = run_task(task, brain, BASE_DIR)
+        extra["tokens"] = int(extra.get("tokens") or 0) + int(
+            result.get("tokens") or 0
+        )
+        extra["duration_s"] = round(
+            float(extra.get("duration_s") or 0)
+            + float(result.get("duration_s") or 0),
+            2,
+        )
+        extra["retries"] = retries
+
+        if extra.get("ok"):
+            extra["note"] = (
+                f"со {retries + 1}-й попытки: "
+                + str(extra.get("note") or "")
+            ).strip()
+
+        result = extra
+
+        if result.get("ok"):
+            break
+
+    return result
+
+
 def _report(
     *,
     tasks,
@@ -335,6 +374,12 @@ def main() -> None:
         help="сколько раз прогнать набор задач (стабильность)",
     )
     parser.add_argument(
+        "--retry",
+        type=int,
+        default=0,
+        help="сколько раз повторять упавшую задачу",
+    )
+    parser.add_argument(
         "--threshold",
         type=float,
         default=10.0,
@@ -403,7 +448,7 @@ def main() -> None:
             current = _with_steps(task, args.max_steps)
 
             try:
-                result = run_task(current, brain, BASE_DIR)
+                result = _run_with_retries(current, brain, args)
             except WorktreeError as error:
                 result = _worktree_failure(task, error)
 

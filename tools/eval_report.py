@@ -28,6 +28,7 @@ def _empty_summary() -> dict:
         "runs": 0,
         "stable_tasks": 0,
         "flaky_tasks": 0,
+        "retried_tasks": 0,
         "task_ids": [],
         "per_task": {},
     }
@@ -112,6 +113,9 @@ def summarize(results: list[dict]) -> dict:
         "runs": runs,
         "stable_tasks": stable_tasks,
         "flaky_tasks": flaky_tasks,
+        "retried_tasks": sum(
+            1 for item in results if item.get("retries")
+        ),
         "task_ids": sorted(groups),
         "per_task": per_task,
     }

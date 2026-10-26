@@ -86,3 +86,4 @@ data/agent_vectors.db
 data/agent_vectors.db-wal
 data/agent_vectors.db-shm
 %SystemDrive%/
+data/agent_audit.jsonl

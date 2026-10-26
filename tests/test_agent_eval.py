@@ -600,3 +600,73 @@ def test_browser_prepare_and_restore(tmp_path) -> None:
     assert any(
         task.id == "browser-read-js" for task in eval_agent.TASKS
     )
+
+def test_retry_repeats_failed_task(monkeypatch, tmp_path) -> None:
+    """Провал повторяется, токены попыток складываются."""
+
+    from types import SimpleNamespace
+
+    calls: list[int] = []
+
+    def fake_run(task, brain, base):
+        calls.append(1)
+
+        if len(calls) == 1:
+            return {
+                "ok": False,
+                "tokens": 10,
+                "duration_s": 1.0,
+                "note": "мимо",
+            }
+
+        return {
+            "ok": True,
+            "tokens": 5,
+            "duration_s": 2.0,
+            "note": "попал",
+        }
+
+    monkeypatch.setattr(eval_agent, "run_task", fake_run)
+    monkeypatch.setattr(eval_agent, "BASE_DIR", tmp_path)
+
+    result = eval_agent._run_with_retries(
+        SimpleNamespace(id="x"),
+        object(),
+        SimpleNamespace(retry=1),
+    )
+
+    assert result["ok"]
+    assert result["retries"] == 1
+    assert result["tokens"] == 15
+    assert "со 2-й попытки" in result["note"]
+
+
+def test_retry_stops_after_limit(monkeypatch, tmp_path) -> None:
+    """При повторе лимит не превышается."""
+
+    from types import SimpleNamespace
+
+    calls: list[int] = []
+
+    def fake_run(task, brain, base):
+        calls.append(1)
+
+        return {
+            "ok": False,
+            "tokens": 1,
+            "duration_s": 0.5,
+            "note": "мимо",
+        }
+
+    monkeypatch.setattr(eval_agent, "run_task", fake_run)
+    monkeypatch.setattr(eval_agent, "BASE_DIR", tmp_path)
+
+    result = eval_agent._run_with_retries(
+        SimpleNamespace(id="x"),
+        object(),
+        SimpleNamespace(retry=2),
+    )
+
+    assert not result["ok"]
+    assert result["retries"] == 2
+    assert len(calls) == 3

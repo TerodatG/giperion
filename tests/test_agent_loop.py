@@ -965,3 +965,33 @@ def test_step_timeout_stops_task(tmp_path) -> None:
     assert "не ответила" in result.error
     assert elapsed < 0.8
     assert any(step.title == "Таймаут шага" for step in result.steps)
+
+def test_grounding_adds_semantic_for_questions(tmp_path, monkeypatch) -> None:
+    """Вопросы о проекте начинаются с find_relevant."""
+
+    from terminal.core.agent import loop_helpers, settings
+
+    monkeypatch.setattr(settings, "semantic_enabled", lambda: True)
+
+    calls = loop_helpers.grounding_calls(
+        "Где проверяются подтверждения записи файлов?",
+        tmp_path,
+    )
+
+    assert any(call.tool == "find_relevant" for call in calls)
+
+    create = loop_helpers.grounding_calls(
+        "Создай файл eval.txt с текстом",
+        tmp_path,
+    )
+
+    assert not any(call.tool == "find_relevant" for call in create)
+
+    monkeypatch.setattr(settings, "semantic_enabled", lambda: False)
+
+    disabled = loop_helpers.grounding_calls(
+        "Где проверяются подтверждения?",
+        tmp_path,
+    )
+
+    assert not any(call.tool == "find_relevant" for call in disabled)

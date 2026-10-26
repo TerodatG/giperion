@@ -26,6 +26,12 @@ QUOTED = re.compile(
     r"«([^»]{3,80})»|\"([^\"]{3,80})\"|`([^`]{3,80})`"
 )
 
+QUESTION_RE = re.compile(
+    r"\b(где|найди|как|почему|зачем|какие|какой|какая|кто|когда|"
+    r"откуда|что|чем|сколько|which|where|why|how|what|find|search)\b",
+    re.IGNORECASE,
+)
+
 
 def grounding_calls(task: str, root: Path) -> list[ToolCall]:
     """Первый шаг без модели: дать ей реальные факты о проекте.
@@ -56,6 +62,20 @@ def grounding_calls(task: str, root: Path) -> list[ToolCall]:
         if query:
             calls.append(
                 ToolCall(tool="search_text", args={"query": query})
+            )
+
+    if (
+        QUESTION_RE.search(task)
+        and len(task.split()) >= 4
+    ):
+        from terminal.core.agent import settings
+
+        if settings.semantic_enabled():
+            calls.append(
+                ToolCall(
+                    tool="find_relevant",
+                    args={"query": task[:400], "limit": 5},
+                )
             )
 
     return calls

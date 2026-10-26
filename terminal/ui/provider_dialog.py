@@ -59,6 +59,7 @@ from terminal.core.agent.settings import (
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.mcp_dialog import show_mcp_dialog
+from terminal.ui.memory_dialog import show_memory_dialog
 
 POLL_MS = 150
 
@@ -400,6 +401,16 @@ class ProviderDialog(SkinDialog):
             self._clear_search_cache
         )
         form.addRow("Кеш поиска", self.clear_cache_button)
+
+        self.memory_button = QPushButton("Память…", self)
+        self.memory_button.setToolTip(
+            "Заметки между задачами: data/agent_memory.md, "
+            "их хвост попадает в системный промпт."
+        )
+        self.memory_button.clicked.connect(
+            lambda: show_memory_dialog(self)
+        )
+        form.addRow("Память", self.memory_button)
 
     def _clear_search_cache(self) -> None:
         """Удаляет кеши смыслового поиска после подтверждения."""

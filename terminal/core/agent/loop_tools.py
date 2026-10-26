@@ -294,6 +294,22 @@ def _request_approval(
             )
         )
 
+    try:
+        from terminal.core.agent import audit
+
+        audit.record(
+            "approval",
+            {
+                "tool": call.tool,
+                "approved": approved,
+                "remember": bool(keep and key),
+                "key": key,
+                "target": audit.target_of(dict(call.args or {})),
+            },
+        )
+    except (OSError, TypeError, ValueError):
+        pass
+
     if not approved:
         state.remember(
             call,

@@ -400,8 +400,10 @@ python -m tools.eval_agent --full              # + запуск pytest
 python -m tools.eval_agent --repeat 3          # три прогона: стабильность
 python -m tools.eval_agent --repeat 3 --save-baseline   # зафиксировать базу
 python -m tools.eval_agent --baseline --fail-on-regression   # сравнить
+python -m tools.eval_agent --retry 1           # повторить упавшую задачу
 python -m tools.eval_agent --history           # история прогонов
 python -m tools.eval_agent --only readme-lines --model <id> --provider opencode
+python -m tools.audit_log --check              # цепочка аудита
 ```
 
 Каждая задача выполняется в отдельном `git worktree`, поэтому файлы
@@ -422,6 +424,14 @@ python -m tools.eval_agent --only readme-lines --model <id> --provider opencode
 `--only` заменит полную базу одной задачей — для полного набора
 запускайте без `--only`. Сравнение с `latest.json` не делается, если
 набор задач или число повторов отличаются.
+
+`--retry N` повторяет упавшую задачу до N раз: в отчёте видно «со 2-й
+попытки», токены всех попыток складываются, а сводка показывает число
+повторных проходов. Для стабильности по-прежнему лучше `--repeat`.
+
+Журнал действий агента — `data/agent_audit.jsonl` (вне git): каждая
+запись ссылается хешем на предыдущую, `python -m tools.audit_log
+--check` показывает подмену или разрыв, `--tail N` — последние события.
 
 ## Структура
 

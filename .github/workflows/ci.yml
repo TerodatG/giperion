@@ -13,6 +13,8 @@ on:
       - ".github/workflows/ci.yml"
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
 
 jobs:
   test:
