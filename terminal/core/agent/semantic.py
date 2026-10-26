@@ -28,7 +28,7 @@ VECTOR_WEIGHT = 0.15
 LEXICAL_WEIGHT = 0.85
 VECTOR_ONLY_WEIGHT = 0.3
 RERANK_DEPTH = 10
-PATH_WEIGHTS = (("tests/", 0.7), ("docs/", 0.92))
+PATH_WEIGHTS = (("tests/", 0.5), ("docs/", 0.75))
 
 _STATS: dict[str, tuple] = {}
 _VECTORS: dict[tuple[str, str], dict[str, list[float]]] = {}
