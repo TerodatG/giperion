@@ -4,6 +4,7 @@
 
 import ctypes
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -18,7 +19,9 @@ PROFILE_NAME = "Giperion.Agent.Plugin"
 PYTHON_DIR = DATA_DIR / "plugin_python"
 MARKER = PYTHON_DIR / ".ready"
 TEMP_DIR = BASE_DIR / ".agent_plugin_tmp"
+WRITE_ROOT = DATA_DIR / "agent_plugin_out"
 OUTPUT_PREFIX = "container_out_"
+PLUGIN_OUT_ENV = "AGENT_PLUGIN_OUT"
 
 PROCESS_SET_QUOTA = 0x0100
 PROCESS_TERMINATE = 0x0001
@@ -60,6 +63,36 @@ def python_exe() -> Path:
     """Python внутри песочницы."""
 
     return PYTHON_DIR / "python.exe"
+
+
+def plugin_write_dir(plugin_name: str) -> Path:
+    """Папка, куда плагину разрешено писать в контейнере."""
+
+    safe = re.sub(r"[^a-zA-Z0-9_.-]+", "_", str(plugin_name or "")).strip("._")
+    folder = WRITE_ROOT / (safe or "plugin")
+    folder.mkdir(parents=True, exist_ok=True)
+
+    return folder
+
+
+def grant_write_scope(folder: Path) -> bool:
+    """Выдаёт контейнеру запись в конкретную папку плагина."""
+
+    try:
+        _sid, sid_text = ensure_profile()
+    except ContainerError:
+        return False
+
+    # Нужен проход по родительской папке agent_plugin_out.
+    _icacls(folder.parent, "/grant", f"*{sid_text}:RX", "/Q")
+
+    return _icacls(
+        folder,
+        "/grant",
+        f"*{sid_text}:(OI)(CI)M",
+        "/T",
+        "/Q",
+    )
 
 
 def _structures():

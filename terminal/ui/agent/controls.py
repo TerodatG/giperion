@@ -54,6 +54,7 @@ class AgentControls(QWidget):
     provider_requested = Signal()
     trace_requested = Signal()
     save_defaults_requested = Signal()
+    resume_last_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -241,6 +242,19 @@ class AgentControls(QWidget):
         )
         self.trace_button.clicked.connect(self.trace_requested.emit)
 
+        self.resume_last_button = QPushButton(
+            "Продолжить незавершённую",
+            self,
+        )
+        self.resume_last_button.setObjectName("workshopAction")
+        self.resume_last_button.setVisible(False)
+        self.resume_last_button.setToolTip(
+            "Открыть сохранённую незавершённую задачу с её историей."
+        )
+        self.resume_last_button.clicked.connect(
+            self.resume_last_requested.emit
+        )
+
         self.status_label = QLabel("Готов к задаче.", self)
         self.status_label.setObjectName("dialogHint")
         self.status_label.setWordWrap(True)
@@ -251,6 +265,7 @@ class AgentControls(QWidget):
         row.addWidget(self.stop_button)
         row.addWidget(self.new_task_button)
         row.addWidget(self.tasks_button)
+        row.addWidget(self.resume_last_button)
         row.addWidget(self.watch_button)
         row.addWidget(self.trace_button)
         row.addWidget(self.undo_button)

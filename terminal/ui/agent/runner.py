@@ -48,6 +48,7 @@ class AgentRunnerMixin:
 
         self.undo_button.setVisible(False)
         self.controls.trace_button.setEnabled(False)
+        self.controls.resume_last_button.setVisible(False)
         self._summary_job = None
 
         limits = budget_limits()

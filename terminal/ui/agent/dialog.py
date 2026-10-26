@@ -52,6 +52,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         self.worktree_path: Path | None = None
         self.worktree_branch = ""
         self._summary_job = None
+        self._unfinished_state: dict | None = None
 
         self._build()
         self._timer = QTimer(self)
@@ -102,6 +103,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         self.controls.watch_requested.connect(self._open_watch)
         self.controls.trace_requested.connect(self._open_trace)
         self.controls.save_defaults_requested.connect(self._save_defaults)
+        self.controls.resume_last_requested.connect(self._resume_last)
         self.controls.undo_requested.connect(self._undo_changes)
         self.controls.provider_requested.connect(
             lambda: show_provider_dialog(self)
@@ -280,13 +282,32 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         if not running:
             return
 
-        task = str(running[0].get("task") or "").splitlines()
+        state = running[0]
+        task = str(state.get("task") or "").splitlines()
+        title = task[0][:60] if task else "без описания"
+
+        self._unfinished_state = state
+        self.controls.resume_last_button.setVisible(True)
+        self.controls.resume_last_button.setToolTip(
+            f"Продолжить: {title}"
+        )
 
         self.status_label.setText(
             "Есть незавершённая задача"
-            + (f": «{task[0][:60]}»" if task else "")
-            + ". Открой «Задачи…», чтобы продолжить."
+            + (f": «{title}»" if task else "")
+            + ". Нажми «Продолжить незавершённую» или открой «Задачи…»."
         )
+
+    def _resume_last(self) -> None:
+        """Продолжает последнюю незавершённую задачу."""
+
+        state = self._unfinished_state
+
+        if state is None:
+            return
+
+        self.controls.resume_last_button.setVisible(False)
+        self._resume_task(state)
 
     def _apply_resume(self, state: dict) -> None:
         """Заполняет окно сохранённой задачей."""

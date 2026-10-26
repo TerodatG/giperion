@@ -65,6 +65,9 @@ data/agent_watch.json
 data/plugin_python/
 .agent_plugin_tmp/
 
+# --- Папки, куда плагинам разрешено писать в контейнере ---
+data/agent_plugin_out/
+
 # --- Параллельные рабочие деревья агента ---
 .agent_worktrees/
 

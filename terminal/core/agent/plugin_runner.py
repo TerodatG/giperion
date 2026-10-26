@@ -51,6 +51,16 @@ def _allowed_roots(root: Path, module_dir: Path | None) -> tuple[list[Path], lis
         except (OSError, ValueError):
             pass
 
+    plugin_out = os.environ.get("AGENT_PLUGIN_OUT")
+
+    if plugin_out:
+        try:
+            folder = Path(plugin_out).resolve()
+            allowed_write.append(folder)
+            allowed_read.append(folder)
+        except (OSError, ValueError):
+            pass
+
     return allowed_read, allowed_write
 
 
@@ -382,11 +392,22 @@ def _run_in_container(
         json.dumps(list(permissions), ensure_ascii=False),
     ]
 
+    extra_env: dict[str, str] = {}
+
+    if "fs:write" in permissions:
+        try:
+            folder = container.plugin_write_dir(module_path.stem)
+            container.grant_write_scope(folder)
+            extra_env[container.PLUGIN_OUT_ENV] = str(folder)
+        except (OSError, container.ContainerError):
+            pass
+
     try:
         code, output = container.run_text(
             command_args,
             cwd=root,
             timeout=timeout,
+            extra_env=extra_env,
         )
     except container.ContainerError as error:
         return ToolResult(False, str(error))

@@ -160,6 +160,14 @@ def test_dialog_hints_unfinished_task(qapp, monkeypatch) -> None:
 
     assert "незавершённая" in dialog.status_label.text()
     assert "доделай отчёт" in dialog.status_label.text()
+    assert not dialog.controls.resume_last_button.isHidden()
+    assert "доделай отчёт" in dialog.controls.resume_last_button.toolTip()
+
+    captured: list[dict] = []
+    dialog._resume_task = captured.append
+    dialog.controls.resume_last_button.click()
+
+    assert captured and captured[0]["id"] == "20261025-1"
 
     dialog.close()
 

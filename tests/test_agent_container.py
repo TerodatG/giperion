@@ -3,6 +3,7 @@
 
 import json
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -119,7 +120,7 @@ def test_runner_uses_container(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         container,
         "run_text",
-        lambda args, cwd, timeout: (
+        lambda args, cwd, timeout, extra_env=None: (
             captured.update(args=args, cwd=cwd)
             or (0, json.dumps({"ok": True, "text": "из контейнера"}))
         ),
@@ -180,3 +181,131 @@ def test_sandbox_mode_setting(tmp_path, monkeypatch) -> None:
 
     with pytest.raises(ValueError):
         settings.set_plugin_sandbox("контейнер")
+
+def test_plugin_write_dir_is_sanitized(tmp_path, monkeypatch) -> None:
+    """Папка записи плагина очищается от опасных символов."""
+
+    monkeypatch.setattr(container, "WRITE_ROOT", tmp_path / "out")
+
+    folder = container.plugin_write_dir("Word Count!!")
+
+    assert folder.parent == tmp_path / "out"
+    assert folder.name == "Word_Count"
+    assert folder.is_dir()
+
+
+def test_grant_write_scope_grants_parent_and_folder(monkeypatch) -> None:
+    """Права выдаются на папку плагина и проход по её родителю."""
+
+    calls: list[tuple] = []
+
+    monkeypatch.setattr(
+        container,
+        "ensure_profile",
+        lambda: (None, "S-1-15-2-1"),
+    )
+    monkeypatch.setattr(
+        container,
+        "_icacls",
+        lambda *args: calls.append(args) or True,
+    )
+
+    folder = Path("C:/tmp/agent_plugin_out/echo")
+
+    assert container.grant_write_scope(folder)
+    assert len(calls) == 2
+    assert "RX" in str(calls[0])
+    assert str(calls[1][0]) == str(folder)
+
+
+def test_runner_passes_write_scope(tmp_path, monkeypatch) -> None:
+    """При fs:write контейнер получает папку вывода в окружении."""
+
+    captured: dict = {}
+    out_dir = tmp_path / "out" / "plugin"
+
+    monkeypatch.setattr(
+        plugin_runner,
+        "_sandbox_mode",
+        lambda: "appcontainer",
+    )
+    monkeypatch.setattr(container, "available", lambda: True)
+    monkeypatch.setattr(
+        container,
+        "plugin_write_dir",
+        lambda name: out_dir,
+    )
+    monkeypatch.setattr(
+        container,
+        "grant_write_scope",
+        lambda folder: captured.update(granted=folder) or True,
+    )
+
+    def run_text(args, cwd, timeout, extra_env=None):
+        captured["env"] = extra_env
+
+        return 0, json.dumps({"ok": True, "text": "запись"})
+
+    monkeypatch.setattr(container, "run_text", run_text)
+
+    result = plugin_runner.run_plugin_process(
+        tmp_path / "plugin.py",
+        tmp_path,
+        {},
+        permissions=("fs:read", "fs:write"),
+    )
+
+    assert result.ok
+    assert captured["granted"] == out_dir
+    assert captured["env"][container.PLUGIN_OUT_ENV] == str(out_dir)
+
+
+def test_runner_has_no_write_scope_without_permission(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Без fs:write папка вывода не создаётся и не передаётся."""
+
+    captured: dict = {}
+
+    monkeypatch.setattr(
+        plugin_runner,
+        "_sandbox_mode",
+        lambda: "appcontainer",
+    )
+    monkeypatch.setattr(container, "available", lambda: True)
+
+    def run_text(args, cwd, timeout, extra_env=None):
+        captured["env"] = extra_env
+
+        return 0, json.dumps({"ok": True, "text": "чтение"})
+
+    monkeypatch.setattr(container, "run_text", run_text)
+    monkeypatch.setattr(
+        container,
+        "plugin_write_dir",
+        lambda name: (_ for _ in ()).throw(AssertionError("не должно")),
+    )
+
+    result = plugin_runner.run_plugin_process(
+        tmp_path / "plugin.py",
+        tmp_path,
+        {},
+        permissions=("fs:read",),
+    )
+
+    assert result.ok
+    assert container.PLUGIN_OUT_ENV not in captured["env"]
+
+
+def test_guard_roots_include_plugin_out(tmp_path, monkeypatch) -> None:
+    """Сторож разрешает запись в выданную папку плагина."""
+
+    folder = tmp_path / "out"
+    folder.mkdir()
+    monkeypatch.setenv("AGENT_PLUGIN_OUT", str(folder))
+
+    read, write = plugin_runner._allowed_roots(tmp_path, None)
+
+    assert folder.resolve() in write
+    assert folder.resolve() in read
