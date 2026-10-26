@@ -263,12 +263,15 @@ def _shot_path(root: Path, url: str) -> Path:
     )
 
 
-def _invoke(
+def _invoke_worker(
     root: Path,
     request: dict,
     seconds: int,
 ) -> tuple[dict | None, str]:
-    """Запускает воркер и разбирает его ответ."""
+    """Одноразовый воркер: запуск Chromium на один запрос."""
+
+    if str(request.get("cmd") or "open") != "open":
+        return None, "Текущая страница доступна только в сессии браузера."
 
     command = [
         sys.executable,
@@ -313,6 +316,45 @@ def _invoke(
         )
 
     return data, ""
+
+
+def _invoke(
+    root: Path,
+    request: dict,
+    seconds: int,
+) -> tuple[dict | None, str]:
+    """Пробует сессию на задачу, иначе поднимает разовый браузер."""
+
+    if settings.browser_session_enabled():
+        try:
+            from terminal.core.agent import browser_session
+
+            session = browser_session.current(Path(root))
+            data = session.request(
+                str(request.get("cmd") or "open"),
+                timeout=seconds,
+                **{
+                    key: value
+                    for key, value in request.items()
+                    if key != "cmd"
+                },
+            )
+
+            return data, ""
+        except Exception:  # noqa: BLE001 — откат к разовому запуску
+            from terminal.core.agent import browser_session
+
+            browser_session.close_current()
+
+    return _invoke_worker(root, request, seconds)
+
+
+def close_session() -> None:
+    """Закрывает браузер текущего потока."""
+
+    from terminal.core.agent import browser_session
+
+    browser_session.close_current()
 
 
 def _check_links(actions: list[dict]) -> None:
@@ -361,7 +403,7 @@ def _run(
     shot: bool,
     full_page: bool = False,
 ) -> ToolResult:
-    """Общий путь: проверки, robots, воркер и разбор ответа."""
+    """Общий путь: проверки, robots, сессия/воркер и разбор ответа."""
 
     if not settings.browser_js_enabled():
         return ToolResult(
@@ -377,21 +419,41 @@ def _run(
             "и python -m playwright install chromium.",
         )
 
-    try:
-        clean = _check(url)
-    except web.WebError as error:
-        return ToolResult(False, str(error))
+    current = str(url or "").strip().lower() in (
+        "",
+        "current",
+        "текущая",
+    )
 
-    if not _robots_allows(clean):
+    if current and not settings.browser_session_enabled():
         return ToolResult(
             False,
-            "robots.txt запрещает открывать этот адрес агенту.",
+            "Текущая страница доступна только в сессии браузера.",
         )
 
-    _wait_rate(clean)
+    if current:
+        clean = ""
+        command = "act" if actions else "read"
+        target = _shot_path(root, "current") if shot else None
+    else:
+        try:
+            clean = _check(url)
+        except web.WebError as error:
+            return ToolResult(False, str(error))
+
+        if not _robots_allows(clean):
+            return ToolResult(
+                False,
+                "robots.txt запрещает открывать этот адрес агенту.",
+            )
+
+        _wait_rate(clean)
+        command = "open"
+        target = _shot_path(root, clean) if shot else None
+
     seconds = min(120, max(5, int(timeout or DEFAULT_TIMEOUT)))
-    target = _shot_path(root, clean) if shot else None
     request = {
+        "cmd": command,
         "url": clean,
         "wait": str(wait or ""),
         "timeout_ms": seconds * 1000,

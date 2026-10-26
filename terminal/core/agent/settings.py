@@ -191,6 +191,20 @@ def set_browser_js_enabled(enabled: bool) -> None:
     _update_fields({"browser_js_enabled": bool(enabled)})
 
 
+def browser_session_enabled() -> bool:
+    """Держать ли один Chromium на задачу (по умолчанию да)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("browser_session") is not False
+
+
+def set_browser_session_enabled(enabled: bool) -> None:
+    """Включает или выключает одну браузерную сессию на задачу."""
+
+    _update_fields({"browser_session": bool(enabled)})
+
+
 def egress_domains() -> tuple[str, ...]:
     """Общий allowlist доменов; пусто — разрешены все публичные."""
 

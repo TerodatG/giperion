@@ -32,6 +32,11 @@ def _enable(monkeypatch, available: bool = True) -> None:
     monkeypatch.setattr(browser_js, "available", lambda: available)
     monkeypatch.setattr(browser_js, "_robots_allows", lambda url: True)
     monkeypatch.setattr(browser_js, "_wait_rate", lambda url: None)
+    monkeypatch.setattr(
+        settings,
+        "browser_session_enabled",
+        lambda: False,
+    )
 
 
 def _public(monkeypatch) -> None:
@@ -430,3 +435,150 @@ def test_goto_links_are_checked(monkeypatch) -> None:
         browser_js._check_links(
             [{"type": "goto", "url": "https://python.org/"}]
         )
+
+def test_invoke_uses_session(tmp_path, monkeypatch) -> None:
+    """При включённой сессии запрос идёт в неё."""
+
+    from terminal.core.agent import browser_session, settings
+
+    monkeypatch.setattr(
+        settings,
+        "browser_session_enabled",
+        lambda: True,
+    )
+
+    class FakeSession:
+        def request(self, command, timeout=90, **params):
+            assert command == "open"
+
+            return {
+                "ok": True,
+                "url": params["url"],
+                "title": "",
+                "text": "из сессии",
+                "truncated": False,
+                "shot": "",
+            }
+
+    monkeypatch.setattr(
+        browser_session,
+        "current",
+        lambda root: FakeSession(),
+    )
+
+    data, error = browser_js._invoke(
+        tmp_path,
+        {"url": "https://example.com"},
+        5,
+    )
+
+    assert not error
+    assert data["text"] == "из сессии"
+
+
+def test_invoke_falls_back(tmp_path, monkeypatch) -> None:
+    """Сбой сессии откатывается на разовый браузер."""
+
+    from terminal.core.agent import browser_session, settings
+
+    monkeypatch.setattr(
+        settings,
+        "browser_session_enabled",
+        lambda: True,
+    )
+
+    def broken(root):
+        raise browser_session.BrowserSessionError("нет сессии")
+
+    monkeypatch.setattr(browser_session, "current", broken)
+    monkeypatch.setattr(
+        browser_session,
+        "close_current",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        browser_js,
+        "_invoke_worker",
+        lambda root, request, seconds: (
+            {"ok": True, "text": "разово"},
+            "",
+        ),
+    )
+
+    data, error = browser_js._invoke(
+        tmp_path,
+        {"url": "https://example.com"},
+        5,
+    )
+
+    assert not error
+    assert data["text"] == "разово"
+
+def test_current_page_uses_session(tmp_path, monkeypatch) -> None:
+    """url=current читает открытую страницу без перехода."""
+
+    from terminal.core.agent import browser_session, settings
+
+    monkeypatch.setattr(settings, "browser_js_enabled", lambda: True)
+    monkeypatch.setattr(settings, "browser_session_enabled", lambda: True)
+    monkeypatch.setattr(browser_js, "available", lambda: True)
+
+    calls: list[str] = []
+
+    class FakeSession:
+        def request(self, command, timeout=90, **params):
+            calls.append(command)
+
+            return {
+                "ok": True,
+                "url": "https://example.com/next",
+                "title": "next",
+                "text": "текущая страница",
+                "truncated": False,
+                "shot": "",
+            }
+
+    monkeypatch.setattr(
+        browser_session,
+        "current",
+        lambda root: FakeSession(),
+    )
+
+    result = browser_js.read(tmp_path, "current")
+
+    assert result.ok
+    assert "текущая страница" in result.text
+    assert calls == ["read"]
+
+    act = browser_js.act(
+        tmp_path,
+        "current",
+        actions=[{"type": "click", "selector": "#next"}],
+    )
+
+    assert act.ok
+    assert calls == ["read", "act"]
+
+
+def test_current_needs_session(tmp_path, monkeypatch) -> None:
+    """Без сессии current не открывается разовым браузером."""
+
+    from terminal.core.agent import settings
+
+    monkeypatch.setattr(settings, "browser_js_enabled", lambda: True)
+    monkeypatch.setattr(settings, "browser_session_enabled", lambda: False)
+    monkeypatch.setattr(browser_js, "available", lambda: True)
+
+    result = browser_js.read(tmp_path, "current")
+
+    assert not result.ok
+    assert "сессии" in result.text
+
+def test_browser_session_setting() -> None:
+    """Сессия браузера включена по умолчанию и сохраняется."""
+
+    assert settings.browser_session_enabled() is True
+
+    settings.set_browser_session_enabled(False)
+
+    assert settings.browser_session_enabled() is False

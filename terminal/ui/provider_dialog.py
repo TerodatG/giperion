@@ -28,6 +28,7 @@ from terminal.core.agent.settings import (
     allow_unsafe_plugins,
     browser_enabled,
     browser_js_enabled,
+    browser_session_enabled,
     budget_limits,
     context_limit_chars,
     egress_domains,
@@ -44,6 +45,7 @@ from terminal.core.agent.settings import (
     set_allow_unsafe_plugins,
     set_browser_enabled,
     set_browser_js_enabled,
+    set_browser_session_enabled,
     set_context_limit_chars,
     set_egress_domains,
     set_embedding_model,
@@ -351,6 +353,18 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Браузер JS", self.browser_js_check)
 
+        self.browser_session_check = QCheckBox(
+            "Одна сессия браузера на задачу",
+            self,
+        )
+        self.browser_session_check.setChecked(browser_session_enabled())
+        self.browser_session_check.setToolTip(
+            "Chromium запускается один раз: повторные переходы и "
+            "browser_act(url=\"current\") работают в той же вкладке, "
+            "cookies сохраняются до конца задачи."
+        )
+        form.addRow("Сессия браузера", self.browser_session_check)
+
         self.egress_input = QLineEdit(self)
         self.egress_input.setText(", ".join(egress_domains()))
         self.egress_input.setPlaceholderText(
@@ -527,6 +541,9 @@ class ProviderDialog(SkinDialog):
         set_mcp_enabled(self.mcp_check.isChecked())
         set_browser_enabled(self.browser_check.isChecked())
         set_browser_js_enabled(self.browser_js_check.isChecked())
+        set_browser_session_enabled(
+            self.browser_session_check.isChecked()
+        )
         set_egress_domains(
             [
                 item.strip()

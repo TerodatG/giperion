@@ -230,7 +230,27 @@ def _run_subagent(
     return ToolResult(answered and not interrupted, "\n\n".join(parts))
 
 
-def run_agent(
+def run_agent(*args, **kwargs) -> AgentResult:
+    """Обёртка: после задачи закрывает браузерную сессию потока."""
+
+    try:
+        return _run_agent_impl(*args, **kwargs)
+    finally:
+        depth = kwargs.get("depth")
+
+        if depth is None:
+            depth = args[9] if len(args) > 9 else 0
+
+        if not int(depth or 0):
+            try:
+                from terminal.core.agent import browser_js
+
+                browser_js.close_session()
+            except Exception:  # noqa: BLE001 — не мешает результату
+                pass
+
+
+def _run_agent_impl(
     task: str,
     brain: Brain,
     root: Path,

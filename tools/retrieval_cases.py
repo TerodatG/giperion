@@ -35,4 +35,20 @@ CASES = (
         "где хранятся резервные копии файлов",
         "terminal/core/agent/tools_write.py",
     ),
+    (
+        "как ограничить сеть для плагинов",
+        "terminal/core/agent/plugin_runner.py",
+    ),
+    (
+        "защита от SSRF при чтении страниц",
+        "terminal/core/agent/web.py",
+    ),
+    (
+        "настройка модели эмбеддингов",
+        "terminal/core/agent/embeddings.py",
+    ),
+    (
+        "как работает наблюдатель за файлами",
+        "terminal/core/agent/watch.py",
+    ),
 )
