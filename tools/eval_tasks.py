@@ -167,7 +167,7 @@ TASKS = (
     EvalTask(
         "write-note",
         "Создать файл",
-        "Создай файл eval_note.md с текстом «# Заметка».",
+        "В корне проекта создай файл eval_note.md с текстом «# Заметка».",
         file_equals("eval_note.md", "# Заметка"),
         max_steps=5,
     ),
@@ -275,7 +275,8 @@ TASKS = (
     EvalTask(
         "create-two-lines",
         "Файл из двух строк",
-        "Создай файл eval_lines.txt с двумя строками: «альфа» и «бета».",
+        "В корне проекта создай файл eval_lines.txt с двумя строками: "
+        "«альфа» и «бета».",
         lambda root, _answer: (
             (
                 _text(root / "eval_lines.txt").strip().splitlines()

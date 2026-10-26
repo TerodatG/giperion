@@ -117,7 +117,7 @@ def _browser_prepare(word: str):
                     f"слово: {word}",
                 )
             )
-            browser_js.act = lambda root, url, actions=None, wait="", shot=False, timeout=60: (
+            browser_js.act = lambda root, url, actions=None, wait="", shot=False, timeout=60, full_page=False: (
                 ToolResult(
                     True,
                     f"источник: {url}\nзаголовок: JS-страница\n\n"
