@@ -155,6 +155,43 @@ def test_workshop_dialog_lists_tools(window) -> None:
     dialog.close()
 
 
+def test_workshop_has_terminal_and_panels(window) -> None:
+    """В мастерской есть три окна вывода, ввод и плиты по бокам."""
+
+    from PySide6.QtWidgets import (
+        QApplication,
+        QPlainTextEdit,
+        QPushButton,
+        QTextBrowser,
+        QWidget,
+    )
+
+    window.open_workshop_dialog()
+    QApplication.processEvents()
+
+    dialog = window.window._tool_windows["workshop"]
+    answers = dialog.findChild(QTextBrowser, "workshopAnswers")
+    system = dialog.findChild(QPlainTextEdit, "systemLog")
+    tools = dialog.findChild(QPlainTextEdit, "agentTrace")
+    message = dialog.findChild(QPlainTextEdit, "workshopInput")
+
+    assert answers is not None
+    assert system is not None
+    assert tools is not None
+    assert message is not None
+    assert message.height() >= message.fontMetrics().lineSpacing() * 3
+    assert answers.size() == system.size()
+    assert dialog.findChild(QWidget, "workshopPictureSlot") is not None
+    assert dialog.findChild(QWidget, "chatsPanel") is not None
+    assert dialog.findChild(QWidget, "systemPanel") is not None
+
+    actions = dialog.findChildren(QPushButton, "workshopAction")
+
+    assert len(actions) == 6
+
+    dialog.close()
+
+
 def test_agent_dialog_opens_with_approval(window) -> None:
     """Окно агента открывается; панель подтверждения спрятана."""
 

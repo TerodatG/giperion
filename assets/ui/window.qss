@@ -418,7 +418,8 @@ QLabel#panelCaption {
     padding-left: 16px;
 }
 
-QTextBrowser#chatHistory {
+QTextBrowser#chatHistory,
+QTextBrowser#workshopAnswers {
     background-color: #05100a;
     background-image: url(@SCANLINE@);
     background-repeat: repeat;
@@ -1247,8 +1248,91 @@ QComboBox QAbstractItemView {
     selection-color: #ffe8dc;
 }
 
+QWidget#workshopOutput {
+    background: transparent;
+}
+
+QLabel#workshopPaneCaption {
+    background: transparent;
+    color: #d09a6a;
+    font-family: "Bahnschrift SemiBold", "Segoe UI";
+    font-size: 8pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding-left: 2px;
+}
+
+QFrame#workshopPictureSlot {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px dashed #2f5a35;
+    border-radius: 4px;
+}
+
+QLabel#workshopPlaceholder {
+    background: transparent;
+    color: #3f6b4a;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    letter-spacing: 2px;
+}
+
+QPlainTextEdit#workshopInput {
+    background-color: #04100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: #d6ffd0;
+}
+
+QPlainTextEdit#workshopInput:focus {
+    border: 1px solid #5ce07a;
+}
+
 QToolTip {
     background-color: #1b1512;
     color: #ffe2d2;
     border: 1px solid #7a1c12;
 }
+
+/* --- Раздел «Скины» в настройках --- */
+
+QListWidget#skinList {
+    background-color: #0f0c0a;
+    border: 1px solid #2a2119;
+    border-radius: 4px;
+    color: #d8b48e;
+    padding: 6px;
+}
+
+QListWidget#skinList::item {
+    padding: 8px 6px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+}
+
+QListWidget#skinList::item:hover {
+    background-color: #1b1512;
+    border: 1px solid #3d2f26;
+}
+
+QListWidget#skinList::item:selected {
+    background-color: #123d1f;
+    border: 1px solid #7cf58f;
+    color: #eaffea;
+}
+
+QWidget#skinPreviewFrame {
+    border-image: url(@PANEL@) 14 fill;
+    border-width: 14px;
+}
+
+QWidget#skinPreview {
+    background-color: #080706;
+    border: 1px solid #2a2119;
+    border-radius: 4px;
+}
+

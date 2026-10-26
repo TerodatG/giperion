@@ -1,14 +1,16 @@
-# Giperion/terminal/ui/workshop_dialog.py                            v001
-# Окно «Мастерская»: сборка моделей, личностей и умений.
-# Последнее изменение: первый вариант — четыре карточки-инструмента.
+# Giperion/terminal/ui/workshop_dialog.py                            v002
+# Окно «Мастерская»: терминал связи, плиты и кнопки инструментов.
+# Последнее изменение: раскладка как у главного окна Гипериона.
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QDialogButtonBox,
     QFrame,
     QGridLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -16,143 +18,321 @@ from PySide6.QtWidgets import (
 from terminal.ui.add_model_dialog import show_add_model_dialog
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
+# Порядок важен: он же порядок кнопок в правой плите.
+WORKSHOP_ACTIONS = (
+    ("Открыть агента", "agent"),
+    ("Открыть «Модель»", "models"),
+    ("Открыть личности", "personalities"),
+    ("Открыть умения", "skills"),
+    ("Добавить модель", "add_model"),
+    ("Открыть журнал", "runs"),
+)
 
-def _card(
+
+def _panel(
     parent: QWidget,
-    title: str,
-    description: str,
-    action_text: str,
-    action,
-) -> QFrame:
-    """Собирает карточку мастерской: рамка, зелёный экран и кнопка."""
+    caption: str,
+    object_name: str,
+    *,
+    min_width: int = 0,
+    max_width: int = 0,
+) -> QWidget:
+    """Собирает плиту с подписью в стиле главного окна."""
 
-    plate = QFrame(parent)
-    plate.setObjectName("paramsPlate")
+    panel = QWidget(parent)
+    panel.setObjectName(object_name)
+    panel.setAttribute(Qt.WA_StyledBackground, True)
 
-    plate_layout = QVBoxLayout(plate)
-    plate_layout.setContentsMargins(0, 0, 0, 0)
-    plate_layout.setSpacing(0)
+    if min_width:
+        panel.setMinimumWidth(min_width)
 
-    screen = QWidget(plate)
-    screen.setObjectName("paramsScreen")
+    if max_width:
+        panel.setMaximumWidth(max_width)
 
-    screen_layout = QVBoxLayout(screen)
-    screen_layout.setContentsMargins(12, 10, 12, 10)
-    screen_layout.setSpacing(6)
+    layout = QVBoxLayout(panel)
+    layout.setContentsMargins(14, 12, 14, 12)
+    layout.setSpacing(8)
 
-    caption = QLabel(title, screen)
-    caption.setObjectName("paramsPlateTitle")
+    label = QLabel(caption, panel)
+    label.setObjectName("panelCaption")
+    label.setSizePolicy(
+        QSizePolicy.Preferred,
+        QSizePolicy.Fixed,
+    )
 
-    hint = QLabel(description, screen)
-    hint.setObjectName("paramsNote")
-    hint.setWordWrap(True)
+    layout.addWidget(label)
 
-    button = QPushButton(action_text, screen)
-    button.setObjectName("workshopAction")
-    button.clicked.connect(action)
+    return panel
 
-    screen_layout.addWidget(caption)
-    screen_layout.addWidget(hint)
-    screen_layout.addStretch(1)
-    screen_layout.addWidget(button)
 
-    plate_layout.addWidget(screen)
+def _output_block(
+    parent: QWidget,
+    caption: str,
+    object_name: str,
+    widget_type,
+    placeholder: str,
+) -> tuple[QWidget, QWidget]:
+    """Собирает окно вывода: подпись и сам терминал."""
+
+    block = QWidget(parent)
+    block.setObjectName("workshopOutput")
+
+    layout = QVBoxLayout(block)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(3)
+
+    label = QLabel(caption, block)
+    label.setObjectName("workshopPaneCaption")
+
+    view = widget_type(block)
+    view.setObjectName(object_name)
+    view.setReadOnly(True)
+    view.setPlainText(placeholder)
+
+    layout.addWidget(label)
+    layout.addWidget(view, 1)
+
+    return block, view
+
+
+def _empty_plate(parent: QWidget) -> QWidget:
+    """Пустая плита с текстурой, без содержимого."""
+
+    plate = QWidget(parent)
+    plate.setObjectName("paramsScreen")
+    plate.setAttribute(Qt.WA_StyledBackground, True)
+    plate.setSizePolicy(
+        QSizePolicy.Expanding,
+        QSizePolicy.Expanding,
+    )
 
     return plate
 
 
+def _picture_slot(parent: QWidget) -> QWidget:
+    """Поле под будущую картинку модели."""
+
+    slot = QFrame(parent)
+    slot.setObjectName("workshopPictureSlot")
+    slot.setMinimumHeight(220)
+
+    layout = QVBoxLayout(slot)
+    layout.setContentsMargins(10, 10, 10, 10)
+
+    placeholder = QLabel("МЕСТО ДЛЯ ИЗОБРАЖЕНИЯ", slot)
+    placeholder.setObjectName("workshopPlaceholder")
+    placeholder.setAlignment(Qt.AlignCenter)
+    placeholder.setWordWrap(True)
+
+    layout.addWidget(placeholder, 1)
+
+    return slot
+
+
+def _build_left_column(
+    dialog: QWidget,
+) -> tuple[QWidget, QWidget]:
+    """Левая колонка: образ модели и пустая плита параметров."""
+
+    image_panel = _panel(
+        dialog,
+        "ОБРАЗ ГИПЕРИОНА",
+        "avatarPanel",
+        min_width=280,
+        max_width=320,
+    )
+    image_panel.layout().addWidget(
+        _picture_slot(image_panel),
+        1,
+    )
+
+    details_panel = _panel(
+        dialog,
+        "ПАРАМЕТРЫ ИИ-ЯДРА",
+        "personalityPanel",
+        min_width=280,
+        max_width=320,
+    )
+    details_panel.layout().addWidget(
+        _empty_plate(details_panel),
+        1,
+    )
+
+    return image_panel, details_panel
+
+
+def _build_terminal(
+    dialog: QWidget,
+) -> tuple[QWidget, QWidget, QWidget, QWidget, QWidget]:
+    """Центр: два равных окна вывода, журнал и строка ввода."""
+
+    terminal = _panel(
+        dialog,
+        "ТЕРМИНАЛ СВЯЗИ",
+        "chatPanel",
+        min_width=560,
+    )
+    layout = terminal.layout()
+
+    outputs = QGridLayout()
+    outputs.setContentsMargins(0, 0, 0, 0)
+    outputs.setHorizontalSpacing(6)
+    outputs.setVerticalSpacing(6)
+
+    answers_block, answers = _output_block(
+        terminal,
+        "ОТВЕТЫ МОДЕЛИ",
+        "workshopAnswers",
+        QTextBrowser,
+        "Ответы модели появятся здесь.",
+    )
+    system_block, system = _output_block(
+        terminal,
+        "СИСТЕМНЫЕ КОМАНДЫ",
+        "systemLog",
+        QPlainTextEdit,
+        "Системные сообщения появятся здесь.",
+    )
+    tools_block, tools = _output_block(
+        terminal,
+        "ЖУРНАЛ ИНСТРУМЕНТОВ",
+        "agentTrace",
+        QPlainTextEdit,
+        "Журнал вызовов инструментов пока пуст.",
+    )
+
+    # Первые два окна равны по размеру; журнал занимает всю ширину ниже.
+    outputs.addWidget(answers_block, 0, 0)
+    outputs.addWidget(system_block, 0, 1)
+    outputs.addWidget(tools_block, 1, 0, 1, 2)
+    outputs.setColumnStretch(0, 1)
+    outputs.setColumnStretch(1, 1)
+    outputs.setRowStretch(0, 3)
+    outputs.setRowStretch(1, 2)
+
+    message_input = QPlainTextEdit(terminal)
+    message_input.setObjectName("workshopInput")
+    message_input.setPlaceholderText("Сообщение в мастерскую…")
+    message_input.setFixedHeight(
+        message_input.fontMetrics().lineSpacing() * 3 + 18
+    )
+
+    layout.addLayout(outputs, 1)
+    layout.addWidget(message_input, 0)
+
+    return terminal, answers, system, tools, message_input
+
+
+def _build_actions_panel(
+    dialog: QWidget,
+    window,
+    parent,
+) -> QWidget:
+    """Правая верхняя плита: все кнопки мастерской."""
+
+    actions_panel = _panel(
+        dialog,
+        "МАСТЕРСКАЯ",
+        "chatsPanel",
+        min_width=230,
+        max_width=270,
+    )
+    layout = actions_panel.layout()
+    actions = {
+        "agent": window.open_agent_dialog,
+        "models": window.open_models_dialog,
+        "personalities": window.open_personalities_dialog,
+        "skills": window.open_skills_dialog,
+        "add_model": lambda: show_add_model_dialog(parent),
+        "runs": window.open_agent_runs_dialog,
+    }
+
+    def launch(action) -> None:
+        """Открывает инструмент после закрытия меню-кнопки."""
+
+        QTimer.singleShot(0, action)
+
+    for title, key in WORKSHOP_ACTIONS:
+        button = QPushButton(title, actions_panel)
+        button.setObjectName("workshopAction")
+        button.setCursor(Qt.ArrowCursor)
+        button.setMinimumHeight(38)
+        button.clicked.connect(
+            lambda _checked=False, action=actions[key]: launch(action)
+        )
+        layout.addWidget(button)
+
+    layout.addStretch(1)
+
+    return actions_panel
+
+
+def _build_system_panel(dialog: QWidget) -> QWidget:
+    """Правая нижняя плита: пока пустая текстура."""
+
+    panel = _panel(
+        dialog,
+        "СИСТЕМА",
+        "systemPanel",
+        min_width=230,
+        max_width=270,
+    )
+    panel.layout().addWidget(_empty_plate(panel), 1)
+
+    return panel
+
+
+def _build_workshop(dialog: QWidget, window, parent) -> None:
+    """Собирает сетку мастерской по образцу главного окна."""
+
+    root = QGridLayout()
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setHorizontalSpacing(8)
+    root.setVerticalSpacing(8)
+
+    image_panel, details_panel = _build_left_column(dialog)
+    (
+        terminal,
+        answers,
+        system,
+        tools,
+        message_input,
+    ) = _build_terminal(dialog)
+    actions_panel = _build_actions_panel(dialog, window, parent)
+    system_panel = _build_system_panel(dialog)
+
+    root.addWidget(image_panel, 0, 0)
+    root.addWidget(details_panel, 1, 0)
+    root.addWidget(terminal, 0, 1, 2, 1)
+    root.addWidget(actions_panel, 0, 2)
+    root.addWidget(system_panel, 1, 2)
+    root.setColumnStretch(0, 0)
+    root.setColumnStretch(1, 1)
+    root.setColumnStretch(2, 0)
+    root.setRowStretch(0, 1)
+    root.setRowStretch(1, 1)
+
+    dialog.body_layout.addLayout(root, 1)
+
+    # Публичные ссылки: следующие шаги смогут подключить живой вывод.
+    dialog.terminal_answers = answers
+    dialog.terminal_system = system
+    dialog.terminal_tools = tools
+    dialog.terminal_input = message_input
+
+
 def show_workshop_dialog(parent, window) -> None:
-    """Открывает окно «Мастерская» с инструментами сборки."""
+    """Открывает «Мастерскую» как окно-станцию с терминалом и кнопками."""
 
     dialog = SkinDialog(
         parent,
         "Мастерская",
-        min_width=820,
-        min_height=560,
+        min_width=1120,
+        min_height=720,
     )
+    dialog.body_layout.setContentsMargins(10, 8, 10, 10)
+    dialog.body_layout.setSpacing(8)
 
-    title = QLabel("МАСТЕРСКАЯ", dialog)
-    title.setObjectName("dialogTitle")
-
-    subtitle = QLabel(
-        "Сборка и настройка узлов Гипериона. Здесь собираются модели, "
-        "личности и умения — через уже готовые окна.",
-        dialog,
-    )
-    subtitle.setObjectName("dialogHint")
-    subtitle.setWordWrap(True)
-
-    def launch(action) -> None:
-        """Открывает выбранный инструмент, не закрывая мастерскую."""
-
-        QTimer.singleShot(0, action)
-
-    grid = QGridLayout()
-    grid.setContentsMargins(0, 0, 0, 0)
-    grid.setHorizontalSpacing(12)
-    grid.setVerticalSpacing(12)
-
-    cards = (
-        (
-            "АГЕНТ",
-            "Задача по проекту: поиск, чтение файлов и отчёт со ссылками.",
-            "Открыть агента",
-            lambda: launch(window.open_agent_dialog),
-        ),
-        (
-            "МОДЕЛИ",
-            "Каталог моделей, карточки, компаньоны и сенат.",
-            "Открыть «Модель»",
-            lambda: launch(window.open_models_dialog),
-        ),
-        (
-            "ЛИЧНОСТИ",
-            "Личностные матрицы и выбор характера Гипериона.",
-            "Открыть личности",
-            lambda: launch(window.open_personalities_dialog),
-        ),
-        (
-            "УМЕНИЯ",
-            "Что умеет ядро и что умеют подключённые модели.",
-            "Открыть умения",
-            lambda: launch(window.open_skills_dialog),
-        ),
-        (
-            "СВОЯ МОДЕЛЬ",
-            "Добавить собственный канал и описать его возможности.",
-            "Добавить модель",
-            lambda: launch(
-                lambda: show_add_model_dialog(parent)
-            ),
-        ),
-        (
-            "ЖУРНАЛ",
-            "Последние прогоны агента: шаги, время и итог.",
-            "Открыть журнал",
-            lambda: launch(window.open_agent_runs_dialog),
-        ),
-    )
-
-    for index, (card_title, text, button_text, action) in enumerate(cards):
-        grid.addWidget(
-            _card(
-                dialog,
-                card_title,
-                text,
-                button_text,
-                action,
-            ),
-            index // 2,
-            index % 2,
-        )
-
-    buttons = QDialogButtonBox(QDialogButtonBox.Close, dialog)
-    buttons.button(QDialogButtonBox.Close).setText("Закрыть")
-    buttons.rejected.connect(dialog.reject)
-
-    dialog.body_layout.addWidget(title)
-    dialog.body_layout.addWidget(subtitle)
-    dialog.body_layout.addLayout(grid, 1)
-    dialog.body_layout.addWidget(buttons)
+    _build_workshop(dialog, window, parent)
 
     show_tool_window(parent, dialog, "workshop")
