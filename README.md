@@ -367,9 +367,11 @@ python -m tools.update_passport
 ## Стенд оценки агента
 
 ```powershell
-python -m tools.eval_agent                     # 21 задача без медленной
+python -m tools.eval_agent                     # 22 задачи без медленной
 python -m tools.eval_agent --full              # + запуск pytest
 python -m tools.eval_agent --repeat 3          # три прогона: стабильность
+python -m tools.eval_agent --repeat 3 --save-baseline   # зафиксировать базу
+python -m tools.eval_agent --baseline --fail-on-regression   # сравнить
 python -m tools.eval_agent --history           # история прогонов
 python -m tools.eval_agent --only readme-lines --model <id> --provider opencode
 ```
@@ -382,6 +384,16 @@ python -m tools.eval_agent --only readme-lines --model <id> --provider opencode
 `--threshold` (по умолчанию 10 п.п.) помечается как регрессия;
 `--fail-on-regression` в этом случае возвращает код 2. История
 накапливается в `data/agent_eval/history.jsonl`.
+
+`--save-baseline` записывает в `data/agent_eval/baseline.json` ставку
+каждой задачи (сколько раз прошла из N повторов), а `--baseline`
+сравнивает с ней: общий успех и отдельные задачи, которые были
+стабильны (2/3 и лучше), а стали падать (1/3 и хуже). Baseline без
+повторов ненадёжен, поэтому его сохраняют после `--repeat 2` или
+`--repeat 3`; неполный прогон baseline не перезаписывает. Сохранение с
+`--only` заменит полную базу одной задачей — для полного набора
+запускайте без `--only`. Сравнение с `latest.json` не делается, если
+набор задач или число повторов отличаются.
 
 ## Структура
 
