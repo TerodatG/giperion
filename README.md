@@ -391,7 +391,7 @@ python -m tools.update_passport
 ## Стенд оценки агента
 
 ```powershell
-python -m tools.eval_agent                     # 23 задачи без медленной
+python -m tools.eval_agent                     # 24 задачи без медленной
 python -m tools.eval_agent --full              # + запуск pytest
 python -m tools.eval_agent --repeat 3          # три прогона: стабильность
 python -m tools.eval_agent --repeat 3 --save-baseline   # зафиксировать базу
