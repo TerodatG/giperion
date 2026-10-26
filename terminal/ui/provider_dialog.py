@@ -244,7 +244,26 @@ class ProviderDialog(SkinDialog):
         form.addRow("Бюджет контекста", self.context_input)
 
     def _add_option_rows(self, form: QFormLayout) -> None:
-        """Плагины, песочница, MCP, веб и поток."""
+        """Плагины, MCP, веб, поиск и поток."""
+
+        self._add_plugin_rows(form)
+        self._add_mcp_rows(form)
+        self._add_web_rows(form)
+        self._add_search_rows(form)
+
+        self.stream_check = QCheckBox(
+            "Показывать ответ по мере генерации",
+            self,
+        )
+        self.stream_check.setChecked(stream_enabled())
+        self.stream_check.setToolTip(
+            "Поток SSE: текст появляется в статусе сразу. Если сервер не "
+            "умеет поток, агент молча вернётся к обычному запросу."
+        )
+        form.addRow("Поток", self.stream_check)
+
+    def _add_plugin_rows(self, form: QFormLayout) -> None:
+        """Плагины и песочница."""
 
         self.plugins_check = QCheckBox(
             "Разрешить плагины инструментов",
@@ -282,6 +301,9 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Песочница", self.sandbox_combo)
 
+    def _add_mcp_rows(self, form: QFormLayout) -> None:
+        """MCP и редактор конфига."""
+
         self.mcp_check = QCheckBox("Включить MCP-серверы", self)
         self.mcp_check.setChecked(mcp_enabled())
         self.mcp_check.setToolTip(
@@ -299,6 +321,9 @@ class ProviderDialog(SkinDialog):
             lambda: show_mcp_dialog(self)
         )
         form.addRow("Серверы MCP", self.mcp_edit_button)
+
+    def _add_web_rows(self, form: QFormLayout) -> None:
+        """Веб, браузер и общий allowlist доменов."""
 
         self.browser_check = QCheckBox(
             "Разрешить чтение веб-страниц",
@@ -337,6 +362,9 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Домены", self.egress_input)
 
+    def _add_search_rows(self, form: QFormLayout) -> None:
+        """Смысловой поиск, эмбеддинги и кеш."""
+
         self.semantic_check = QCheckBox(
             "Смысловой поиск по проекту",
             self,
@@ -373,24 +401,13 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Кеш поиска", self.clear_cache_button)
 
-        self.stream_check = QCheckBox(
-            "Показывать ответ по мере генерации",
-            self,
-        )
-        self.stream_check.setChecked(stream_enabled())
-        self.stream_check.setToolTip(
-            "Поток SSE: текст появляется в статусе сразу. Если сервер не "
-            "умеет поток, агент молча вернётся к обычному запросу."
-        )
-        form.addRow("Поток", self.stream_check)
-
     def _clear_search_cache(self) -> None:
         """Удаляет кеши смыслового поиска после подтверждения."""
 
         answer = QMessageBox.question(
             self,
             "Очистить кеш поиска",
-            "Удалить фрагменты, векторы и индекс символов? "
+            "Удалить фрагменты и векторы смыслового поиска? "
             "Следующий поиск построит их заново.",
         )
 

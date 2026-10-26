@@ -2,6 +2,8 @@
 # Применение настроек вида, шрифта, скина и клавиш.
 # Последнее изменение: применение назначенных клавиш.
 
+from terminal.core.keybindings import load_bindings, save_bindings
+from terminal.core.skins import get_skin, save_skin_id
 from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
     DEFAULT_RESPONSE_SETTINGS,
@@ -11,8 +13,6 @@ from terminal.ui.dialogs_base import show_tool_window
 from terminal.ui.settings_dialog import SettingsDialog
 from terminal.ui.theme import DEFAULT_COLORS
 from terminal.ui.window_style import build_window_style
-from terminal.core.keybindings import load_bindings, save_bindings
-from terminal.core.skins import get_skin, save_skin_id
 
 
 class SettingsMixin:

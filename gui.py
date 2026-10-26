@@ -20,6 +20,7 @@ from terminal.core.model_settings import (
 )
 from terminal.core.module_state import set_modules
 from terminal.core.pets import get_active_pet
+from terminal.core.skins import load_skin_id
 from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
     DEFAULT_MODULE_STATES,
@@ -27,7 +28,6 @@ from terminal.core.window_settings import (
     DEFAULT_STYLES,
     load_window_settings,
 )
-from terminal.core.skins import load_skin_id
 from terminal.ui.answer_mixin import AnswerMixin
 from terminal.ui.avatar_mixin import AvatarMixin
 from terminal.ui.chat_sessions_mixin import ChatSessionsMixin

@@ -35,23 +35,8 @@ jobs:
       - name: Структура
         run: python -m tools.check_structure --strict
 
-      - name: Тесты агента
-        run: >
-          python -m pytest -q
-          tests/test_agent_browser.py
-          tests/test_agent_context_budget.py
-          tests/test_agent_embeddings.py
-          tests/test_agent_eval.py
-          tests/test_agent_index.py
-          tests/test_agent_loop.py
-          tests/test_agent_mcp.py
-          tests/test_agent_mcp_dialog.py
-          tests/test_agent_memory.py
-          tests/test_agent_retrieval.py
-          tests/test_agent_semantic.py
-          tests/test_agent_subagents.py
-          tests/test_clean_caches.py
-          tests/test_vector_store.py
+      - name: Тесты
+        run: python -m pytest
 
       - name: Retrieval-бенчмарк
         run: python -m tools.eval_retrieval --limit 5 --fail
