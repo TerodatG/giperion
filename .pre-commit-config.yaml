@@ -1,0 +1,39 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+
+  - repo: local
+    hooks:
+      - id: structure
+        name: структура проекта
+        entry: python -m tools.check_structure --strict
+        language: system
+        pass_filenames: false
+
+      - id: agent-tests
+        name: тесты агента
+        entry: >
+          python -m pytest -q
+          tests/test_agent_semantic.py
+          tests/test_agent_browser.py
+          tests/test_agent_memory.py
+          tests/test_vector_store.py
+          tests/test_structure.py
+        language: system
+        pass_filenames: false
+
+      - id: secrets
+        name: секреты в изменениях
+        entry: python -m tools.scan_secrets
+        language: system
+        pass_filenames: false
