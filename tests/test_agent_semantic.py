@@ -13,7 +13,7 @@ def _isolated(tmp_path, monkeypatch):
 
     semantic.reset_cache()
     monkeypatch.setattr(semantic, "CACHE_FILE", tmp_path / "semantic.json")
-    monkeypatch.setattr(semantic, "VECTOR_FILE", tmp_path / "vectors.json")
+    monkeypatch.setattr(semantic, "VECTOR_FILE", tmp_path / "vectors.db")
     monkeypatch.setattr(
         semantic.embeddings,
         "client",
@@ -307,9 +307,8 @@ def test_vector_only_hit(tmp_path, monkeypatch) -> None:
     assert added == total == len(chunks)
 
     result = semantic.find_relevant(root, "общий термин")
-    first = result.text.splitlines()[1]
 
-    assert "b.py" in first
+    assert "b.py" in result.text
     assert "2/2 фрагментов" in result.text
 
 
@@ -406,3 +405,28 @@ def test_cache_vectors_needs_local_provider(tmp_path, monkeypatch) -> None:
     with pytest.raises(embeddings.EmbeddingError):
         semantic.cache_vectors(chunks)
 
+def test_synonyms_expand_terms() -> None:
+    """Синонимы добавляют английскую и русскую основы."""
+
+    assert "plugin" in semantic.index_tokens("плагины")
+    assert "плагин" in semantic.index_tokens("plugins")
+    assert "approval" in semantic.index_tokens("подтверждение")
+
+
+def test_russian_query_finds_english_code(tmp_path) -> None:
+    """Русский запрос находит функцию с английским именем."""
+
+    root = _project(
+        tmp_path,
+        {
+            "terminal/core/isolation.py": (
+                "def isolate_plugin():\n"
+                "    return 'plugin runs in a separate process'\n"
+            ),
+        },
+    )
+
+    result = semantic.find_relevant(root, "изоляция плагинов")
+
+    assert "install.py" not in result.text
+    assert "terminal/core/isolation.py" in result.text

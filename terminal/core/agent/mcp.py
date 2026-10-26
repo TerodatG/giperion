@@ -2,6 +2,7 @@
 # MCP-клиент: внешние инструменты по JSON-RPC через stdio.
 # Последнее изменение: конфиг и allowlist вынесены в mcp_policy.py.
 
+import atexit
 import json
 import queue
 import subprocess
@@ -47,6 +48,12 @@ class McpClient:
         self._queue: queue.Queue = queue.Queue()
         self._next_id = 0
         self._lock = threading.Lock()
+        self._request_lock = threading.Lock()
+
+    def alive(self) -> bool:
+        """Процесс сервера ещё жив."""
+
+        return self.process is not None and self.process.poll() is None
 
     def __enter__(self) -> "McpClient":
         self.start()
@@ -150,20 +157,26 @@ class McpClient:
     def request(self, method: str, params: dict | None = None) -> dict:
         """Запрос с ожиданием ответа по id."""
 
-        with self._lock:
-            self._next_id += 1
-            request_id = self._next_id
+        with self._request_lock:
+            with self._lock:
+                self._next_id += 1
+                request_id = self._next_id
 
-        message = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-        }
+            message = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": method,
+            }
 
-        if params is not None:
-            message["params"] = params
+            if params is not None:
+                message["params"] = params
 
-        self.send(message)
+            self.send(message)
+
+            return self._receive(request_id)
+
+    def _receive(self, request_id: int) -> dict:
+        """Ждёт ответ именно на этот id."""
 
         while True:
             try:
@@ -353,15 +366,61 @@ def _mcp_enabled() -> bool:
 
 _cache: tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]] | None = None
 _lock = threading.Lock()
+_SESSIONS: dict[str, McpClient] = {}
+_sessions_lock = threading.Lock()
+
+
+def _session(server: McpServer) -> McpClient:
+    """Живая сессия сервера: запускается один раз, а не на каждый вызов."""
+
+    with _sessions_lock:
+        client = _SESSIONS.get(server.name)
+
+        if client is not None and client.alive():
+            return client
+
+        if client is not None:
+            client.close()
+
+        client = McpClient(server)
+        client.start()
+        _SESSIONS[server.name] = client
+
+        return client
+
+
+def _drop_session(name: str) -> None:
+    """Закрывает сессию, чтобы следующий вызов запустил её заново."""
+
+    with _sessions_lock:
+        client = _SESSIONS.pop(name, None)
+
+        if client is not None:
+            client.close()
+
+
+def close_sessions() -> None:
+    """Закрывает все MCP-процессы."""
+
+    with _sessions_lock:
+        for client in _SESSIONS.values():
+            client.close()
+
+        _SESSIONS.clear()
+
+
+atexit.register(close_sessions)
 
 
 def reload_mcp() -> None:
-    """Сбрасывает кеш инструментов MCP."""
+    """Сбрасывает кеш инструментов MCP и закрывает сессии."""
 
     global _cache
 
     with _lock:
         _cache = None
+
+    close_sessions()
 
 
 def _build_cache() -> tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]]:
@@ -375,9 +434,9 @@ def _build_cache() -> tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]]:
             continue
 
         try:
-            with McpClient(server) as client:
-                tools = client.list_tools()
+            tools = _session(server).list_tools()
         except McpError:
+            _drop_session(server.name)
             continue
 
         for tool in tools:
@@ -443,10 +502,16 @@ def call_tool(root: Path, name: str, arguments: dict | None = None) -> ToolResul
         return ToolResult(False, f"MCP-сервер выключен: {server_name}")
 
     try:
-        with McpClient(server) as client:
-            return client.call_tool(
-                original,
-                dict(arguments or {}),
-            )
+        client = _session(server)
     except McpError as error:
+        return ToolResult(False, str(error))
+
+    try:
+        return client.call_tool(
+            original,
+            dict(arguments or {}),
+        )
+    except McpError as error:
+        _drop_session(server_name)
+
         return ToolResult(False, str(error))

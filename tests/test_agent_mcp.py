@@ -357,3 +357,47 @@ def test_client_blocks_forbidden_domain() -> None:
             "fetch",
             {"url": "https://example.com/page"},
         )
+
+def test_session_is_reused(monkeypatch) -> None:
+    """Сессия сервера переиспользуется, пока процесс жив."""
+
+    from terminal.core.agent import mcp
+
+    created: list = []
+
+    class FakeClient:
+        def __init__(self, server):
+            self.server = server
+            self.started = False
+            self.closed = False
+            created.append(self)
+
+        def start(self):
+            self.started = True
+
+        def alive(self):
+            return self.started and not self.closed
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(mcp, "McpClient", FakeClient)
+    mcp.close_sessions()
+
+    server = mcp.McpServer("test", "python")
+    first = mcp._session(server)
+    second = mcp._session(server)
+
+    assert first is second
+    assert len(created) == 1
+
+    first.closed = True
+    third = mcp._session(server)
+
+    assert third is not first
+    assert len(created) == 2
+
+    mcp.close_sessions()
+
+    assert third.closed
+    assert mcp._SESSIONS == {}

@@ -276,6 +276,23 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
                 "Открыть страницу в браузере с JavaScript\n"
                 + _string_arg(call, "url"),
             )
+
+        if call.tool == "browser_act":
+            actions = call.args.get("actions")
+            count = len(actions) if isinstance(actions, list) else 0
+
+            return ToolResult(
+                True,
+                f"Открыть страницу и выполнить действий: {count}\n"
+                + _string_arg(call, "url"),
+            )
+
+        if call.tool == "remember":
+            return ToolResult(
+                True,
+                "Записать в память проекта:\n"
+                + _string_arg(call, "text"),
+            )
     except CommandError as error:
         return ToolResult(False, str(error))
     except ValueError as error:
@@ -391,6 +408,16 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
             _int_arg(call, "limit", semantic.DEFAULT_LIMIT),
         )
 
+    if call.tool == "remember":
+        from terminal.core.agent import memory
+
+        try:
+            line = memory.add_note(_string_arg(call, "text"))
+        except ValueError as error:
+            return ToolResult(False, str(error))
+
+        return ToolResult(True, "Запомнено: " + line)
+
     if call.tool == "run_tests":
         return tools.run_tests(root)
 
@@ -419,6 +446,25 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
             root,
             _string_arg(call, "url"),
             _string_arg(call, "wait"),
+        )
+
+    if call.tool == "browser_act":
+        from terminal.core.agent import browser_js
+
+        actions = call.args.get("actions")
+
+        if not isinstance(actions, list):
+            return ToolResult(
+                False,
+                "Аргумент «actions» должен быть списком действий.",
+            )
+
+        return browser_js.act(
+            root,
+            _string_arg(call, "url"),
+            actions,
+            _string_arg(call, "wait"),
+            bool(call.args.get("shot")),
         )
 
     return None

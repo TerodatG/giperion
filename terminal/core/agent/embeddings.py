@@ -68,12 +68,16 @@ def _json_request(
         ) as response:
             raw = response.read().decode("utf-8", errors="replace")
     except (urllib.error.URLError, OSError) as error:
-        raise EmbeddingError(f"Сервер эмбеддингов недоступен: {error}")
+        raise EmbeddingError(
+            f"Сервер эмбеддингов недоступен: {error}"
+        ) from error
 
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise EmbeddingError("Сервер эмбеддингов вернул не JSON.")
+    except json.JSONDecodeError as error:
+        raise EmbeddingError(
+            "Сервер эмбеддингов вернул не JSON."
+        ) from error
 
     if not isinstance(data, dict):
         raise EmbeddingError("Сервер эмбеддингов вернул не объект.")
@@ -195,8 +199,8 @@ def embed(
                 raise EmbeddingError("Пустой вектор в ответе.")
 
             vectors.append([float(value) for value in vector])
-    except (TypeError, ValueError):
-        raise EmbeddingError("Вектор содержит не числа.")
+    except (TypeError, ValueError) as error:
+        raise EmbeddingError("Вектор содержит не числа.") from error
 
     return vectors
 

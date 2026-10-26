@@ -6,8 +6,7 @@ from collections import Counter
 from pathlib import Path
 
 from config import DATA_DIR
-from shared.storage.json_store import read_json_object, write_json
-from terminal.core.agent import embeddings, semantic_index
+from terminal.core.agent import embeddings, semantic_index, vector_store
 from terminal.core.agent.protocol import ToolResult
 from terminal.core.agent.semantic_text import (
     index_tokens,
@@ -16,7 +15,7 @@ from terminal.core.agent.semantic_text import (
 )
 
 CACHE_FILE = DATA_DIR / "agent_semantic.json"
-VECTOR_FILE = DATA_DIR / "agent_vectors.json"
+VECTOR_FILE = DATA_DIR / "agent_vectors.db"
 CANDIDATES = 80
 VECTOR_HITS = 80
 MAX_EMBED_PER_CALL = 120
@@ -25,8 +24,10 @@ DEFAULT_LIMIT = 8
 SNIPPET = 200
 K1 = 1.5
 B = 0.75
-VECTOR_WEIGHT = 0.65
-LEXICAL_WEIGHT = 0.35
+VECTOR_WEIGHT = 0.15
+LEXICAL_WEIGHT = 0.85
+VECTOR_ONLY_WEIGHT = 0.3
+RERANK_DEPTH = 10
 PATH_WEIGHTS = (("tests/", 0.7), ("docs/", 0.92))
 
 _STATS: dict[str, tuple] = {}
@@ -123,7 +124,7 @@ def _lexical(chunks: list[dict], signature: str, query: str) -> list[float]:
 
 
 def _load_vectors(model: str) -> dict[str, list[float]]:
-    """Векторы из кеша для текущей модели."""
+    """Векторы из SQLite для текущей модели."""
 
     key = ("file", model)
     cached = _VECTORS.get(key)
@@ -131,37 +132,26 @@ def _load_vectors(model: str) -> dict[str, list[float]]:
     if cached is not None:
         return cached
 
-    document = read_json_object(VECTOR_FILE)
-    stored: dict[str, list[float]] = {}
-
-    if str(document.get("model")) == model:
-        raw = document.get("vectors")
-
-        if isinstance(raw, dict):
-            for name, vector in raw.items():
-                if isinstance(vector, list) and vector:
-                    stored[str(name)] = [float(item) for item in vector]
-
+    stored = vector_store.load(VECTOR_FILE, model)
     _VECTORS[key] = stored
 
     return stored
 
 
 def _save_vectors(model: str, stored: dict[str, list[float]]) -> None:
-    """Сохраняет векторы, обрезая самые старые записи."""
+    """Сохраняет векторы, вытесняя самые старые сверх лимита."""
 
     if len(stored) > MAX_VECTORS:
         keep = list(stored.items())[-MAX_VECTORS:]
         stored.clear()
         stored.update(keep)
 
-    try:
-        write_json(
-            VECTOR_FILE,
-            {"model": model, "vectors": stored},
-        )
-    except OSError:
-        pass
+    vector_store.save(
+        VECTOR_FILE,
+        model,
+        stored,
+        limit=MAX_VECTORS,
+    )
 
 
 def _embed_missing(
@@ -190,7 +180,7 @@ def _embed_missing(
     except embeddings.EmbeddingError as error:
         return stored, str(error)
 
-    for chunk, vector in zip(missing, vectors):
+    for chunk, vector in zip(missing, vectors, strict=False):
         stored[chunk["hash"]] = [
             round(float(value), 4) for value in vector
         ]
@@ -200,26 +190,41 @@ def _embed_missing(
     return stored, ""
 
 
-def _vector_hits(
+def _cosines(
     chunks: list[dict],
     query_vector: list[float],
     stored: dict[str, list[float]],
-) -> list[int]:
-    """Лучшие фрагменты по косинусу среди уже посчитанных векторов."""
+) -> dict[int, float]:
+    """Косинус запроса и всех фрагментов, у которых есть вектор."""
 
-    hits = []
+    values: dict[int, float] = {}
 
     for index, chunk in enumerate(chunks):
         vector = stored.get(chunk["hash"])
 
-        if vector is None:
-            continue
+        if vector is not None:
+            values[index] = embeddings.cosine(query_vector, vector)
 
-        hits.append((embeddings.cosine(query_vector, vector), index))
+    return values
 
-    hits.sort(reverse=True)
 
-    return [index for _score, index in hits[:VECTOR_HITS]]
+def _normalized(values: dict[int, float]) -> dict[int, float]:
+    """Min-max по выдаче: убирает высокий «фон» косинуса."""
+
+    if not values:
+        return {}
+
+    low = min(values.values())
+    high = max(values.values())
+    span = high - low
+
+    if span < 0.05:
+        return {index: 0.5 for index in values}
+
+    return {
+        index: (value - low) / span
+        for index, value in values.items()
+    }
 
 
 def _hybrid(
@@ -246,23 +251,31 @@ def _hybrid(
 
     candidates = [chunks[index] for index in ranked]
     stored, error = _embed_missing(target, candidates)
-    vector_hits = _vector_hits(chunks, query_vector, stored)
+    cosines = _cosines(chunks, query_vector, stored)
+    vector_hits = sorted(
+        cosines,
+        key=lambda index: -cosines[index],
+    )[:VECTOR_HITS]
     merged = list(dict.fromkeys(list(ranked) + vector_hits))
+    normalized = _normalized(
+        {index: cosines[index] for index in merged if index in cosines}
+    )
     best = max(lexical) or 1.0
+    dense = set(ranked[:RERANK_DEPTH])
     scores: dict[int, float] = {}
 
     for index in merged:
-        vector = stored.get(chunks[index]["hash"])
+        similarity = normalized.get(index, 0.0)
         norm = lexical[index] / best
 
-        if vector is None:
+        if index in dense:
+            scores[index] = (
+                LEXICAL_WEIGHT * norm + VECTOR_WEIGHT * similarity
+            )
+        elif index in ranked:
             scores[index] = LEXICAL_WEIGHT * norm
-            continue
-
-        similarity = embeddings.cosine(query_vector, vector)
-        scores[index] = (
-            VECTOR_WEIGHT * similarity + LEXICAL_WEIGHT * norm
-        )
+        else:
+            scores[index] = VECTOR_ONLY_WEIGHT * similarity
 
     covered = sum(
         1 for chunk in chunks if chunk["hash"] in stored
@@ -340,7 +353,7 @@ def _scored(
     if not hybrid:
         weighted = [
             value * _path_weight(chunk["path"])
-            for value, chunk in zip(lexical, chunks)
+            for value, chunk in zip(lexical, chunks, strict=False)
         ]
         best = max(weighted, default=0.0) or 1.0
 
@@ -353,7 +366,7 @@ def _scored(
 
     return [
         value * _path_weight(chunk["path"])
-        for value, chunk in zip(scores, chunks)
+        for value, chunk in zip(scores, chunks, strict=False)
     ]
 
 
@@ -394,7 +407,7 @@ def cache_vectors(
             timeout=180,
         )
 
-        for chunk, vector in zip(part, vectors):
+        for chunk, vector in zip(part, vectors, strict=False):
             stored[chunk["hash"]] = [
                 round(float(value), 4) for value in vector
             ]

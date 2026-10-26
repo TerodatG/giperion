@@ -113,6 +113,7 @@ REMEMBERABLE = {
     "run_command",
     "fetch_url",
     "browser_read",
+    "browser_act",
 }
 
 
@@ -132,7 +133,7 @@ def approval_key(call: ToolCall) -> str:
 
         return "command:" + command if command else ""
 
-    if call.tool in ("fetch_url", "browser_read"):
+    if call.tool in ("fetch_url", "browser_read", "browser_act"):
         from terminal.core.agent import web
 
         host = web.host_of(str(call.args.get("url") or ""))
@@ -353,6 +354,8 @@ def call_with_timeout(func, timeout: float):
 
     from concurrent.futures import (
         ThreadPoolExecutor,
+    )
+    from concurrent.futures import (
         TimeoutError as FutureTimeout,
     )
 

@@ -30,6 +30,8 @@ def _settings_file(tmp_path, monkeypatch):
 def _enable(monkeypatch, available: bool = True) -> None:
     settings.set_browser_js_enabled(True)
     monkeypatch.setattr(browser_js, "available", lambda: available)
+    monkeypatch.setattr(browser_js, "_robots_allows", lambda url: True)
+    monkeypatch.setattr(browser_js, "_wait_rate", lambda url: None)
 
 
 def _public(monkeypatch) -> None:
@@ -278,3 +280,99 @@ def test_worker_module_runs() -> None:
 
     assert done.returncode == 1
     assert json.loads(done.stdout.strip())["ok"] is False
+
+def test_sanitize_actions() -> None:
+    """Действия фильтруются и ограничиваются по размеру."""
+
+    actions = browser_js._sanitize_actions(
+        [
+            {"type": "click", "selector": "#go"},
+            {"type": "fill", "selector": "#q", "text": "х" * 3000},
+            {"type": "scroll", "pixels": 99999},
+            {"type": "wait", "ms": -5},
+            {"type": "bad"},
+            {"type": "click"},
+            "не объект",
+        ]
+    )
+
+    assert [item["type"] for item in actions] == [
+        "click",
+        "fill",
+        "scroll",
+        "wait",
+    ]
+    assert len(actions[1]["text"]) == 2000
+    assert actions[2]["pixels"] == 10_000
+    assert actions[3]["ms"] == 0
+    assert browser_js._sanitize_actions(None) == []
+
+
+def test_robots_blocks_private_path(monkeypatch) -> None:
+    """robots.txt запрещает закрытый раздел."""
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, limit):
+            return b"User-agent: *\nDisallow: /private\n"
+
+    browser_js._ROBOTS.clear()
+    monkeypatch.setattr(
+        browser_js.urllib.request,
+        "urlopen",
+        lambda request, timeout: Response(),
+    )
+
+    assert browser_js._robots_allows(
+        "https://example.com/private/page"
+    ) is False
+    assert browser_js._robots_allows(
+        "https://example.com/public"
+    ) is True
+
+
+def test_act_dispatches_actions(tmp_path, monkeypatch) -> None:
+    """Реестр передаёт browser_act список действий."""
+
+    calls: list[tuple] = []
+
+    def fake_act(root, url, actions=None, wait="", shot=False, timeout=60):
+        calls.append((root, url, actions, wait, shot))
+
+        from terminal.core.agent.protocol import ToolResult
+
+        return ToolResult(True, "готово")
+
+    monkeypatch.setattr(browser_js, "act", fake_act)
+
+    result = registry.execute(
+        tmp_path,
+        ToolCall(
+            "browser_act",
+            {
+                "url": "https://example.com",
+                "actions": [{"type": "click", "selector": "#go"}],
+                "shot": True,
+            },
+        ),
+    )
+
+    assert result.ok
+    assert calls[0][1] == "https://example.com"
+    assert calls[0][2] == [{"type": "click", "selector": "#go"}]
+    assert calls[0][4] is True
+
+    invalid = registry.execute(
+        tmp_path,
+        ToolCall(
+            "browser_act",
+            {"url": "https://example.com", "actions": "click"},
+        ),
+    )
+
+    assert not invalid.ok

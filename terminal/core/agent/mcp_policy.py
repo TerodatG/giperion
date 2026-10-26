@@ -117,7 +117,23 @@ def check_domains(server: McpServer, arguments: dict) -> str:
         if not domain_allowed(host, server.domains):
             return f"Домен не разрешён для MCP «{server.name}»: {host}"
 
+        if not _global_allowed(host):
+            return f"Домен «{host}» не входит в общий allowlist."
+
     return ""
+
+
+def _global_allowed(host: str) -> bool:
+    """Проверяет общий allowlist из настроек агента."""
+
+    from terminal.core.agent import settings
+
+    patterns = settings.egress_domains()
+
+    if not patterns:
+        return True
+
+    return domain_allowed(host, patterns)
 
 
 def _expand(value: str) -> str:

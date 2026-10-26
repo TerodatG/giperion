@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
 )
@@ -29,6 +30,7 @@ from terminal.core.agent.settings import (
     browser_js_enabled,
     budget_limits,
     context_limit_chars,
+    egress_domains,
     embedding_model,
     load_settings,
     mask_key,
@@ -43,6 +45,7 @@ from terminal.core.agent.settings import (
     set_browser_enabled,
     set_browser_js_enabled,
     set_context_limit_chars,
+    set_egress_domains,
     set_embedding_model,
     set_mcp_enabled,
     set_plugin_sandbox,
@@ -55,6 +58,7 @@ from terminal.core.agent.settings import (
     stream_enabled,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.mcp_dialog import show_mcp_dialog
 
 POLL_MS = 150
 
@@ -286,6 +290,16 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("MCP", self.mcp_check)
 
+        self.mcp_edit_button = QPushButton("Серверы…", self)
+        self.mcp_edit_button.setToolTip(
+            "Редактировать data/agent_mcp.json: команды серверов, "
+            "allowlist инструментов (tools) и доменов (domains)."
+        )
+        self.mcp_edit_button.clicked.connect(
+            lambda: show_mcp_dialog(self)
+        )
+        form.addRow("Серверы MCP", self.mcp_edit_button)
+
         self.browser_check = QCheckBox(
             "Разрешить чтение веб-страниц",
             self,
@@ -311,6 +325,18 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Браузер JS", self.browser_js_check)
 
+        self.egress_input = QLineEdit(self)
+        self.egress_input.setText(", ".join(egress_domains()))
+        self.egress_input.setPlaceholderText(
+            "пусто — все публичные домены"
+        )
+        self.egress_input.setToolTip(
+            "Общий allowlist для fetch_url, browser_read/browser_act и "
+            "MCP-аргументов с URL. Через запятую; *.example.com — "
+            "поддомены. Пусто — разрешены все публичные адреса."
+        )
+        form.addRow("Домены", self.egress_input)
+
         self.semantic_check = QCheckBox(
             "Смысловой поиск по проекту",
             self,
@@ -334,6 +360,19 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Модель эмбеддингов", self.embedding_input)
 
+        self.clear_cache_button = QPushButton(
+            "Очистить кеш поиска",
+            self,
+        )
+        self.clear_cache_button.setToolTip(
+            "Удаляет фрагменты и векторы смыслового поиска. "
+            "При следующем поиске они построятся заново."
+        )
+        self.clear_cache_button.clicked.connect(
+            self._clear_search_cache
+        )
+        form.addRow("Кеш поиска", self.clear_cache_button)
+
         self.stream_check = QCheckBox(
             "Показывать ответ по мере генерации",
             self,
@@ -344,6 +383,36 @@ class ProviderDialog(SkinDialog):
             "умеет поток, агент молча вернётся к обычному запросу."
         )
         form.addRow("Поток", self.stream_check)
+
+    def _clear_search_cache(self) -> None:
+        """Удаляет кеши смыслового поиска после подтверждения."""
+
+        answer = QMessageBox.question(
+            self,
+            "Очистить кеш поиска",
+            "Удалить фрагменты, векторы и индекс символов? "
+            "Следующий поиск построит их заново.",
+        )
+
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        from terminal.core.agent import semantic
+
+        semantic.reset_cache()
+
+        for path in (semantic.CACHE_FILE, semantic.VECTOR_FILE):
+            for target in (
+                path,
+                path.with_name(path.name + "-wal"),
+                path.with_name(path.name + "-shm"),
+            ):
+                try:
+                    target.unlink()
+                except OSError:
+                    pass
+
+        self.status_label.setText("Кеш поиска очищен.")
 
     def _provider(self) -> OpenAICompatibleProvider:
         return OpenAICompatibleProvider(
@@ -430,6 +499,13 @@ class ProviderDialog(SkinDialog):
         set_mcp_enabled(self.mcp_check.isChecked())
         set_browser_enabled(self.browser_check.isChecked())
         set_browser_js_enabled(self.browser_js_check.isChecked())
+        set_egress_domains(
+            [
+                item.strip()
+                for item in self.egress_input.text().split(",")
+                if item.strip()
+            ]
+        )
         set_semantic_enabled(self.semantic_check.isChecked())
         set_embedding_model(self.embedding_input.text())
 

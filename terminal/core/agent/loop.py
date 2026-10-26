@@ -36,6 +36,21 @@ from terminal.core.agent.protocol import (
     ToolResult,
 )
 
+ROLE_HINTS = {
+    "researcher": (
+        "Ты исследователь: читай код и документацию, не меняй файлы. "
+        "Верни точные пути, имена и факты."
+    ),
+    "reviewer": (
+        "Ты проверяющий: ищи риски, противоречия и пропущенные случаи "
+        "в решении. Не меняй файлы, перечисли замечания."
+    ),
+    "tester": (
+        "Ты специалист по тестам: найди, какие тесты покрывают "
+        "поведение и что стоит проверить. Файлы не меняй."
+    ),
+}
+
 
 def _subagent_tasks(call: ToolCall) -> list[str]:
     """Список подзадач из аргументов: одна строка или массив."""
@@ -154,6 +169,12 @@ def _run_subagent(
             + "\n\nТвоя подзадача: "
         )
 
+    role = str(call.args.get("role") or "").strip().lower()
+    role_prefix = ""
+
+    if role in ROLE_HINTS:
+        role_prefix = ROLE_HINTS[role] + "\n\n"
+
     fork = getattr(brain, "fork", None)
     can_parallel = len(tasks) > 1 and callable(fork)
 
@@ -161,7 +182,7 @@ def _run_subagent(
         sub_brain = fork() if callable(fork) else brain
 
         result = run_agent(
-            plan_prefix + task,
+            role_prefix + plan_prefix + task,
             sub_brain,
             root,
             max_steps=4,

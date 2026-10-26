@@ -1,21 +1,40 @@
 # Браузер с JavaScript (Playwright)
 
-Инструмент `browser_read` открывает страницу в headless Chromium, ждёт
-выполнения скриптов и возвращает текст. Нужен там, где `fetch_url` видит
-пустой каркас: SPA, ленты, таблицы, подгружаемые через JS.
+Инструменты `browser_read` и `browser_act` открывают страницу в
+headless Chromium, ждут выполнения скриптов и возвращают текст. Нужны
+там, где `fetch_url` видит пустой каркас: SPA, ленты, таблицы,
+подгружаемые через JS.
 
 ```
 browser_read(url="https://quotes.toscrape.com/js/")
 browser_read(url="https://example.com/app", wait="#content")
+
+browser_act(
+    url="https://quotes.toscrape.com/js/",
+    actions=[{"type": "click", "selector": "li.next a"}],
+    shot=True,
+)
 ```
+
+Действия `browser_act` (до 10 за вызов):
+
+| Тип | Поля | Что делает |
+|---|---|---|
+| `click` | `selector` | клик по элементу |
+| `fill` | `selector`, `text` | ввод текста |
+| `press` | `selector`, `key` | нажатие клавиши |
+| `scroll` | `pixels` | прокрутка страницы |
+| `wait` | `ms` | пауза |
 
 Ответ:
 
 ```
-источник: https://quotes.toscrape.com/js/
+источник: https://quotes.toscrape.com/js/page/2/
 заголовок: Quotes to Scrape
 
 … текст страницы …
+
+скриншот: data/agent_browser/1793026248-17bb1a28ce.png
 ```
 
 ## Установка
@@ -51,8 +70,13 @@ python -m playwright install chromium
 4. Все сетевые запросы страницы проходят через `page.route`: запросы к
    локальным и приватным хостам и не-http(s) схемам обрываются, даже
    если их инициировал JS (защита от SSRF).
-5. Родитель ждёт воркер не дольше `timeout + 20` с, текст обрезается до
+5. Проверяется `robots.txt` домена (кэш 5 минут): запрещённый путь не
+   открывается. Между запросами к одному домену — пауза не меньше
+   1.5 с.
+6. Родитель ждёт воркер не дольше `timeout + 20` с, текст обрезается до
    12 000 символов, процесс браузера всегда закрывается.
+7. `browser_act` выполняет действия по очереди; при `shot=True`
+   скриншот кладётся в `data/agent_browser/`, путь возвращается в ответе.
 
 ## Настройки и лимиты
 
@@ -60,9 +84,11 @@ python -m playwright install chromium
 |---|---|
 | Таймаут навигации | 60 с по умолчанию, можно передать `timeout` (5–120) |
 | Ожидание JS | `wait` — CSS-селектор; иначе пауза 1.2 с |
+| Действия | до 10 за вызов: click, fill, press, scroll, wait |
 | Текст | до 12 000 символов |
 | Браузер | один запуск на вызов, без профиля и cookies |
-| Сеть | только публичные http(s)-хосты |
+| Сеть | только публичные http(s)-хосты, robots.txt и пауза 1.5 с |
+| Скриншот | `data/agent_browser/*.png`, вне git |
 
 ## Проверено
 
@@ -73,6 +99,8 @@ python -m playwright install chromium
 - Живая задача на `qwen3-coder-30b`: модель сама вызвала
   `browser_read`, получила страницу и назвала автора первой цитаты за
   15.5 с, с подтверждением.
+- `browser_act` с кликом по `li.next a`: страница 2 цитат, 6.3 с,
+  скриншот 5 КБ в `data/agent_browser/`.
 
 ## Ограничения
 

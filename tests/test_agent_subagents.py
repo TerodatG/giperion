@@ -292,3 +292,39 @@ def test_subagent_receives_shared_plan(tmp_path) -> None:
     assert "1. [x] разобрать" in captured[0]
     assert "2. [>] найти файл" in captured[0]
     assert "Твоя подзадача: найди файл" in captured[0]
+
+def test_subagent_role_prefix(tmp_path) -> None:
+    """Роль подагента попадает в его промпт."""
+
+    captured: list[str] = []
+
+    class Child:
+        def decide(self, prompt: str):
+            captured.append(prompt)
+
+            return json.dumps(
+                {"action": "answer", "text": "замечаний нет"},
+                ensure_ascii=False,
+            )
+
+    class Parent(Child):
+        def fork(self):
+            return Child()
+
+    call = ToolCall(
+        "ask_subagent",
+        {"task": "проверь решение", "role": "reviewer"},
+    )
+
+    result = _run_subagent(
+        call,
+        Parent(),
+        tmp_path,
+        depth=0,
+        allow_subagent=True,
+        should_stop=None,
+    )
+
+    assert result.ok
+    assert "Ты проверяющий" in captured[0]
+    assert "проверь решение" in captured[0]

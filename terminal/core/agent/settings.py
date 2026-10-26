@@ -191,6 +191,47 @@ def set_browser_js_enabled(enabled: bool) -> None:
     _update_fields({"browser_js_enabled": bool(enabled)})
 
 
+def egress_domains() -> tuple[str, ...]:
+    """Общий allowlist доменов; пусто — разрешены все публичные."""
+
+    document = read_json_object(SETTINGS_FILE)
+    raw = document.get("egress_domains")
+
+    if not isinstance(raw, list):
+        return ()
+
+    result: list[str] = []
+    seen: set[str] = set()
+
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+
+        name = item.strip().lower().strip(".")
+
+        if not name or name in seen:
+            continue
+
+        seen.add(name)
+        result.append(name)
+
+    return tuple(result)
+
+
+def set_egress_domains(domains: list[str]) -> None:
+    """Сохраняет общий allowlist доменов."""
+
+    _update_fields(
+        {
+            "egress_domains": [
+                str(item).strip().lower()
+                for item in domains
+                if str(item).strip()
+            ]
+        }
+    )
+
+
 DEFAULT_MAX_STEPS = 12
 
 

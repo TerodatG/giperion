@@ -151,10 +151,22 @@ TOOL_SPECS = (
         args={
             "task": "одна подзадача",
             "tasks": "несколько независимых подзадач (массив)",
+            "role": "роль: researcher, reviewer или tester",
         },
         types={"tasks": "array"},
         risk="read",
         required=(),
+    ),
+    ToolSpec(
+        name="remember",
+        description=(
+            "Записать важное решение, ограничение или договорённость в "
+            "память проекта (data/agent_memory.md). Она попадёт в "
+            "следующие задачи. Требует подтверждения."
+        ),
+        args={"text": "что запомнить, одна-две фразы"},
+        risk="write",
+        required=("text",),
     ),
     ToolSpec(
         name="update_plan",
@@ -206,6 +218,64 @@ TOOL_SPECS = (
         },
         risk="exec",
         required=("url",),
+    ),
+    ToolSpec(
+        name="browser_act",
+        description=(
+            "Открыть страницу в браузере с JavaScript, выполнить клики, "
+            "ввод, прокрутку или паузы и вернуть текст. Можно сделать "
+            "скриншот. Требует подтверждения; локальные адреса запрещены."
+        ),
+        args={},
+        risk="exec",
+        required=("url", "actions"),
+        schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "адрес страницы",
+                },
+                "actions": {
+                    "type": "array",
+                    "description": (
+                        "до 10 действий по порядку: "
+                        "click/fill/press/scroll/wait"
+                    ),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "click",
+                                    "fill",
+                                    "press",
+                                    "scroll",
+                                    "wait",
+                                ],
+                            },
+                            "selector": {"type": "string"},
+                            "text": {"type": "string"},
+                            "key": {"type": "string"},
+                            "pixels": {"type": "integer"},
+                            "ms": {"type": "integer"},
+                        },
+                        "required": ["type"],
+                    },
+                },
+                "wait": {
+                    "type": "string",
+                    "description": "CSS-селектор до действий",
+                },
+                "shot": {
+                    "type": "boolean",
+                    "description": "сохранить скриншот в data/agent_browser",
+                },
+            },
+            "required": ["url", "actions"],
+            "additionalProperties": False,
+        },
     ),
     ToolSpec(
         name="fetch_url",

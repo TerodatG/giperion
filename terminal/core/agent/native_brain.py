@@ -4,6 +4,7 @@
 
 import json
 
+from terminal.core.agent.memory import prompt_block
 from terminal.core.agent.prompts import NATIVE_SYSTEM_PROMPT
 from terminal.core.agent.protocol import AgentDecision
 from terminal.core.agent.provider_http import (
@@ -119,7 +120,10 @@ class NativeBrain:
             )
 
         return [
-            {"role": "system", "content": NATIVE_SYSTEM_PROMPT},
+            {
+                "role": "system",
+                "content": NATIVE_SYSTEM_PROMPT + prompt_block(),
+            },
             {"role": "user", "content": content},
         ]
 

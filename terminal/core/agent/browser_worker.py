@@ -62,14 +62,40 @@ def _guard(route) -> None:
     route.continue_()
 
 
+def _run_actions(page, actions: list) -> None:
+    """Выполняет клики, ввод, прокрутку и паузы по очереди."""
+
+    for action in actions[:10]:
+        if not isinstance(action, dict):
+            continue
+
+        kind = str(action.get("type") or "").strip().lower()
+        selector = str(action.get("selector") or "").strip()
+
+        if kind == "click" and selector:
+            page.click(selector)
+        elif kind == "fill" and selector:
+            page.fill(selector, str(action.get("text") or ""))
+        elif kind == "press" and selector:
+            page.press(selector, str(action.get("key") or "Enter"))
+        elif kind == "scroll":
+            pixels = int(action.get("pixels") or 800)
+            page.mouse.wheel(0, max(-10_000, min(10_000, pixels)))
+        elif kind == "wait":
+            ms = int(action.get("ms") or 500)
+            page.wait_for_timeout(max(0, min(10_000, ms)))
+
+
 def render(request: dict) -> dict:
-    """Открывает страницу, ждёт JS и возвращает текст."""
+    """Открывает страницу, выполняет действия и возвращает текст."""
 
     from playwright.sync_api import sync_playwright
 
     url = str(request.get("url") or "")
     timeout = int(request.get("timeout_ms") or 60_000)
     wait = str(request.get("wait") or "").strip()
+    actions = request.get("actions")
+    shot_path = str(request.get("shot_path") or "")
 
     if not _scheme_ok(url):
         return {"ok": False, "error": "Разрешены только http и https."}
@@ -97,6 +123,19 @@ def render(request: dict) -> dict:
                     int(request.get("settle_ms") or SETTLE_MS)
                 )
 
+            if isinstance(actions, list) and actions:
+                _run_actions(page, actions)
+                page.wait_for_timeout(500)
+
+            if shot_path:
+                from pathlib import Path
+
+                Path(shot_path).parent.mkdir(
+                    parents=True,
+                    exist_ok=True,
+                )
+                page.screenshot(path=shot_path, full_page=False)
+
             title = page.title()
             text, truncated = _clip(page.inner_text("body"))
             final_url = page.url
@@ -107,6 +146,7 @@ def render(request: dict) -> dict:
                 "title": title,
                 "text": text,
                 "truncated": truncated,
+                "shot": shot_path,
             }
         finally:
             browser.close()

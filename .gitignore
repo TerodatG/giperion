@@ -80,3 +80,8 @@ data/agent_plugin_out/
 data/mcp_venv/
 data/agent_semantic.json
 data/agent_vectors.json
+data/agent_browser/
+data/agent_memory.md
+data/agent_vectors.db
+data/agent_vectors.db-wal
+data/agent_vectors.db-shm

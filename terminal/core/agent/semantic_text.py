@@ -40,6 +40,53 @@ STOPWORDS = frozenset(
     """.split()
 )
 
+# Основы, которые стоит считать синонимами при поиске.
+SYNONYMS = {
+    "плагин": ("plugin",),
+    "plugin": ("плагин",),
+    "подтвержд": ("approval", "approve"),
+    "approval": ("подтвержд",),
+    "контекст": ("context",),
+    "context": ("контекст",),
+    "поиск": ("search",),
+    "search": ("поиск",),
+    "память": ("memory",),
+    "memory": ("память",),
+    "браузер": ("browser",),
+    "browser": ("браузер",),
+    "файл": ("file",),
+    "file": ("файл",),
+    "тест": ("test",),
+    "test": ("тест",),
+    "бюджет": ("budget",),
+    "budget": ("бюджет",),
+    "ошибк": ("error",),
+    "error": ("ошибк",),
+    "безопасн": ("security",),
+    "security": ("безопасн",),
+    "настройк": ("settings", "config"),
+    "settings": ("настройк",),
+    "config": ("настройк", "конфиг"),
+    "конфиг": ("config",),
+    "задач": ("task",),
+    "task": ("задач",),
+    "модел": ("model",),
+    "model": ("модел",),
+    "индекс": ("index",),
+    "index": ("индекс",),
+    "кеш": ("cache",),
+    "cache": ("кеш",),
+    "вектор": ("vector",),
+    "vector": ("вектор",),
+    "документ": ("docs", "documentation"),
+    "docs": ("документ",),
+    "команд": ("command",),
+    "command": ("команд",),
+    "проверк": ("check", "validate"),
+    "check": ("проверк",),
+    "validate": ("проверк",),
+}
+
 
 def _parts(word: str) -> list[str]:
     """Делит латинский camelCase, кириллицу оставляет целым словом."""
@@ -94,6 +141,18 @@ def tokens(text: str) -> list[str]:
 
 
 def index_tokens(text: str) -> list[str]:
-    """Слова для BM25: основы, чтобы падежи совпадали."""
+    """Слова для BM25: основы, падежи и синонимы."""
 
-    return [stem(word) for word in tokens(text)]
+    result: list[str] = []
+
+    for word in tokens(text):
+        base = stem(word)
+        variants = [base]
+
+        for extra in SYNONYMS.get(base, ()):
+            variants.append(stem(extra))
+
+        for variant in dict.fromkeys(variants):
+            result.append(variant)
+
+    return result

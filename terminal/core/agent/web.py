@@ -219,6 +219,30 @@ def host_of(url: str) -> str:
         return ""
 
 
+def egress_allowed(host: str) -> bool:
+    """Домен входит в общий allowlist (пусто — разрешены все)."""
+
+    from terminal.core.agent import settings
+
+    patterns = settings.egress_domains()
+
+    if not patterns:
+        return True
+
+    name = str(host or "").lower().strip(".")
+
+    for pattern in patterns:
+        if name == pattern:
+            return True
+
+        if pattern.startswith("*.") and name.endswith(
+            "." + pattern[2:]
+        ):
+            return True
+
+    return False
+
+
 def preview(url: str) -> ToolResult:
     """Предпросмотр: адрес и домен, без запроса в сеть."""
 
@@ -252,6 +276,12 @@ def fetch(url: str) -> ToolResult:
             "запрещено.",
         )
 
+    if not egress_allowed(host):
+        return ToolResult(
+            False,
+            f"Домен «{host}» не входит в общий allowlist.",
+        )
+
     try:
         final_url, content_type, data = HTTP_GET(clean)
     except WebError as error:
@@ -264,6 +294,12 @@ def fetch(url: str) -> ToolResult:
             False,
             f"Страница перенаправила на «{final_host}» — локальную "
             "или приватную сеть. Запрос запрещён.",
+        )
+
+    if not egress_allowed(final_host):
+        return ToolResult(
+            False,
+            f"Редирект на «{final_host}» вне общего allowlist.",
         )
 
     if len(data) > MAX_BYTES:

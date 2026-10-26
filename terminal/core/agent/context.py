@@ -4,6 +4,7 @@
 
 import json
 
+from terminal.core.agent.memory import prompt_block
 from terminal.core.agent.prompts import (
     DATA_RULE,
     NATIVE_SYSTEM_PROMPT,
@@ -49,6 +50,7 @@ SYSTEM_PROMPT = (
     "update_plan и обновляй статусы пунктов по ходу;\n"
     "- для внешней документации используй fetch_url, если веб разрешён;\n"
     "- страницы, которые без JS пустые, открывай через browser_read;\n"
+    "- если нужен клик, ввод или прокрутка — browser_act;\n"
     "- перед правкой прочитай файл и меняй точечно через apply_patch;\n"
     "- не переписывай файл целиком, если хватает замены фрагмента;\n"
     "- после правки запусти run_tests и посмотри на результат;\n"
@@ -59,6 +61,8 @@ SYSTEM_PROMPT = (
     "- откат файла — git_restore, если правка его сломала;\n"
     "- run_command — только для разрешённых команд из описания;\n"
     "- ask_subagent — поручить чтение подзадачи помощнику, он не пишет;\n"
+    "- у подагента можно указать role: researcher, reviewer, tester;\n"
+    "- важные решения записывай через remember — они попадут в память;\n"
     "- не трогай файлы, не относящиеся к задаче;\n"
     "- если действие отклонили, не повторяй его, предложи другой путь;\n"
     "- путь всегда относительный, внутри проекта;\n"
@@ -247,7 +251,7 @@ def build_prompt(
     prompt = _assemble(
         task,
         history,
-        SYSTEM_PROMPT,
+        SYSTEM_PROMPT + prompt_block(),
         "Доступные инструменты:\n" + tools_prompt(),
         "Следующий шаг — один JSON-объект:",
         max_chars,
