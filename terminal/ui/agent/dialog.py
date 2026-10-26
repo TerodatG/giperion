@@ -30,6 +30,7 @@ from terminal.ui.agent.worktree_bar import WorktreeBar
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.plan_dialog import show_plan_dialog
 from terminal.ui.provider_dialog import show_provider_dialog
 from terminal.ui.trace_dialog import format_trace, show_trace_dialog
 from terminal.ui.watch_dialog import show_watch_dialog
@@ -103,6 +104,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         self.controls.tasks_requested.connect(self._open_tasks)
         self.controls.watch_requested.connect(self._open_watch)
         self.controls.trace_requested.connect(self._open_trace)
+        self.controls.plan_requested.connect(self._open_plan)
         self.controls.save_defaults_requested.connect(self._save_defaults)
         self.controls.resume_last_requested.connect(self._resume_last)
         self.controls.undo_requested.connect(self._undo_changes)
@@ -250,6 +252,27 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
             format_trace(job.steps, job.answer, job.error),
             key="agent-trace",
         )
+
+    def _open_plan(self) -> None:
+        """Показывает последний план задачи."""
+
+        job = self.job
+        plans = [
+            step
+            for step in (job.steps if job else [])
+            if step.kind == "plan"
+        ]
+
+        if not plans:
+            show_plan_dialog(
+                self._parent,
+                "План пока не составлен: модель ещё не вызывала "
+                "update_plan.",
+            )
+
+            return
+
+        show_plan_dialog(self._parent, plans[-1].detail)
 
     def _save_defaults(self) -> None:
         """Запоминает модель, шаги и контекст как умолчание."""

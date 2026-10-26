@@ -54,6 +54,7 @@ class AgentControls(QWidget):
     undo_requested = Signal()
     provider_requested = Signal()
     trace_requested = Signal()
+    plan_requested = Signal()
     save_defaults_requested = Signal()
     resume_last_requested = Signal()
 
@@ -251,6 +252,13 @@ class AgentControls(QWidget):
         )
         self.trace_button.clicked.connect(self.trace_requested.emit)
 
+        self.plan_button = QPushButton("План…", self)
+        self.plan_button.setObjectName("workshopAction")
+        self.plan_button.setToolTip(
+            "Чек-лист текущей задачи: что сделано и что осталось."
+        )
+        self.plan_button.clicked.connect(self.plan_requested.emit)
+
         self.resume_last_button = QPushButton(
             "Продолжить незавершённую",
             self,
@@ -277,6 +285,7 @@ class AgentControls(QWidget):
         row.addWidget(self.resume_last_button)
         row.addWidget(self.watch_button)
         row.addWidget(self.trace_button)
+        row.addWidget(self.plan_button)
         row.addWidget(self.undo_button)
         row.addWidget(self.status_label, 1)
 
