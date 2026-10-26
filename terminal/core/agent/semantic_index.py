@@ -4,6 +4,7 @@
 
 import ast
 import hashlib
+import os
 import re
 from pathlib import Path
 
@@ -11,10 +12,12 @@ from shared.storage.json_store import read_json_object, write_json
 from terminal.core.agent import tools
 
 MAX_CHUNKS = 4000
+MAX_FILES = 4000
 MAX_CHUNK_CHARS = 2400
 MAX_CHUNK_LINES = 80
 TEXT_WINDOW = 60
 SKIP_PREFIXES = ("data/", ".agent_worktrees/", "archive/")
+EXTRA_SKIP_DIRS = {"data", ".agent_worktrees"}
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
 _MEMORY: dict[tuple[str, str], dict] = {}
@@ -24,6 +27,40 @@ def reset_cache() -> None:
     """Забывает построенные фрагменты в памяти."""
 
     _MEMORY.clear()
+
+
+def _iter_files(base: Path):
+    """Текстовые файлы проекта без data и worktrees.
+
+    Обход собственный: tools._iter_text_files упирается в лимит
+    MAX_SEARCH_FILES на служебных копиях и пропускает исходники.
+    """
+
+    skip_dirs = set(tools.SKIP_DIRS) | EXTRA_SKIP_DIRS
+    seen = 0
+
+    for folder, dirnames, filenames in os.walk(base):
+        dirnames[:] = sorted(
+            name for name in dirnames if name not in skip_dirs
+        )
+
+        for name in sorted(filenames):
+            path = Path(folder) / name
+
+            if path.suffix.lower() not in tools.TEXT_SUFFIXES:
+                continue
+
+            try:
+                if path.stat().st_size > tools.MAX_SEARCH_FILE_BYTES:
+                    continue
+            except OSError:
+                continue
+
+            yield path
+            seen += 1
+
+            if seen >= MAX_FILES:
+                return
 
 
 def _is_cache(path: Path, skip_files: tuple[Path, ...]) -> bool:
@@ -231,7 +268,7 @@ def _collect(
     files: dict[str, dict] = {}
     chunks: list[dict] = []
 
-    for path in tools._iter_text_files(base):
+    for path in _iter_files(base):
         relative = path.relative_to(base).as_posix()
 
         if _is_cache(path, skip_files) or _skip(relative):
@@ -306,7 +343,7 @@ def _changed(
 
     seen: set[str] = set()
 
-    for path in tools._iter_text_files(base):
+    for path in _iter_files(base):
         if _is_cache(path, skip_files):
             continue
 

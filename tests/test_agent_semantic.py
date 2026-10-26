@@ -430,3 +430,28 @@ def test_russian_query_finds_english_code(tmp_path) -> None:
 
     assert "install.py" not in result.text
     assert "terminal/core/isolation.py" in result.text
+
+def test_walk_skips_data_and_worktrees(tmp_path) -> None:
+    """Обход не тратит лимит на data/ и worktrees."""
+
+    from terminal.core.agent import semantic_index
+
+    root = _project(
+        tmp_path,
+        {
+            "terminal/core/code.py": "def kept():\n    return 1\n",
+            "data/eval/big.json": "{}",
+            ".agent_worktrees/copy/code.py": "def copy():\n    return 2\n",
+        },
+    )
+
+    paths = {
+        path.relative_to(root).as_posix()
+        for path in semantic_index._iter_files(root)
+    }
+
+    assert "terminal/core/code.py" in paths
+    assert not any(path.startswith("data/") for path in paths)
+    assert not any(
+        path.startswith(".agent_worktrees/") for path in paths
+    )
