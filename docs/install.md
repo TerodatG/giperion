@@ -58,6 +58,19 @@ Zip содержит код, документацию, скины и `knowledge/
 сохранив `data/`, `models/` и `skins/`. Перед обновлением полезно
 сделать `python -m tools.clean_caches --yes` и резервную копию `data/`.
 
+## Установщик (каркас)
+
+```powershell
+python -m pip install pyinstaller
+powershell -ExecutionPolicy Bypass -File tools/build_installer.ps1
+powershell -ExecutionPolicy Bypass -File tools/build_installer.ps1 -OneFile
+```
+
+Собирает `dist/Giperion` через PyInstaller с `skins/`, `knowledge/` и
+`docs/`. Torch и PySide6 в архив не входят: это сборка для машины с
+Python. Для чистого дистрибутива нужен отдельный spec с зависимостями и
+проверкой на трёх ОС — пока не сделано.
+
 ## Ограничения
 
 - AppContainer и часть системных метрик — только Windows.
