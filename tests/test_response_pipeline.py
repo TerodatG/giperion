@@ -3,10 +3,10 @@
 # Последнее изменение: заглушки ставятся в chat_pipeline, порядок зафиксирован.
 
 import pytest
+from giperion_model import api
+from giperion_model.identity_matrix import IDENTITY_MATRIX
+from giperion_model.language.intent_handler import find_intent_response
 
-from giperion import api
-from giperion.identity_matrix import IDENTITY_MATRIX
-from giperion.language.intent_handler import find_intent_response
 from terminal.core import chat_pipeline, chatbot
 from terminal.core.chat_pipeline import STAGES
 from terminal.memory import memory, system_handler

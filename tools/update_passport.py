@@ -10,16 +10,16 @@ from datetime import date
 from pathlib import Path
 
 import torch
-
-from config import DATA_DIR, MODELS_DIR
-from giperion.training.char_tokenizer import (
+from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
 )
-from giperion.training.tokenizer import (
+from giperion_model.training.tokenizer import (
     TOKENIZER_FILE,
     WordTokenizer,
 )
+
+from config import DATA_DIR, MODELS_DIR
 from shared.storage.json_store import read_json, write_json
 from terminal.core.model_passport import PASSPORTS_FILE
 from terminal.core.model_registry import load_models

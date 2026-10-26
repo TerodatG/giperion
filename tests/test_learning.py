@@ -5,11 +5,12 @@
 import json
 
 import pytest
-
-from giperion.language import (
+from giperion_model._shared import action_log as model_action_log
+from giperion_model.language import (
     intent_handler,
     learning_service,
 )
+
 from shared import action_log
 from terminal.core.chatbot import get_response
 
@@ -60,6 +61,11 @@ def isolated_learning(
     )
     monkeypatch.setattr(
         action_log,
+        "LOG_FILE",
+        log_file,
+    )
+    monkeypatch.setattr(
+        model_action_log,
         "LOG_FILE",
         log_file,
     )

@@ -6,6 +6,8 @@
    ```powershell
    python -m pip install -r requirements.txt
    ```
+   Модель — отдельный проект, `requirements.txt` ставит её как
+   `-e ./model`. Отдельно: `python -m pip install -e model`.
 2. Запуск:
    ```powershell
    python main.py

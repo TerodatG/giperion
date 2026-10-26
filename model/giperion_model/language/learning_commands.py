@@ -5,20 +5,20 @@
 import re
 from typing import Callable
 
-from giperion.language.knowledge_service import (
+from giperion_model._shared.action_log import add_action
+from giperion_model._shared.text_tools import normalize_message
+from giperion_model.language.knowledge_service import (
     get_category_details,
     validate_answer_change,
     validate_category_removal,
     validate_phrase_removal,
 )
-from giperion.language.learning_presenter import get_categories_response
-from giperion.language.learning_service import (
+from giperion_model.language.learning_presenter import get_categories_response
+from giperion_model.language.learning_service import (
     add_phrase_to_category,
     get_available_categories,
     validate_new_category,
 )
-from shared.action_log import add_action
-from shared.text_tools import normalize_message
 
 TEACH_PHRASE_PATTERN = re.compile(
     r"^научи фразе:\s*(.+?)\s*;\s*"

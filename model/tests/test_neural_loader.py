@@ -1,8 +1,8 @@
 # Giperion/tests/test_neural_loader.py                             v001
 # Проверки загрузчика нейросети и сброса кэша моделей.
 
-from giperion import neural_engine
-from giperion.neural_loader import load_responses
+from giperion_model import neural_engine
+from giperion_model.neural_loader import load_responses
 
 
 def test_intent_responses_are_loaded() -> None:

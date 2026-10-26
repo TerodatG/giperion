@@ -6,14 +6,14 @@ import json
 
 import torch
 
-from config import DATA_DIR, MODELS_DIR
-from giperion.training.char_tokenizer import (
+from giperion_model.config import DATA_DIR, MODELS_DIR
+from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
 )
-from giperion.training.model_charcnn import HybridTextClassifier
-from giperion.training.model_seq2seq import Seq2Seq
-from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+from giperion_model.training.model_charcnn import HybridTextClassifier
+from giperion_model.training.model_seq2seq import Seq2Seq
+from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
 SEQ2SEQ_FILE = MODELS_DIR / "seq2seq.pt"

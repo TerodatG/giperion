@@ -3,7 +3,8 @@
 # Последнее изменение: справка собирается по разделам — её же показывает
 # окно «Справка» в интерфейсе.
 
-from giperion.identity_matrix import IDENTITY_MATRIX
+from giperion_model.identity_matrix import IDENTITY_MATRIX
+
 from terminal.core.phrases import HELP_COMMANDS
 
 

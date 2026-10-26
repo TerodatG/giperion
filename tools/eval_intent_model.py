@@ -6,15 +6,15 @@ import json
 from collections import Counter
 
 import torch
-
-from config import DATA_DIR, LOGS_DIR, MODELS_DIR
-from giperion.language.intent_handler import load_intents
-from giperion.training.char_tokenizer import (
+from giperion_model.language.intent_handler import load_intents
+from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
 )
-from giperion.training.model_charcnn import HybridTextClassifier
-from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+from giperion_model.training.model_charcnn import HybridTextClassifier
+from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+
+from config import DATA_DIR, LOGS_DIR, MODELS_DIR
 from shared.text_tools import normalize_message
 
 EVAL_FILE = DATA_DIR / "eval_set.json"

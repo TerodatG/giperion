@@ -33,6 +33,7 @@ repos:
           tests/test_clean_caches.py
           tests/test_scan_secrets.py
           tests/test_structure.py
+          model/tests
         language: system
         pass_filenames: false
 

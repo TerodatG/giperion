@@ -2,6 +2,11 @@
 # Окно «Личностные матрицы»: каталог и карточка характера.
 # Последнее изменение: равные по высоте экраны в металлических рамках.
 
+from giperion_model.personality_catalog import (
+    get_selected_personality_id,
+    load_personality_matrices,
+    set_selected_personality_id,
+)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
@@ -17,11 +22,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from giperion.personality_catalog import (
-    get_selected_personality_id,
-    load_personality_matrices,
-    set_selected_personality_id,
-)
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.rating_bars import fill_rating_bars
 

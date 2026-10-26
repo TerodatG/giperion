@@ -2,7 +2,8 @@
 # Дымовой тест нейросети: диагноз классификатора и ответ бота.
 # Последнее изменение: первый вариант.
 
-from giperion.neural_engine import _build_engine
+from giperion_model.neural_engine import _build_engine
+
 from terminal.core.chatbot import get_response
 
 CASES = [

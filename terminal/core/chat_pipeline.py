@@ -5,11 +5,12 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from giperion.api import generate as generate_answer
-from giperion.api import match_intent
-from giperion.identity_matrix import IDENTITY_MATRIX
-from giperion.language.intent_handler import find_close_pattern
-from giperion.language.learning_handler import get_learning_response
+from giperion_model.api import generate as generate_answer
+from giperion_model.api import match_intent
+from giperion_model.identity_matrix import IDENTITY_MATRIX
+from giperion_model.language.intent_handler import find_close_pattern
+from giperion_model.language.learning_handler import get_learning_response
+
 from terminal.core.character_handler import (
     get_characteristics_command_response,
 )

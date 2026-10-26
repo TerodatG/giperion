@@ -2,9 +2,10 @@
 # Черновик разметки непонятых фраз с подсказкой нейросети.
 # Последнее изменение: черновик пишется через общий атомарный слой.
 
+from giperion_model.language.intent_handler import load_intents
+from giperion_model.neural_engine import CONFIDENCE_THRESHOLD, _build_engine
+
 from config import DATA_DIR
-from giperion.language.intent_handler import load_intents
-from giperion.neural_engine import CONFIDENCE_THRESHOLD, _build_engine
 from shared.storage.json_store import write_json
 from shared.text_tools import normalize_message
 from terminal.memory.memory import get_unknown_messages

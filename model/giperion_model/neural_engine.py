@@ -6,10 +6,10 @@ import random
 
 import torch
 
-from giperion.training.char_tokenizer import CharTokenizer
-from giperion.training.model_charcnn import HybridTextClassifier
-from giperion.training.model_seq2seq import Seq2Seq
-from giperion.training.tokenizer import WordTokenizer
+from giperion_model.training.char_tokenizer import CharTokenizer
+from giperion_model.training.model_charcnn import HybridTextClassifier
+from giperion_model.training.model_seq2seq import Seq2Seq
+from giperion_model.training.tokenizer import WordTokenizer
 
 # Ниже порога диагнозу не верим — отвечать пусть правила.
 CONFIDENCE_THRESHOLD = 0.45
@@ -179,7 +179,7 @@ class NeuralEngine:
 def _build_engine() -> NeuralEngine | None:
     """Собирает движок через загрузчик; при ошибке — None."""
 
-    from giperion.neural_loader import load_components
+    from giperion_model.neural_loader import load_components
 
     parts = load_components()
 

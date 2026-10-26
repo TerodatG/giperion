@@ -1,20 +1,20 @@
-# Giperion/tests/test_architecture.py                               v001
-# Граница между моделью (giperion) и агентом (terminal).
-# Последнее изменение: первый тест — модель не импортирует агента.
+# Giperion/tests/test_architecture.py                               v002
+# Граница между отдельным проектом модели (giperion_model) и агентом.
+# Последнее изменение: модель вынесена в model/, граница расширена.
 
 import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Модель: собственная папка. Раньше здесь были app/language и training —
-# после шага 3 они переехали, старые пути тест больше не сканирует.
-MODEL_ROOTS = ("giperion",)
+# Модель: самостоятельный проект model/ с пакетом giperion_model.
+MODEL_ROOTS = ("model/giperion_model",)
 
 MODEL_FILES: tuple[str, ...] = ()
 
-# Агент: модели туда нельзя. Общий слой (shared) модели разрешён.
-FORBIDDEN_PREFIXES = ("terminal",)
+# Агент и общий слой приложения модели недоступны: у неё свой config
+# и _shared. Иначе граница снова размоется.
+FORBIDDEN_PREFIXES = ("terminal", "shared", "config")
 
 
 def model_files() -> list[Path]:

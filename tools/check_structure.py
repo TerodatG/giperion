@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-SOURCE_ROOTS = ("giperion", "terminal", "shared", "tools")
+SOURCE_ROOTS = ("model/giperion_model", "terminal", "shared", "tools")
 SOURCE_FILES = ("gui.py", "main.py", "config.py")
 SKIP_PARTS = {"__pycache__", ".pytest_cache"}
 

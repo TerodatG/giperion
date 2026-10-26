@@ -3,7 +3,7 @@
 
 import json
 
-from giperion.personality_catalog import (
+from giperion_model.personality_catalog import (
     get_personality,
     get_selected_personality_id,
     load_personality_matrices,

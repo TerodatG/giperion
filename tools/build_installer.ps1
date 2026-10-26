@@ -29,7 +29,7 @@ $arguments = @(
     "--add-data", "knowledge;knowledge",
     "--add-data", "docs;docs",
     "--collect-submodules", "terminal",
-    "--collect-submodules", "giperion",
+    "--collect-submodules", "giperion_model",
     "main.py"
 )
 

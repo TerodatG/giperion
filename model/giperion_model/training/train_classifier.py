@@ -9,13 +9,13 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-from config import MODELS_DIR
-from giperion.training.build_dataset import CLASSIFICATION_FILE
-from giperion.training.model_classifier import (
+from giperion_model.config import MODELS_DIR
+from giperion_model.training.build_dataset import CLASSIFICATION_FILE
+from giperion_model.training.model_classifier import (
     TextClassifier,
     parameter_count,
 )
-from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CHECKPOINT_FILE = MODELS_DIR / "classifier.pt"
 LABELS_FILE = MODELS_DIR / "classifier_labels.json"

@@ -1,7 +1,7 @@
 # Giperion/tests/test_model_api.py                                  v001
 # Точка входа модели: намерение, нейросеть и честное «не знаю».
 
-from giperion import api
+from giperion_model import api
 
 
 def test_intent_answer_has_full_confidence(monkeypatch) -> None:

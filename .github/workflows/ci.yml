@@ -40,6 +40,9 @@ jobs:
       - name: Тесты
         run: python -m pytest
 
+      - name: Тесты модели
+        run: python -m pytest model/tests
+
       - name: Retrieval-бенчмарк
         run: python -m tools.eval_retrieval --limit 5 --fail
 

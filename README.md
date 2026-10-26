@@ -141,11 +141,11 @@ python -m pytest -q
 Сборка датасета и обучение:
 
 ```powershell
-python -m giperion.training.build_dataset     # classification.json, pairs.json
-python -m giperion.training.tokenizer         # models/tokenizer.json
-python -m giperion.training.char_tokenizer    # models/char_tokenizer.json
-python -m giperion.training.train_charcnn --full   # models/hybrid.pt
-python -m giperion.training.train_seq2seq     # models/seq2seq.pt
+python -m giperion_model.training.build_dataset     # classification.json, pairs.json
+python -m giperion_model.training.tokenizer         # models/tokenizer.json
+python -m giperion_model.training.char_tokenizer    # models/char_tokenizer.json
+python -m giperion_model.training.train_charcnn --full   # models/hybrid.pt
+python -m giperion_model.training.train_seq2seq     # models/seq2seq.pt
 ```
 
 Цикл дообучения на непонятых фразах:
@@ -153,14 +153,15 @@ python -m giperion.training.train_seq2seq     # models/seq2seq.pt
 ```powershell
 python -m tools.label_unknown        # черновик data/unknown_labels.json
 python -m tools.apply_unknown        # проверенная разметка → intents.json
-python -m giperion.training.build_dataset
-python -m giperion.training.train_charcnn --full
-python -m giperion.training.train_seq2seq
+python -m giperion_model.training.build_dataset
+python -m giperion_model.training.train_charcnn --full
+python -m giperion_model.training.train_seq2seq
 ```
 
 `tools/check_neural.py` — быстрый дымовой тест моделей.
 Ответы внешних моделей в обучение не попадают: у сообщений есть поле
-`model`, и `giperion/training/build_dataset.py` отбрасывает чужие ответы.
+`model`, и `model/giperion_model/training/build_dataset.py` отбрасывает
+чужие ответы.
 
 Замер скорости внешней модели:
 
@@ -451,12 +452,16 @@ python -m tools.audit_log --check              # цепочка аудита
 ## Структура
 
 ```
-giperion/      модель: понимает реплику и отвечает
-  api.py       единственная точка входа: match_intent, generate, answer
-  language/    намерения, обучение фразам, знания
-  training/    датасет, токенизаторы, тренеры, диагностика
-  neural_engine.py, neural_loader.py   инференс и загрузка чекпоинтов
-  identity_matrix.py, personality_catalog.py   характер и личности
+model/         отдельный проект модели Giperion
+  giperion_model/
+    api.py     единственная точка входа: match_intent, generate, answer
+    language/  намерения, обучение фразам, знания
+    training/  датасет, токенизаторы, тренеры, диагностика
+    neural_engine.py, neural_loader.py   инференс и загрузка чекпоинтов
+    identity_matrix.py, personality_catalog.py   характер и личности
+    config.py  пути модели (GIPERION_*), _shared/ — локальные утилиты
+  tests/       чистые тесты модели
+  pyproject.toml
 terminal/      агент: интерфейс, память, навыки, оркестрация
   core/        chat_pipeline, chatbot, провайдеры моделей, сенат
   memory/      история, профиль, архивы, подтверждения
@@ -473,10 +478,14 @@ skins/         скины: skins/<id>/skin.json и текстуры рядом
 updates/       скачанные патчи и резервные копии (в .gitignore)
 ```
 
-Граница направленная: `terminal` может импортировать `giperion` и `shared`,
-`giperion` — только `shared`, а `giperion` не знает про `terminal` вовсе.
-Это проверяет `tests/test_architecture.py`. Подробнее о границе, метриках и
-плане выноса модели в отдельный репозиторий — `docs/architecture.md`.
+Модель — отдельный проект `model/` с пакетом `giperion_model`,
+собственным `pyproject.toml` и тестами. Приложение ставит его как
+зависимость (`python -m pip install -e model`) и импортирует только
+публичный пакет. Граница направленная: `terminal` может импортировать
+`giperion_model` и `shared`, модель не импортирует `terminal`, `shared`
+или `config` приложения — у неё свой `config.py` и локальный `_shared`.
+Это проверяет `tests/test_architecture.py`. Подробнее —
+`docs/architecture.md` и `model/README.md`.
 Аудит проекта — `docs/audit_2026-10-27.md`, автоматизация и фоновые
 задачи — `docs/automation.md`, статус этапов 1–14 —
 `docs/roadmap_2026-10-27.md`, установка и перенос — `docs/install.md`,

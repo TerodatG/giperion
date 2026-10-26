@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from giperion.language import intent_handler
+from giperion_model.language import intent_handler
 
 
 @pytest.fixture

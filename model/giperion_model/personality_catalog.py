@@ -4,8 +4,8 @@
 
 from pathlib import Path
 
-from config import DATA_DIR
-from shared.storage.json_store import read_json, update_json
+from giperion_model._shared.json_store import read_json, update_json
+from giperion_model.config import DATA_DIR
 
 PERSONALITIES_FILE = DATA_DIR / "personality_matrices.json"
 SETTINGS_FILE = DATA_DIR / "personality_settings.json"

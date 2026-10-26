@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from giperion.training.model_classifier import (
+from giperion_model.training.model_classifier import (
     CONV_WIDTHS,
     masked_max_pool,
 )

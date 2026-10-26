@@ -11,7 +11,7 @@ from config import BASE_DIR
 
 INCLUDE_DIRS = (
     "terminal",
-    "giperion",
+    "model/giperion_model",
     "shared",
     "tools",
     "docs",
@@ -27,6 +27,8 @@ INCLUDE_FILES = (
     "requirements-dev.txt",
     "README.md",
     "DEVLOG.md",
+    "model/pyproject.toml",
+    "model/README.md",
 )
 EXCLUDE_DIRS = {
     ".git",

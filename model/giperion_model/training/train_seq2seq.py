@@ -9,11 +9,11 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from config import MODELS_DIR
-from giperion.training.build_dataset import PAIRS_FILE
-from giperion.training.model_classifier import parameter_count
-from giperion.training.model_seq2seq import Seq2Seq
-from giperion.training.tokenizer import TOKENIZER_FILE, WordTokenizer
+from giperion_model.config import MODELS_DIR
+from giperion_model.training.build_dataset import PAIRS_FILE
+from giperion_model.training.model_classifier import parameter_count
+from giperion_model.training.model_seq2seq import Seq2Seq
+from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CHECKPOINT_FILE = MODELS_DIR / "seq2seq.pt"
 

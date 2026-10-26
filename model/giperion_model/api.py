@@ -4,8 +4,8 @@
 
 from dataclasses import dataclass
 
-from giperion import neural_engine
-from giperion.language.intent_handler import find_intent_response
+from giperion_model import neural_engine
+from giperion_model.language.intent_handler import find_intent_response
 
 
 @dataclass(frozen=True)

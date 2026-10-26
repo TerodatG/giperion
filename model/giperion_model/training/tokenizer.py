@@ -7,12 +7,12 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from config import MODELS_DIR
-from giperion.training.build_dataset import (
+from giperion_model._shared.text_tools import normalize_message
+from giperion_model.config import MODELS_DIR
+from giperion_model.training.build_dataset import (
     CLASSIFICATION_FILE,
     PAIRS_FILE,
 )
-from shared.text_tools import normalize_message
 
 TOKENIZER_FILE = MODELS_DIR / "tokenizer.json"
 

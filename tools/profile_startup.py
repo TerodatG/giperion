@@ -13,7 +13,7 @@ MODULES = (
     "terminal.core.agent.loop",
     "terminal.core.model_catalog",
     "terminal.ui.agent.dialog",
-    "giperion.neural_engine",
+    "giperion_model.neural_engine",
 )
 
 
