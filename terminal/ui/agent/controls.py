@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from terminal.core.agent.providers import provider_from_settings
 from terminal.core.agent.settings import (
     approval_policy,
+    context_auto,
     context_limit_chars,
     max_steps,
     model_choice,
@@ -162,6 +163,13 @@ class AgentControls(QWidget):
             "Бюджет контекста задачи в символах."
         )
 
+        self.auto_context_check = QCheckBox("Из модели", self)
+        self.auto_context_check.setChecked(context_auto())
+        self.auto_context_check.setToolTip(
+            "Считать бюджет из контекста выбранной модели. "
+            "Если модель неизвестна, берётся значение из поля."
+        )
+
         self.model_combo = QComboBox(self)
         self.model_combo.setObjectName("approvalPolicy")
         self.model_combo.setMinimumWidth(230)
@@ -176,6 +184,7 @@ class AgentControls(QWidget):
         row.addWidget(self.model_combo)
         row.addWidget(self.steps_input)
         row.addWidget(self.context_input)
+        row.addWidget(self.auto_context_check)
 
         self.save_defaults_button = QPushButton("Запомнить", self)
         self.save_defaults_button.setObjectName("workshopAction")

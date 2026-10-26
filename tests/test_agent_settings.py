@@ -245,3 +245,20 @@ def test_step_timeout_setting(tmp_path, monkeypatch) -> None:
 
     settings.set_step_timeout(9999)
     assert settings.step_timeout() == 3600
+
+def test_context_auto_setting(tmp_path, monkeypatch) -> None:
+    """Автобюджет включён по умолчанию и сохраняется."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+
+    assert settings.context_auto() is True
+
+    settings.set_context_auto(False)
+    assert settings.context_auto() is False
+
+    settings.set_context_auto(True)
+    assert settings.context_auto() is True

@@ -197,3 +197,35 @@ def test_context_budget_setting(tmp_path, monkeypatch) -> None:
     )
 
     assert settings.context_limit_chars() == 60_000
+
+def test_docs_headings_are_indexed(tmp_path, monkeypatch) -> None:
+    """Заголовки markdown находятся через find_symbol."""
+
+    monkeypatch.setattr(index, "INDEX_FILE", tmp_path / "index.json")
+    (tmp_path / "README.md").write_text(
+        "# Установка\nтекст\n## Настройка провайдера\n",
+        encoding="utf-8",
+    )
+
+    result = index.find_symbol(tmp_path, "Настройка")
+
+    assert result.ok
+    assert "README.md" in result.text
+    assert "section" in result.text
+
+
+def test_index_rebuilds_after_change(tmp_path, monkeypatch) -> None:
+    """После правки файла индекс перестраивается без ожидания TTL."""
+
+    monkeypatch.setattr(index, "INDEX_FILE", tmp_path / "index.json")
+    target = tmp_path / "a.py"
+    target.write_text("def first():\n    return 1\n", encoding="utf-8")
+
+    index.build_index(tmp_path)
+
+    target.write_text("def second():\n    return 2\n", encoding="utf-8")
+
+    result = index.find_symbol(tmp_path, "second")
+
+    assert result.ok
+    assert "a.py" in result.text

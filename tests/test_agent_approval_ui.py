@@ -203,6 +203,7 @@ def test_task_controls_show_saved_model(qapp, monkeypatch) -> None:
 
     assert 1 <= dialog.steps_input.value() <= 40
     assert 8_000 <= dialog.context_input.value() <= 2_000_000
+    assert dialog.auto_context_check.text() == "Из модели"
 
     labels = [
         dialog.model_combo.itemText(index)
@@ -240,6 +241,11 @@ def test_save_defaults_writes_settings(qapp, monkeypatch) -> None:
         agent_module,
         "set_model_choice",
         lambda value: captured.update(model=value),
+    )
+    monkeypatch.setattr(
+        agent_module,
+        "set_context_auto",
+        lambda value: captured.update(auto=value),
     )
 
     dialog = _make_dialog(qapp)

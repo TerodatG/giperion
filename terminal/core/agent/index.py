@@ -3,6 +3,7 @@
 # Последнее изменение: первый вариант — AST-обход и кэш в data/.
 
 import ast
+import re
 import time
 from pathlib import Path
 
@@ -16,6 +17,8 @@ TTL_SECONDS = 300
 MAX_FILES = 4000
 MAX_FILE_BYTES = 500_000
 MAX_MATCHES = 30
+HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+MAX_HEADINGS = 200
 
 # Кэш в памяти: 307 КБ JSON не перечитываются на каждый find_symbol.
 _INDEX_CACHE: dict[tuple, dict] = {}
@@ -85,6 +88,40 @@ def _symbols_of(path: Path, text: str) -> list[dict]:
     return found
 
 
+def _headings_of(text: str) -> list[dict]:
+    """Заголовки markdown как «разделы» для поиска."""
+
+    found = []
+
+    for number, line in enumerate(str(text).splitlines(), start=1):
+        match = HEADING.match(line.strip())
+
+        if not match:
+            continue
+
+        found.append(
+            {
+                "name": match.group(2).strip(),
+                "kind": "section",
+                "line": number,
+            }
+        )
+
+        if len(found) >= MAX_HEADINGS:
+            break
+
+    return found
+
+
+def _is_index_file(path: Path) -> bool:
+    """Сам файл индекса не считается частью проекта."""
+
+    try:
+        return Path(path).resolve() == Path(INDEX_FILE).resolve()
+    except OSError:
+        return False
+
+
 def build_index(root: Path) -> dict:
     """Строит индекс заново и сохраняет его в data/agent_index.json."""
 
@@ -93,6 +130,9 @@ def build_index(root: Path) -> dict:
     symbols: list[dict] = []
 
     for path in tools._iter_text_files(base):
+        if _is_index_file(path):
+            continue
+
         try:
             stat = path.stat()
         except OSError:
@@ -101,10 +141,13 @@ def build_index(root: Path) -> dict:
         relative = path.relative_to(base).as_posix()
         files[relative] = {
             "mtime": int(stat.st_mtime),
+            "mtime_ns": stat.st_mtime_ns,
             "size": stat.st_size,
         }
 
-        if path.suffix.lower() != ".py":
+        suffix = path.suffix.lower()
+
+        if suffix not in (".py", ".md"):
             continue
 
         if stat.st_size > MAX_FILE_BYTES:
@@ -115,7 +158,12 @@ def build_index(root: Path) -> dict:
         except OSError:
             continue
 
-        for item in _symbols_of(path, text):
+        if suffix == ".py":
+            items = _symbols_of(path, text)
+        else:
+            items = _headings_of(text)
+
+        for item in items:
             symbols.append(
                 {
                     "path": relative,
@@ -144,8 +192,53 @@ def build_index(root: Path) -> dict:
     return document
 
 
+def _files_changed(base: Path, document: dict) -> bool:
+    """Изменился ли проект с момента сборки индекса."""
+
+    stored = document.get("files")
+
+    if not isinstance(stored, dict):
+        return True
+
+    seen: set[str] = set()
+
+    for path in tools._iter_text_files(base):
+        if _is_index_file(path):
+            continue
+
+        relative = path.relative_to(base).as_posix()
+
+        try:
+            stat = path.stat()
+        except OSError:
+            return True
+
+        entry = stored.get(relative)
+
+        if not isinstance(entry, dict):
+            return True
+
+        stamp = entry.get("mtime_ns")
+
+        if stamp is None:
+            stamp = int(entry.get("mtime", -1)) * 1_000_000_000
+
+        if int(stamp) != stat.st_mtime_ns:
+            return True
+
+        if int(entry.get("size", -1)) != stat.st_size:
+            return True
+
+        seen.add(relative)
+
+        if len(seen) > MAX_FILES:
+            break
+
+    return len(seen) != len(stored)
+
+
 def load_index(root: Path, refresh: bool = False) -> dict:
-    """Читает кэш индекса или строит его, если он устарел."""
+    """Читает кэш индекса или строит его, если проект изменился."""
 
     base = Path(root).resolve()
     cache_key = (str(base), str(INDEX_FILE), _index_stamp())
@@ -153,7 +246,7 @@ def load_index(root: Path, refresh: bool = False) -> dict:
     if not refresh:
         cached = _INDEX_CACHE.get(cache_key)
 
-        if cached is not None:
+        if cached is not None and not _files_changed(base, cached):
             return cached
 
     document = read_json_object(INDEX_FILE)
@@ -163,8 +256,7 @@ def load_index(root: Path, refresh: bool = False) -> dict:
         and str(document.get("root")) == str(base)
         and isinstance(document.get("symbols"), list)
         and isinstance(document.get("files"), dict)
-        and time.time() - float(document.get("built_at") or 0)
-        <= TTL_SECONDS
+        and not _files_changed(base, document)
     )
 
     if fresh:

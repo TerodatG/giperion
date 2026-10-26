@@ -346,6 +346,20 @@ def set_context_limit_chars(chars: int) -> None:
     )
 
 
+def context_auto() -> bool:
+    """Считать бюджет из контекста модели (по умолчанию да)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("context_auto") is not False
+
+
+def set_context_auto(enabled: bool) -> None:
+    """Включает или выключает автоматический бюджет."""
+
+    _update_fields({"context_auto": bool(enabled)})
+
+
 def request_timeout() -> int:
     """Таймаут одного запроса к провайдеру в секундах."""
 

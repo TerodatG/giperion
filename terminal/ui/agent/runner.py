@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
+from terminal.core.agent.context_budget import budget_for_model
 from terminal.core.agent.providers import (
     NativeBrain,
     provider_from_settings,
@@ -34,6 +35,36 @@ from terminal.ui.agent_job import AgentJob
 class AgentRunnerMixin:
     """Запуск и ведение задачи; окно даёт панели и таймер."""
 
+    def _model_context(self, choice) -> dict | None:
+        """Данные модели с её context_limit, если удаётся найти."""
+
+        if not isinstance(choice, dict):
+            return None
+
+        if choice.get("kind") == "model":
+            model = choice.get("model")
+
+            return model if isinstance(model, dict) else None
+
+        native = provider_from_settings()
+
+        if native is None:
+            return None
+
+        try:
+            from terminal.core.model_catalog import load_models
+
+            for model in load_models():
+                if (
+                    model.get("model_id") == native.model
+                    or model.get("id") == native.model
+                ):
+                    return model
+        except Exception:  # noqa: BLE001 — каталог не обязателен
+            return None
+
+        return None
+
     def _start(self) -> None:
         """Запускает новую задачу агента."""
 
@@ -54,8 +85,11 @@ class AgentRunnerMixin:
         limits = budget_limits()
         context_chars = int(self.context_input.value())
         steps_limit = int(self.steps_input.value())
-
         choice = self.model_combo.currentData()
+
+        if self.auto_context_check.isChecked():
+            model_info = self._model_context(choice)
+            context_chars = budget_for_model(model_info, context_chars)
 
         if not isinstance(choice, dict):
             self.status_label.setText(

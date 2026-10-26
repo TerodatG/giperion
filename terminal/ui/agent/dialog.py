@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from terminal.core.agent.settings import (
+    set_context_auto,
     set_context_limit_chars,
     set_max_steps,
     set_model_choice,
@@ -208,6 +209,10 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         return self.approval.detail
 
     @property
+    def auto_context_check(self):
+        return self.controls.auto_context_check
+
+    @property
     def old_view(self):
         return self.approval.old_view
 
@@ -251,6 +256,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
 
         set_max_steps(int(self.steps_input.value()))
         set_context_limit_chars(int(self.context_input.value()))
+        set_context_auto(self.auto_context_check.isChecked())
 
         choice = self.model_combo.currentData()
 
