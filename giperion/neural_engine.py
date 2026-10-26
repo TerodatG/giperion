@@ -218,10 +218,3 @@ def get_neural_reply(
 
     return _engine.reply_with_confidence(message)
 
-
-def get_neural_response(message: str) -> str | None:
-    """Возвращает нейросетевой ответ или None, если модель молчит."""
-
-    result = get_neural_reply(message)
-
-    return result[0] if result else None

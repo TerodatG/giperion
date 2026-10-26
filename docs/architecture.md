@@ -274,6 +274,11 @@ git subtree split -P giperion -b giperion-model
 `tests/test_import_graph.py`; в CI вызывается
 `python -m tools.check_structure --strict`.
 
+Лимит строк и сложности считается для production-кода; `tests/`
+исключены из отчёта. Два крупных тестовых файла
+(`test_agent_loop.py`, `test_agent_provider.py`) пока остаются
+исключением — их разбиение идёт отдельным шагом.
+
 `model_registry` остаётся совместимым фасадом для старых импортов. Новый
 код должен обращаться к конкретным модулям: `model_catalog`,
 `model_settings`, `model_stats`, `model_custom`. Журнал разработки разбит

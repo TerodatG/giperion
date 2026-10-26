@@ -55,12 +55,6 @@ def format_bitrate(bytes_per_second: float) -> str:
     return f"{value:.1f}".replace(".", ",") + f" {units[index]}"
 
 
-
-
-
-
-
-
 def read_gpu_details_list() -> list[dict]:
     """Читает сведения обо всех видеокартах NVIDIA.
 
@@ -154,18 +148,6 @@ def _to_bytes(text: str, factor: int) -> int:
     """Переводит MiB из ответа nvidia-smi в байты."""
 
     return int(round(_to_float(text) * factor))
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def create_monitor():

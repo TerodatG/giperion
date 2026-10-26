@@ -18,7 +18,6 @@ from terminal.core.performance_types import (
 )
 
 _CORE_PATTERN = re.compile(r"^\d+,\d+$")
-_GHOST_INTERFACES = ("loopback", "isatap", "teredo", "pseudo")
 _COUNTERS = {
     "cpu_cores": r"\Processor Information(*)\% Processor Utility",
     "cpu_frequency": r"\Processor Information(_Total)\Processor Frequency",

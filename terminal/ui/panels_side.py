@@ -342,8 +342,8 @@ class SidePanelMixin:
             note = "Сенат выключен. В чате отвечает одна модель."
         elif mode is not None and mode["id"] != "council":
             note = (
-                f"Сенат включён. Режим «{mode['name']}» "
-                "пока не реализован; сейчас работает только "
+                f"Сенат включён, но режим «{mode['name']}» "
+                "пока не реализован. Сенат не отвечает: выбери "
                 "«Параллельный совет»."
             )
         elif not members:
@@ -358,9 +358,12 @@ class SidePanelMixin:
                 f"{model.get('nickname') or model['name']}"
                 for index, model in enumerate(admitted)
             )
+            mode_name = (
+                mode["name"] if mode is not None else "Совет"
+            )
             note = (
                 "Сенат включён. "
-                f"Режим «{mode['name']}». Состав: {roster}."
+                f"Режим «{mode_name}». Состав: {roster}."
             )
 
             if len(members) > MAX_CONFERENCE_MODELS:

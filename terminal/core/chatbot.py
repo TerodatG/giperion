@@ -9,21 +9,7 @@ from terminal.core.pending_state import (
     get_pending_clarification,
     set_pending_clarification,  # noqa: F401 — точка подмены в тестах
 )
-
-YES_ANSWERS = {
-    "да",
-    "ага",
-    "угу",
-    "верно",
-    "правильно",
-}
-
-NO_ANSWERS = {
-    "нет",
-    "неа",
-    "неверно",
-    "неправильно",
-}
+from terminal.core.phrases import NO_ANSWERS, YES_ANSWERS
 
 
 def get_clarification_response(

@@ -16,6 +16,8 @@ from terminal.core.pending_state import (
 from terminal.core.phrases import (
     CANCEL_COMMANDS,
     CONFIRM_COMMANDS,
+    NO_ANSWERS,
+    YES_ANSWERS,
 )
 from terminal.memory.archive_service import (
     delete_archive,
@@ -27,21 +29,6 @@ from terminal.memory.memory import (
     reset_core_memory,
 )
 from terminal.memory.system_commands import create_archive_response
-
-YES_ANSWERS = {
-    "да",
-    "ага",
-    "угу",
-    "верно",
-    "правильно",
-}
-
-NO_ANSWERS = {
-    "нет",
-    "неа",
-    "неверно",
-    "неправильно",
-}
 
 
 def _create_archive_reply(message: str) -> str:

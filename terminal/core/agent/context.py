@@ -85,11 +85,6 @@ def _shorten(text: str, limit: int) -> str:
     return clean[:limit] + "\n… обрезано"
 
 
-def estimate_tokens(text: str) -> int:
-    """Грубая оценка токенов по символам (без токенизатора)."""
-
-    return max(1, len(str(text)) // 3)
-
 
 def _step_line(
     number: int,

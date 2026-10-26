@@ -52,42 +52,6 @@ def get_passport(model_id: str) -> dict | None:
     return load_passports().get(model_id)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def compact_metrics(passport: dict) -> list[tuple[str, str]]:
     """Семь самых динамичных строк для левой панели."""
 
@@ -110,28 +74,3 @@ def compact_metrics(passport: dict) -> list[tuple[str, str]]:
         ("Контекст", context_text),
         ("Обновлён", format_date(passport.get("updated"))),
     ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

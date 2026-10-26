@@ -8,11 +8,6 @@ from terminal.skills.calculator import calculate_expression
 
 variables: dict[str, int | float] = {}
 
-VARIABLE_NAME_PATTERN = re.compile(
-    r"^[a-zA-Z_][a-zA-Z0-9_]*$"
-)
-
-
 def format_number(number: int | float) -> str:
     """Преобразует число в удобный текстовый вид."""
 

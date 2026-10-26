@@ -9,7 +9,6 @@ from config import DATA_DIR
 from shared.storage.json_store import (
     read_json_object,
     update_json,
-    write_json,
 )
 
 PETS_FILE = DATA_DIR / "pets.json"
@@ -321,12 +320,6 @@ def get_active_pet() -> dict | None:
     pet_id = get_active_pet_id()
 
     return get_pet(pet_id) if pet_id else None
-
-
-def _write_pets(pets: list[dict], active_id: str) -> None:
-    """Сохраняет дронов и закрепление без служебных полей."""
-
-    write_json(PETS_FILE, _document_from_pets(pets, active_id))
 
 
 def set_pet_nickname(pet_id: str, nickname: str) -> dict | None:

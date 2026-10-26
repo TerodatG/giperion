@@ -243,16 +243,3 @@ def find_symbol(
     )
 
     return ToolResult(True, header + "\n".join(lines))
-
-
-def symbols_for_file(root: Path, path: str) -> list[dict]:
-    """Символы одного файла — для тестов и отладки."""
-
-    index = load_index(root)
-    wanted = str(path).replace("\\", "/")
-
-    return [
-        item
-        for item in (index.get("symbols") or [])
-        if item.get("path") == wanted
-    ]
