@@ -62,28 +62,87 @@ def _guard(route) -> None:
     route.continue_()
 
 
-def _run_actions(page, actions: list) -> None:
-    """Выполняет клики, ввод, прокрутку и паузы по очереди."""
+def _act_goto(page, action: dict, timeout: int) -> None:
+    target = str(action.get("url") or "")
 
-    for action in actions[:10]:
+    if not _scheme_ok(target):
+        raise ValueError("Переход разрешён только на http/https.")
+
+    page.goto(target, wait_until="domcontentloaded", timeout=timeout)
+    page.wait_for_timeout(SETTLE_MS)
+
+
+def _act_back(page, action: dict, timeout: int) -> None:
+    page.go_back(wait_until="domcontentloaded", timeout=timeout)
+    page.wait_for_timeout(500)
+
+
+def _act_click(page, action: dict, timeout: int) -> None:
+    page.click(str(action.get("selector") or ""))
+
+
+def _act_fill(page, action: dict, timeout: int) -> None:
+    page.fill(
+        str(action.get("selector") or ""),
+        str(action.get("text") or ""),
+    )
+
+
+def _act_press(page, action: dict, timeout: int) -> None:
+    page.press(
+        str(action.get("selector") or ""),
+        str(action.get("key") or "Enter"),
+    )
+
+
+def _act_hover(page, action: dict, timeout: int) -> None:
+    page.hover(str(action.get("selector") or ""))
+
+
+def _act_select(page, action: dict, timeout: int) -> None:
+    page.select_option(
+        str(action.get("selector") or ""),
+        str(action.get("value") or ""),
+    )
+
+
+def _act_scroll(page, action: dict, timeout: int) -> None:
+    pixels = int(action.get("pixels") or 800)
+    page.mouse.wheel(0, max(-10_000, min(10_000, pixels)))
+
+
+def _act_wait(page, action: dict, timeout: int) -> None:
+    page.wait_for_timeout(
+        max(0, min(10_000, int(action.get("ms") or 500)))
+    )
+
+
+ACTIONS = {
+    "goto": _act_goto,
+    "back": _act_back,
+    "click": _act_click,
+    "fill": _act_fill,
+    "press": _act_press,
+    "hover": _act_hover,
+    "select": _act_select,
+    "scroll": _act_scroll,
+    "wait": _act_wait,
+}
+
+
+def _run_actions(page, actions: list, timeout: int) -> None:
+    """Выполняет переходы и действия по очереди."""
+
+    for action in actions[:12]:
         if not isinstance(action, dict):
             continue
 
-        kind = str(action.get("type") or "").strip().lower()
-        selector = str(action.get("selector") or "").strip()
+        handler = ACTIONS.get(
+            str(action.get("type") or "").strip().lower()
+        )
 
-        if kind == "click" and selector:
-            page.click(selector)
-        elif kind == "fill" and selector:
-            page.fill(selector, str(action.get("text") or ""))
-        elif kind == "press" and selector:
-            page.press(selector, str(action.get("key") or "Enter"))
-        elif kind == "scroll":
-            pixels = int(action.get("pixels") or 800)
-            page.mouse.wheel(0, max(-10_000, min(10_000, pixels)))
-        elif kind == "wait":
-            ms = int(action.get("ms") or 500)
-            page.wait_for_timeout(max(0, min(10_000, ms)))
+        if handler is not None:
+            handler(page, action, timeout)
 
 
 def render(request: dict) -> dict:
@@ -124,7 +183,7 @@ def render(request: dict) -> dict:
                 )
 
             if isinstance(actions, list) and actions:
-                _run_actions(page, actions)
+                _run_actions(page, actions, timeout)
                 page.wait_for_timeout(500)
 
             if shot_path:
@@ -134,7 +193,10 @@ def render(request: dict) -> dict:
                     parents=True,
                     exist_ok=True,
                 )
-                page.screenshot(path=shot_path, full_page=False)
+                page.screenshot(
+                    path=shot_path,
+                    full_page=bool(request.get("full_page")),
+                )
 
             title = page.title()
             text, truncated = _clip(page.inner_text("body"))

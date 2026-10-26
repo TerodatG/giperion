@@ -23,8 +23,14 @@ browser_act(
 | `click` | `selector` | клик по элементу |
 | `fill` | `selector`, `text` | ввод текста |
 | `press` | `selector`, `key` | нажатие клавиши |
+| `hover` | `selector` | наведение |
+| `select` | `selector`, `value` | выбор в `<select>` |
 | `scroll` | `pixels` | прокрутка страницы |
 | `wait` | `ms` | пауза |
+| `goto` | `url` | переход на другой адрес в том же браузере |
+| `back` | — | назад по истории |
+
+`full_page=True` сохраняет скриншот всей страницы, а не только экрана.
 
 Ответ:
 
@@ -84,7 +90,7 @@ python -m playwright install chromium
 |---|---|
 | Таймаут навигации | 60 с по умолчанию, можно передать `timeout` (5–120) |
 | Ожидание JS | `wait` — CSS-селектор; иначе пауза 1.2 с |
-| Действия | до 10 за вызов: click, fill, press, scroll, wait |
+| Действия | до 12 за вызов: click, fill, press, hover, select, scroll, wait, goto, back |
 | Текст | до 12 000 символов |
 | Браузер | один запуск на вызов, без профиля и cookies |
 | Сеть | только публичные http(s)-хосты, robots.txt и пауза 1.5 с |
@@ -101,6 +107,8 @@ python -m playwright install chromium
   15.5 с, с подтверждением.
 - `browser_act` с кликом по `li.next a`: страница 2 цитат, 6.3 с,
   скриншот 5 КБ в `data/agent_browser/`.
+- Сценарий click → back → hover за 8.6 с: вернулись на первую страницу,
+  полноэкранный скриншот 99 КБ.
 
 ## Ограничения
 

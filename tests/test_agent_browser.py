@@ -341,8 +341,16 @@ def test_act_dispatches_actions(tmp_path, monkeypatch) -> None:
 
     calls: list[tuple] = []
 
-    def fake_act(root, url, actions=None, wait="", shot=False, timeout=60):
-        calls.append((root, url, actions, wait, shot))
+    def fake_act(
+        root,
+        url,
+        actions=None,
+        wait="",
+        shot=False,
+        timeout=60,
+        full_page=False,
+    ):
+        calls.append((root, url, actions, wait, shot, full_page))
 
         from terminal.core.agent.protocol import ToolResult
 
@@ -376,3 +384,49 @@ def test_act_dispatches_actions(tmp_path, monkeypatch) -> None:
     )
 
     assert not invalid.ok
+
+def test_sanitize_new_actions() -> None:
+    """Переходы, назад, наведение и выбор поддерживаются."""
+
+    actions = browser_js._sanitize_actions(
+        [
+            {"type": "goto", "url": "https://example.com/page"},
+            {"type": "back"},
+            {"type": "hover", "selector": "#menu"},
+            {"type": "select", "selector": "#city", "value": "msk"},
+            {"type": "goto", "url": "file:///etc/passwd"},
+            {"type": "hover"},
+        ]
+    )
+
+    assert [item["type"] for item in actions] == [
+        "goto",
+        "back",
+        "hover",
+        "select",
+    ]
+    assert actions[0]["url"] == "https://example.com/page"
+    assert actions[3]["value"] == "msk"
+
+
+def test_goto_links_are_checked(monkeypatch) -> None:
+    """Переход внутри действий проходит проверку домена."""
+
+    def fake_check(url):
+        if "python.org" in url:
+            raise web.WebError("домен запрещён")
+
+        return url
+
+    monkeypatch.setattr(browser_js, "_check", fake_check)
+
+    actions = [{"type": "goto", "url": "https://example.com/x"}]
+
+    browser_js._check_links(actions)
+
+    assert actions[0]["url"] == "https://example.com/x"
+
+    with pytest.raises(web.WebError):
+        browser_js._check_links(
+            [{"type": "goto", "url": "https://python.org/"}]
+        )

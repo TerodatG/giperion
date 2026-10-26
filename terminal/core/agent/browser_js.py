@@ -19,11 +19,21 @@ from terminal.core.agent import settings, web
 from terminal.core.agent.protocol import ToolResult
 
 MAX_TEXT = 12_000
-MAX_ACTIONS = 10
+MAX_ACTIONS = 12
 DEFAULT_TIMEOUT = 60
 MIN_INTERVAL = 1.5
 ROBOTS_TTL = 300.0
-ACTION_TYPES = {"click", "fill", "press", "scroll", "wait"}
+ACTION_TYPES = {
+    "click",
+    "fill",
+    "press",
+    "hover",
+    "select",
+    "scroll",
+    "wait",
+    "goto",
+    "back",
+}
 WORKER = "terminal.core.agent.browser_worker"
 ENV_KEYS = (
     "PATH",
@@ -108,8 +118,51 @@ def _badge(data: dict, clean: str) -> str:
     return header
 
 
+def _action_values(
+    item: dict,
+    kind: str,
+    selector: str,
+) -> dict | None:
+    """Поля одного действия; None — действие пропускается."""
+
+    action = {"type": kind}
+
+    if kind in ("click", "fill", "press", "hover", "select"):
+        if not selector:
+            return None
+
+        action["selector"] = selector
+    elif kind == "goto":
+        target = str(item.get("url") or "").strip()[:2048]
+        scheme = urllib.parse.urlsplit(target).scheme
+
+        if not target or scheme not in ("http", "https"):
+            return None
+
+        action["url"] = target
+
+    if kind == "fill":
+        action["text"] = str(item.get("text") or "")[:2000]
+    elif kind == "press":
+        action["key"] = str(item.get("key") or "Enter")[:30]
+    elif kind == "select":
+        action["value"] = str(item.get("value") or "")[:200]
+    elif kind == "scroll":
+        action["pixels"] = max(
+            -10_000,
+            min(10_000, int(item.get("pixels") or 800)),
+        )
+    elif kind == "wait":
+        action["ms"] = max(
+            0,
+            min(10_000, int(item.get("ms") or 500)),
+        )
+
+    return action
+
+
 def _sanitize_actions(value) -> list[dict]:
-    """Оставляет до десяти понятных действий браузера."""
+    """Оставляет до двенадцати понятных действий браузера."""
 
     if not isinstance(value, list):
         return []
@@ -126,30 +179,10 @@ def _sanitize_actions(value) -> list[dict]:
             continue
 
         selector = str(item.get("selector") or "").strip()[:200]
-        action = {"type": kind}
+        action = _action_values(item, kind, selector)
 
-        if kind in ("click", "fill", "press") and not selector:
-            continue
-
-        if selector:
-            action["selector"] = selector
-
-        if kind == "fill":
-            action["text"] = str(item.get("text") or "")[:2000]
-        elif kind == "press":
-            action["key"] = str(item.get("key") or "Enter")[:30]
-        elif kind == "scroll":
-            action["pixels"] = max(
-                -10_000,
-                min(10_000, int(item.get("pixels") or 800)),
-            )
-        elif kind == "wait":
-            action["ms"] = max(
-                0,
-                min(10_000, int(item.get("ms") or 500)),
-            )
-
-        actions.append(action)
+        if action is not None:
+            actions.append(action)
 
     return actions
 
@@ -282,6 +315,17 @@ def _invoke(
     return data, ""
 
 
+def _check_links(actions: list[dict]) -> None:
+    """Проверяет адреса переходов внутри серии действий."""
+
+    for action in actions:
+        if action.get("type") != "goto":
+            continue
+
+        clean = _check(str(action.get("url") or ""))
+        action["url"] = clean
+
+
 def _answer(
     data: dict,
     clean: str,
@@ -315,6 +359,7 @@ def _run(
     timeout: int,
     actions: list[dict],
     shot: bool,
+    full_page: bool = False,
 ) -> ToolResult:
     """Общий путь: проверки, robots, воркер и разбор ответа."""
 
@@ -351,6 +396,7 @@ def _run(
         "wait": str(wait or ""),
         "timeout_ms": seconds * 1000,
         "actions": list(actions),
+        "full_page": bool(full_page),
     }
 
     if target is not None:
@@ -389,10 +435,16 @@ def act(
     wait: str = "",
     shot: bool = False,
     timeout: int = DEFAULT_TIMEOUT,
+    full_page: bool = False,
 ) -> ToolResult:
     """Открывает страницу, выполняет действия и возвращает текст."""
 
     clean_actions = _sanitize_actions(actions)
+
+    try:
+        _check_links(clean_actions)
+    except web.WebError as error:
+        return ToolResult(False, str(error))
 
     return _run(
         root,
@@ -401,4 +453,5 @@ def act(
         timeout=timeout,
         actions=clean_actions,
         shot=bool(shot),
+        full_page=bool(full_page),
     )

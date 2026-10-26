@@ -465,6 +465,7 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
             actions,
             _string_arg(call, "wait"),
             bool(call.args.get("shot")),
+            full_page=bool(call.args.get("full_page")),
         )
 
     return None
