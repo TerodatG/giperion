@@ -401,6 +401,9 @@ def _approve_and_execute(
 
     result = registry.execute(root, call)
 
+    if result.ok and spec is not None and spec.risk == "read":
+        state.read_ok = True
+
     state.emit(
         AgentStep(
             index,

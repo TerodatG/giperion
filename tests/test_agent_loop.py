@@ -110,6 +110,52 @@ def test_step_limit_stops_agent(tmp_path) -> None:
     assert len(result.steps) == 3
 
 
+def test_answer_without_read_is_rejected_every_time(tmp_path) -> None:
+    """Псевдо-вызов policy не обходит требование реального чтения."""
+
+    brain = ScriptedBrain(
+        [
+            _answer("ответ без чтения"),
+            _answer("ещё один ответ без чтения"),
+        ]
+    )
+
+    result = run_agent(
+        "посмотри проект",
+        brain,
+        tmp_path,
+        max_steps=2,
+        ground_first=False,
+        require_tool_first=True,
+    )
+
+    assert result.answer == ""
+    assert "лимит" in result.error.lower()
+    assert [step.title for step in result.steps] == [
+        "Нужен шаг чтения",
+        "Нужен шаг чтения",
+    ]
+    assert any("Сначала вызови" in prompt for prompt in brain.prompts)
+
+
+def test_last_step_note_does_not_promise_skipped_tools(tmp_path) -> None:
+    """Промпт последнего шага честно описывает выполнение инструмента."""
+
+    brain = ScriptedBrain([_tool("list_dir", path=".")])
+
+    run_agent(
+        "посмотри проект",
+        brain,
+        tmp_path,
+        max_steps=1,
+        ground_first=False,
+        require_tool_first=False,
+    )
+
+    assert "Если вернёшь вызов инструмента" in brain.prompts[0]
+    assert "больше не выполняются" not in brain.prompts[0]
+
+
 def test_cancel_stops_before_next_step(tmp_path) -> None:
     """Отмена прекращает цикл между шагами."""
 

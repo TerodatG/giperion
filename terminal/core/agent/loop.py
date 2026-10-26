@@ -275,4 +275,5 @@ def run_agent(
         chat_mode=chat_mode,
         max_prompt_chars=max_prompt_chars,
         max_steps=max_steps,
+        budget=budget,
     )

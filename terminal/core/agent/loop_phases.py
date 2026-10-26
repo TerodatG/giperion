@@ -34,6 +34,22 @@ from terminal.core.agent.protocol import (
 )
 from terminal.core.agent.redact import redact
 
+# Инструменты, которые действительно дают факты о проекте. Служебные
+# псевдо-вызовы policy/format сюда не входят: иначе требование
+# «сначала прочитай» обходится одним отказом.
+READ_TOOLS = frozenset(
+    {
+        "list_dir",
+        "read_file",
+        "find_symbol",
+        "search_text",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "ask_subagent",
+    }
+)
+
 
 class _RunState:
     """Изменяемое состояние прогона: шаги, история и разрешения."""
@@ -59,6 +75,7 @@ class _RunState:
         self.position = 0
         self.context_peak = 0
         self.chat: list[dict] = []
+        self.read_ok = False
 
     def remember(self, call: ToolCall, result: ToolResult) -> None:
         """Чистит наблюдение от секретов и внедрённых инструкций."""
@@ -132,7 +149,7 @@ def _create_state(
         for call, result in (initial_history or [])
     ]
 
-    return _RunState(
+    state = _RunState(
         steps=steps,
         history=history,
         remembered=allowed if allowed is not None else set(),
@@ -140,6 +157,12 @@ def _create_state(
         on_history=on_history,
         should_stop=should_stop,
     )
+    state.read_ok = any(
+        call.tool in READ_TOOLS and result.ok
+        for call, result in history
+    )
+
+    return state
 
 
 def _prepare_run(
@@ -167,6 +190,9 @@ def _prepare_run(
 
             state.remember(call, result)
 
+            if call.tool in READ_TOOLS and result.ok:
+                state.read_ok = True
+
     chat_mode = bool(
         getattr(brain, "messages_mode", False)
         and callable(getattr(brain, "decide_chat", None))
@@ -192,15 +218,17 @@ def _step_note(index: int, max_steps: int, native: bool) -> str:
 
     if native:
         return (
-            "Это последний шаг, инструменты больше не выполняются. "
-            "Дай ответ по тому, что уже есть в истории, и честно "
-            "скажи, чего не хватило."
+            "Это последний шаг. Если вызовешь инструмент, он ещё "
+            "выполнится, но следующего решения уже не будет — затем "
+            "я попрошу итог. Лучше ответь по тому, что уже есть, и "
+            "честно скажи, чего не хватило."
         )
 
     return (
-        "Это последний шаг, инструменты больше не выполняются. "
-        'Верни {"action": "answer", "text": "..."} по тому, '
-        "что уже есть в истории."
+        "Это последний шаг. Если вернёшь вызов инструмента, он ещё "
+        "выполнится, но следующего шага уже не будет — затем я "
+        "попрошу итог. Лучше верни "
+        '{"action": "answer", "text": "..."} по тому, что уже есть.'
     )
 
 
@@ -222,7 +250,15 @@ def _reject_premature_answer(
 ) -> bool:
     """Не даёт ответить до первого чтения; True — шаг отклонён."""
 
-    if not require_tool_first or state.history:
+    if not require_tool_first or state.read_ok:
+        return False
+
+    # Псевдо-вызов policy нужен только как наблюдение для модели.
+    # Он не должен считаться настоящей попыткой что-то сделать.
+    if any(
+        call.tool != "policy"
+        for call, _result in state.history
+    ):
         return False
 
     state.emit(
@@ -395,10 +431,33 @@ def _finish(
     chat_mode: bool,
     max_prompt_chars: int,
     max_steps: int,
+    budget=None,
 ) -> AgentResult:
     """Просит итог без инструментов или сообщает о лимите."""
 
     prompt_builder = build_native_prompt if native else build_prompt
+
+    if budget is not None and getattr(budget, "enabled", False):
+        tokens, cost, reason = budget_state(budget, brain)
+
+        if reason:
+            state.emit(
+                AgentStep(
+                    state.position,
+                    "budget",
+                    "Бюджет исчерпан",
+                    f"{reason} Дополнительный итог не запрошен.",
+                )
+            )
+
+            return AgentResult(
+                steps=state.steps,
+                error=(
+                    f"{reason} Потрачено {tokens} токенов "
+                    f"(${cost:.4f}). Итог не запрошен."
+                ),
+                context_chars=state.context_peak,
+            )
 
     # Шаги кончились: просим итог без инструментов, чтобы пользователь
     # получил ответ, а не только «достигнут лимит».
