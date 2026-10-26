@@ -26,6 +26,13 @@ python -m tools.agent_schedule remove <id>
 - Состояние — `data/agent_schedule.json`, итоги — `agent_schedule_runs.jsonl`.
 - Сам по себе не тикает: добавьте `run-due` в Планировщик Windows
   (например, каждый час) или в cron.
+- Готовый скрипт:
+
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File tools/install_schedule_task.ps1
+  powershell -ExecutionPolicy Bypass -File tools/install_schedule_task.ps1 -EveryMinutes 30
+  powershell -ExecutionPolicy Bypass -File tools/install_schedule_task.ps1 -Remove
+  ```
 - Модель и провайдер берутся из настроек; можно передать `--model`,
   `--provider`.
 

@@ -129,7 +129,9 @@ researcher/reviewer/tester. Память между задачами — `memory
 `grounding_calls` добавляет смысловой поиск к стартовому чтению, если
 задача похожа на вопрос и семантика включена. Каждое подтверждение
 пишется в хеш-цепочку `data/agent_audit.jsonl`
-(`audit.py`, проверка — `python -m tools.audit_log --check`).
+(`audit.py`, проверка — `python -m tools.audit_log --check`). На задачу
+действуют лимиты: 60 вызовов инструментов, 12 сетевых и 25 изменяющих;
+при перерасходе шаг «Лимит инструментов» и понятная ошибка.
 Автоматизация вынесена в `tools/`: `knowledge_add` (документы в
 `knowledge/`), `agent_schedule` (read-only расписание),
 `agent_parallel` (worktree на задачу), `plugin_install` (манифест и

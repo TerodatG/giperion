@@ -24,6 +24,50 @@ from terminal.core.agent.protocol import (
     ToolResult,
 )
 
+MAX_TOOL_CALLS = 60
+MAX_NETWORK_CALLS = 12
+MAX_WRITE_CALLS = 25
+NETWORK_TOOLS = {"fetch_url", "browser_read", "browser_act"}
+WRITE_TOOLS = {
+    "write_file",
+    "apply_patch",
+    "git_commit",
+    "git_restore",
+    "remember",
+}
+
+
+def _check_limits(state: _RunState, call: ToolCall) -> str:
+    """Считает вызовы и возвращает текст ошибки при перерасходе."""
+
+    state.tool_calls += 1
+
+    if state.tool_calls > MAX_TOOL_CALLS:
+        return (
+            f"Лимит вызовов на задачу исчерпан: {MAX_TOOL_CALLS}. "
+            "Ответь текстом."
+        )
+
+    if call.tool in NETWORK_TOOLS:
+        state.network_calls += 1
+
+        if state.network_calls > MAX_NETWORK_CALLS:
+            return (
+                "Слишком много сетевых вызовов за задачу: "
+                f"{MAX_NETWORK_CALLS}."
+            )
+
+    if call.tool in WRITE_TOOLS:
+        state.write_calls += 1
+
+        if state.write_calls > MAX_WRITE_CALLS:
+            return (
+                "Слишком много изменяющих вызовов за задачу: "
+                f"{MAX_WRITE_CALLS}."
+            )
+
+    return ""
+
 
 def _skip_bad_call(
     state: _RunState,
@@ -454,6 +498,20 @@ def _execute_calls(
 
     for call in calls:
         if _skip_bad_call(state, index, call):
+            continue
+
+        limit = _check_limits(state, call)
+
+        if limit:
+            state.emit(
+                AgentStep(
+                    index,
+                    "limit",
+                    "Лимит инструментов",
+                    limit,
+                )
+            )
+            state.remember(call, ToolResult(False, limit))
             continue
 
         if _run_plan_call(state, index, call):

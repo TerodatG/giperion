@@ -64,6 +64,9 @@ class _RunState:
         self.chat: list[dict] = []
         self.read_ok = False
         self.plan: list[dict] = []
+        self.tool_calls = 0
+        self.network_calls = 0
+        self.write_calls = 0
 
     def remember(self, call: ToolCall, result: ToolResult) -> None:
         """Чистит наблюдение от секретов и внедрённых инструкций."""
