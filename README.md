@@ -302,6 +302,13 @@ python -m tools.update_passport
   разметки) после подтверждения; локальные и приватные адреса запрещены,
   разрешение запоминается по домену, включается галочкой «Разрешить
   чтение веб-страниц»;
+- `browser_read` открывает страницу в headless Chromium и отдаёт текст
+  после JavaScript — там, где `fetch_url` видит пустой каркас; браузер
+  работает отдельным процессом, локальные и приватные адреса запрещены,
+  подтверждение запоминается по домену, включается галочкой «Браузер с
+  JavaScript (Playwright)»; установка — `python -m pip install
+  playwright` и `python -m playwright install chromium` (~700 МБ),
+  подробности — `docs/browser.md`;
 - смысловой поиск включается в «Провайдере» галочкой «Смысловой поиск
   по проекту»; там же можно указать модель эмбеддингов (пусто — найти
   автоматически в `/models` по слову `embed`). Эмбеддинги запрашиваются
@@ -371,7 +378,7 @@ python -m tools.update_passport
 ## Стенд оценки агента
 
 ```powershell
-python -m tools.eval_agent                     # 22 задачи без медленной
+python -m tools.eval_agent                     # 23 задачи без медленной
 python -m tools.eval_agent --full              # + запуск pytest
 python -m tools.eval_agent --repeat 3          # три прогона: стабильность
 python -m tools.eval_agent --repeat 3 --save-baseline   # зафиксировать базу

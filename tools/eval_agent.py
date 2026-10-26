@@ -24,6 +24,7 @@ from tools.eval_runner import build_brain, is_fatal, run_task
 from tools.eval_tasks import (
     TASKS,
     EvalTask,
+    _browser_prepare,
     _mcp_prepare,
     _plan_inspect,
     _subagents_inspect,
@@ -41,6 +42,7 @@ __all__ = [
     "OUTPUT_DIR",
     "TASKS",
     "EvalTask",
+    "_browser_prepare",
     "_mcp_prepare",
     "_plan_inspect",
     "_subagents_inspect",

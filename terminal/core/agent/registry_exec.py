@@ -269,6 +269,13 @@ def preview(root: Path, call: ToolCall) -> ToolResult:
             from terminal.core.agent import web
 
             return web.preview(_string_arg(call, "url"))
+
+        if call.tool == "browser_read":
+            return ToolResult(
+                True,
+                "Открыть страницу в браузере с JavaScript\n"
+                + _string_arg(call, "url"),
+            )
     except CommandError as error:
         return ToolResult(False, str(error))
     except ValueError as error:
@@ -404,6 +411,15 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
             )
 
         return web.fetch(_string_arg(call, "url"))
+
+    if call.tool == "browser_read":
+        from terminal.core.agent import browser_js
+
+        return browser_js.read(
+            root,
+            _string_arg(call, "url"),
+            _string_arg(call, "wait"),
+        )
 
     return None
 

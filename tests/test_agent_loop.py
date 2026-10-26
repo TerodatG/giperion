@@ -206,6 +206,7 @@ def test_registry_has_read_write_and_exec_tools() -> None:
         "ask_subagent": "read",
         "update_plan": "read",
         "fetch_url": "exec",
+        "browser_read": "exec",
     }
 
 

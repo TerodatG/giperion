@@ -112,6 +112,7 @@ REMEMBERABLE = {
     "run_tests",
     "run_command",
     "fetch_url",
+    "browser_read",
 }
 
 
@@ -131,7 +132,7 @@ def approval_key(call: ToolCall) -> str:
 
         return "command:" + command if command else ""
 
-    if call.tool == "fetch_url":
+    if call.tool in ("fetch_url", "browser_read"):
         from terminal.core.agent import web
 
         host = web.host_of(str(call.args.get("url") or ""))

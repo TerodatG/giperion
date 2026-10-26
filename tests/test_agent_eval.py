@@ -579,3 +579,24 @@ def test_regression_skips_different_runs() -> None:
 
     assert eval_agent.regression_note(previous, summary, 10) == ""
 
+def test_browser_prepare_and_restore(tmp_path) -> None:
+    """Задача браузера подменяет browser_read и возвращает всё назад."""
+
+    from terminal.core.agent import browser_js, settings
+
+    old_enabled = settings.browser_js_enabled
+    old_read = browser_js.read
+
+    with eval_agent._browser_prepare("кипарис")(tmp_path):
+        assert settings.browser_js_enabled is not old_enabled
+
+        result = browser_js.read(tmp_path, "https://example.com/js")
+
+        assert result.ok
+        assert "кипарис" in result.text
+
+    assert settings.browser_js_enabled is old_enabled
+    assert browser_js.read is old_read
+    assert any(
+        task.id == "browser-read-js" for task in eval_agent.TASKS
+    )

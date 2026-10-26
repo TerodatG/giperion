@@ -177,6 +177,20 @@ def set_browser_enabled(enabled: bool) -> None:
     _update_fields({"browser_enabled": bool(enabled)})
 
 
+def browser_js_enabled() -> bool:
+    """Разрешён ли браузер с JavaScript (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("browser_js_enabled") is True
+
+
+def set_browser_js_enabled(enabled: bool) -> None:
+    """Включает или выключает браузер с JavaScript."""
+
+    _update_fields({"browser_js_enabled": bool(enabled)})
+
+
 DEFAULT_MAX_STEPS = 12
 
 

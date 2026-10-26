@@ -208,6 +208,40 @@ def _web_prepare(word: str):
     return prepare
 
 
+def _browser_prepare(word: str):
+    """Подменяет browser_read готовой страницей со словом."""
+
+    def prepare(folder: Path):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def context():
+            from terminal.core.agent import browser_js, settings
+            from terminal.core.agent.protocol import ToolResult
+
+            old_enabled = settings.browser_js_enabled
+            old_read = browser_js.read
+
+            settings.browser_js_enabled = lambda: True
+            browser_js.read = lambda root, url, wait="", timeout=60: (
+                ToolResult(
+                    True,
+                    f"источник: {url}\nзаголовок: JS-страница\n\n"
+                    f"слово: {word}",
+                )
+            )
+
+            try:
+                yield
+            finally:
+                settings.browser_js_enabled = old_enabled
+                browser_js.read = old_read
+
+        return context()
+
+    return prepare
+
+
 def _mcp_prepare():
     """Поднимает локальный MCP-стаб на время задачи."""
 
@@ -529,6 +563,20 @@ TASKS = (
         ),
         max_steps=6,
         prepare=_mcp_prepare(),
+    ),
+    EvalTask(
+        "browser-read-js",
+        "Браузер с JavaScript",
+        "Пользователь разрешил браузер. Вызови browser_read с url "
+        "https://example.com/js и назови слово со страницы.",
+        lambda root, answer: (
+            "кипарис" in str(answer).casefold(),
+            "слово найдено"
+            if "кипарис" in str(answer).casefold()
+            else "слово не названо",
+        ),
+        max_steps=6,
+        prepare=_browser_prepare("кипарис"),
     ),
     EvalTask(
         "web-fetch-word",

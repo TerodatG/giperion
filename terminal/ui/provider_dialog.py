@@ -26,6 +26,7 @@ from terminal.core.agent.registry import reload_plugins
 from terminal.core.agent.settings import (
     allow_unsafe_plugins,
     browser_enabled,
+    browser_js_enabled,
     budget_limits,
     context_limit_chars,
     embedding_model,
@@ -40,6 +41,7 @@ from terminal.core.agent.settings import (
     semantic_enabled,
     set_allow_unsafe_plugins,
     set_browser_enabled,
+    set_browser_js_enabled,
     set_context_limit_chars,
     set_embedding_model,
     set_mcp_enabled,
@@ -296,6 +298,19 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Веб", self.browser_check)
 
+        self.browser_js_check = QCheckBox(
+            "Браузер с JavaScript (Playwright)",
+            self,
+        )
+        self.browser_js_check.setChecked(browser_js_enabled())
+        self.browser_js_check.setToolTip(
+            "Инструмент browser_read: headless Chromium выполняет скрипты "
+            "страницы. Нужны python -m pip install playwright и "
+            "python -m playwright install chromium. Локальные и приватные "
+            "адреса запрещены; подтверждение запоминается по домену."
+        )
+        form.addRow("Браузер JS", self.browser_js_check)
+
         self.semantic_check = QCheckBox(
             "Смысловой поиск по проекту",
             self,
@@ -414,6 +429,7 @@ class ProviderDialog(SkinDialog):
         set_stream_enabled(self.stream_check.isChecked())
         set_mcp_enabled(self.mcp_check.isChecked())
         set_browser_enabled(self.browser_check.isChecked())
+        set_browser_js_enabled(self.browser_js_check.isChecked())
         set_semantic_enabled(self.semantic_check.isChecked())
         set_embedding_model(self.embedding_input.text())
 
