@@ -1,25 +1,27 @@
 # Giperion/terminal/core/agent/mcp.py                                  v001
 # MCP-клиент: внешние инструменты по JSON-RPC через stdio.
-# Последнее изменение: первый вариант — initialize, tools/list, tools/call.
+# Последнее изменение: конфиг и allowlist вынесены в mcp_policy.py.
 
 import json
-import os
 import queue
-import re
 import subprocess
 import threading
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from config import BASE_DIR, DATA_DIR
-from shared.storage.json_store import read_json_object
 from terminal.core.agent import sandbox
+from terminal.core.agent.mcp_policy import (
+    McpServer,
+    _safe_name,
+    _tool_allowed,
+    check_domains,
+    domain_allowed,  # noqa: F401 — реэкспорт для тестов
+)
 from terminal.core.agent.protocol import ToolResult, ToolSpec
 
 CONFIG_FILE = DATA_DIR / "agent_mcp.json"
 TIMEOUT = 20
 PROTOCOL_VERSION = "2024-11-05"
-NAME_RE = re.compile(r"[^a-z0-9_]+")
 MAX_TOOLS = 60
 
 
@@ -27,88 +29,12 @@ class McpError(RuntimeError):
     """Ошибка MCP-сервера или протокола."""
 
 
-@dataclass(frozen=True)
-class McpServer:
-    """Описание сервера из data/agent_mcp.json."""
-
-    name: str
-    command: str
-    args: tuple[str, ...] = ()
-    env: dict[str, str] = field(default_factory=dict)
-    enabled: bool = True
-
-
-def _expand(value: str) -> str:
-    """Подставляет ${VAR} из окружения, если переменная задана."""
-
-    text = str(value or "")
-
-    def replace(match: re.Match) -> str:
-        return os.environ.get(match.group(1), "")
-
-    return re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", replace, text)
-
-
-def _safe_name(value: str) -> str:
-    """Имя для инструмента: только латиница, цифры и подчёркивания."""
-
-    text = NAME_RE.sub("_", str(value or "").strip().lower())
-    text = re.sub(r"_+", "_", text).strip("_")
-
-    return text[:40] or "server"
-
-
 def load_servers(document: dict | None = None) -> list[McpServer]:
-    """Читает конфиг серверов, пропуская битые записи."""
+    """Читает конфиг по текущему пути CONFIG_FILE."""
 
-    data = document if document is not None else read_json_object(CONFIG_FILE)
-    raw = data.get("servers")
+    from terminal.core.agent import mcp_policy
 
-    if not isinstance(raw, list):
-        return []
-
-    servers: list[McpServer] = []
-    seen: set[str] = set()
-
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-
-        name = _safe_name(item.get("name") or "")
-
-        if not name or name in seen:
-            continue
-
-        command = str(item.get("command") or "").strip()
-
-        if not command:
-            continue
-
-        args = item.get("args")
-
-        if not isinstance(args, list):
-            args = []
-
-        env = item.get("env")
-        clean_env: dict[str, str] = {}
-
-        if isinstance(env, dict):
-            for key, value in env.items():
-                if isinstance(key, str) and isinstance(value, str):
-                    clean_env[key] = _expand(value)
-
-        seen.add(name)
-        servers.append(
-            McpServer(
-                name=name,
-                command=command,
-                args=tuple(str(arg) for arg in args),
-                env=clean_env,
-                enabled=item.get("enabled") is not False,
-            )
-        )
-
-    return servers
+    return mcp_policy.load_servers(document, CONFIG_FILE)
 
 
 class McpClient:
@@ -295,6 +221,11 @@ class McpClient:
     def call_tool(self, name: str, arguments: dict) -> ToolResult:
         """Вызов инструмента и разбор content-блока."""
 
+        error = check_domains(self.server, dict(arguments or {}))
+
+        if error:
+            return ToolResult(False, error)
+
         result = self.request(
             "tools/call",
             {"name": name, "arguments": dict(arguments or {})},
@@ -450,6 +381,11 @@ def _build_cache() -> tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]]:
             continue
 
         for tool in tools:
+            raw_name = tool.get("name")
+
+            if not _tool_allowed(server, str(raw_name or "")):
+                continue
+
             parsed = _spec_from_tool(server.name, tool)
 
             if parsed is None:

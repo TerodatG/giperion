@@ -140,6 +140,7 @@ def _run_plan_call(
             return True
 
         plan = normalized
+        state.plan = list(normalized)
 
         state.emit(
             AgentStep(
@@ -188,6 +189,7 @@ def _run_subagent_call(
             depth,
             allow_subagent,
             should_stop,
+            plan=list(state.plan),
         )
 
         count = len(subagent_tasks(call))

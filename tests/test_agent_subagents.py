@@ -252,3 +252,43 @@ def test_parallel_subagents_stop_on_cancel(tmp_path) -> None:
     assert not result.ok
     assert "остановлены" in result.text
     assert elapsed < 1.0
+
+def test_subagent_receives_shared_plan(tmp_path) -> None:
+    """Подагент видит общий чек-лист задачи."""
+
+    captured: list[str] = []
+
+    class Child:
+        def decide(self, prompt: str):
+            captured.append(prompt)
+
+            return json.dumps(
+                {"action": "answer", "text": "нашёл"},
+                ensure_ascii=False,
+            )
+
+    class Parent(Child):
+        def fork(self):
+            return Child()
+
+    call = ToolCall("ask_subagent", {"tasks": ["найди файл"]})
+
+    result = _run_subagent(
+        call,
+        Parent(),
+        tmp_path,
+        depth=0,
+        allow_subagent=True,
+        should_stop=None,
+        plan=[
+            {"text": "разобрать", "status": "done"},
+            {"text": "найти файл", "status": "doing"},
+        ],
+    )
+
+    assert result.ok
+    assert captured
+    assert "Общий план задачи" in captured[0]
+    assert "1. [x] разобрать" in captured[0]
+    assert "2. [>] найти файл" in captured[0]
+    assert "Твоя подзадача: найди файл" in captured[0]

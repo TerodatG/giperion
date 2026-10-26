@@ -287,3 +287,73 @@ def test_validate_uses_schema_required(mcp_config) -> None:
     assert registry.validate_call(
         ToolCall("mcp_stub_echo", {"text": 5})
     ) is None
+
+def test_allowlist_is_parsed() -> None:
+    """Списки tools и domains читаются и нормализуются."""
+
+    servers = mcp.load_servers(
+        {
+            "servers": [
+                {
+                    "name": "web",
+                    "command": "python",
+                    "tools": ["Fetch", "fetch", "other"],
+                    "domains": ["Example.com", "*.wikipedia.org"],
+                }
+            ]
+        }
+    )
+
+    assert servers[0].tools == ("fetch", "other")
+    assert servers[0].domains == ("example.com", "*.wikipedia.org")
+
+
+def test_tool_allowlist_filters() -> None:
+    """Пустой список разрешает всё, иначе — только перечисленное."""
+
+    restricted = mcp.McpServer("web", "python", tools=("fetch",))
+
+    assert mcp._tool_allowed(restricted, "fetch")
+    assert not mcp._tool_allowed(restricted, "write")
+
+    open_server = mcp.McpServer("web", "python")
+
+    assert mcp._tool_allowed(open_server, "anything")
+
+
+def test_domain_allowlist() -> None:
+    """Точный домен и поддомены через *. работают."""
+
+    assert mcp.domain_allowed("example.com", ("example.com",))
+    assert mcp.domain_allowed(
+        "ru.wikipedia.org",
+        ("*.wikipedia.org",),
+    )
+    assert not mcp.domain_allowed(
+        "wikipedia.org",
+        ("*.wikipedia.org",),
+    )
+    assert mcp.domain_allowed("любой.рф", ())
+
+
+def test_client_blocks_forbidden_domain() -> None:
+    """Запрещённый домен не доходит до сервера."""
+
+    server = mcp.McpServer(
+        "web",
+        "python",
+        domains=("example.com",),
+    )
+    client = mcp.McpClient(server)
+    result = client.call_tool("fetch", {"url": "https://python.org"})
+
+    assert not result.ok
+    assert "не разрешён" in result.text
+
+    allowed = pytest.raises(mcp.McpError)
+
+    with allowed:
+        client.call_tool(
+            "fetch",
+            {"url": "https://example.com/page"},
+        )

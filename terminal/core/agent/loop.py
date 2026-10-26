@@ -130,6 +130,7 @@ def _run_subagent(
     depth: int,
     allow_subagent: bool,
     should_stop: Callable[[], bool] | None,
+    plan: list[dict] | None = None,
 ) -> ToolResult:
     """Запускает читающих подагентов; несколько — параллельно."""
 
@@ -144,6 +145,15 @@ def _run_subagent(
     if not tasks:
         return ToolResult(False, "Подагенту не передана задача.")
 
+    plan_prefix = ""
+
+    if plan:
+        plan_prefix = (
+            "Общий план задачи:\n"
+            + render_plan(plan)
+            + "\n\nТвоя подзадача: "
+        )
+
     fork = getattr(brain, "fork", None)
     can_parallel = len(tasks) > 1 and callable(fork)
 
@@ -151,7 +161,7 @@ def _run_subagent(
         sub_brain = fork() if callable(fork) else brain
 
         result = run_agent(
-            task,
+            plan_prefix + task,
             sub_brain,
             root,
             max_steps=4,
