@@ -182,6 +182,7 @@ class SidePanelMixin:
             "Личностные матрицы",
         )
         self.settings_button = make_button("settings", "Настройки")
+        self.help_button = make_button("help", "Справка")
         self.update_button = make_button("update", "Обновление")
         self.performance_button = make_button(
             "performance",
@@ -196,6 +197,7 @@ class SidePanelMixin:
             self.conference_button,
             self.personalities_button,
             self.settings_button,
+            self.help_button,
             self.update_button,
             self.performance_button,
             self.drone_button,
@@ -221,6 +223,9 @@ class SidePanelMixin:
         )
         self.settings_button.clicked.connect(
             self.open_settings_dialog
+        )
+        self.help_button.clicked.connect(
+            self.open_help_dialog
         )
         self.update_button.clicked.connect(
             self.open_update_dialog

@@ -179,6 +179,25 @@ def test_main_title_bar_has_help(window) -> None:
     )
 
 
+def test_help_button_opens_help_window(window) -> None:
+    """Кнопка «Справка» на системной панели открывает окно справки."""
+
+    from PySide6.QtWidgets import QTextBrowser
+
+    window.open_help_dialog()
+
+    dialog = window.window._tool_windows["help"]
+
+    assert dialog.windowTitle() == "Справка"
+
+    view = dialog.findChild(QTextBrowser, "helpView")
+
+    assert view is not None
+    assert "СИСТЕМНЫЕ КОМАНДЫ" in view.toPlainText()
+
+    dialog.close()
+
+
 def test_workshop_has_terminal_and_panels(window) -> None:
     """В мастерской есть три окна вывода, ввод и плиты по бокам."""
 

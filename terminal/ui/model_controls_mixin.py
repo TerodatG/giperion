@@ -14,6 +14,7 @@ from terminal.core.module_state import set_module
 from terminal.ui.agent_dialog import show_agent_dialog
 from terminal.ui.agent_runs_dialog import show_agent_runs_dialog
 from terminal.ui.conference_dialog import show_conference_dialog
+from terminal.ui.help_dialog import show_help_dialog
 from terminal.ui.models_dialog import show_models_dialog
 from terminal.ui.personalities_dialog import show_personalities_dialog
 from terminal.ui.skills_dialog import show_skills_dialog
@@ -27,6 +28,11 @@ class ModelControlsMixin:
         """Открывает окно «Умения» со списком навыков ядра."""
 
         show_skills_dialog(self.window)
+
+    def open_help_dialog(self) -> None:
+        """Открывает окно «Справка»."""
+
+        show_help_dialog(self.window)
 
     def open_models_dialog(self) -> None:
         """Открывает окно «Модель» и применяет выбранную модель."""

@@ -1,6 +1,6 @@
-# Giperion/tests/ui/test_settings.py                                 v001
+# Giperion/tests/ui/test_settings.py                                 v002
 # Настройки, «О нас», шрифты и ответы.
-# Последнее изменение: вынесено из test_gui_smoke.
+# Последнее изменение: раздел «Скины» сдвинул индексы закладок.
 
 
 
@@ -56,6 +56,20 @@ def test_nickname_dialog_returns_new_value(qapp, monkeypatch) -> None:
     assert result == "Бублик"
 
 
+def test_settings_has_no_help_section(window) -> None:
+    """Раздел «Справка» вынесен из настроек в отдельное окно."""
+
+    window.open_settings_dialog()
+
+    dialog = window.window._tool_windows["settings"]
+    titles = [button.text() for button in dialog.nav_buttons]
+
+    assert "СПРАВКА" not in titles
+    assert "О НАС" in titles
+
+    dialog.close()
+
+
 def test_about_page_has_project_sections(window) -> None:
     """«О нас»: программа, команда, принципы и обратная связь."""
 
@@ -66,11 +80,12 @@ def test_about_page_has_project_sections(window) -> None:
     window.open_settings_dialog()
 
     dialog = window.window._tool_windows["settings"]
-    dialog.stack.setCurrentIndex(2)
+    about_index = dialog.stack.count() - 1
+    dialog.stack.setCurrentIndex(about_index)
 
     texts = "\n".join(
         label.text()
-        for label in dialog.stack.widget(2).findChildren(QLabel)
+        for label in dialog.stack.widget(about_index).findChildren(QLabel)
     )
 
     assert "О ПРОГРАММЕ" in texts

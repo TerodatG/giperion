@@ -94,6 +94,8 @@ class SideIconButton(QPushButton):
             )
         elif self.icon_name == "update":
             self._paint_update(painter, center_x, center_y)
+        elif self.icon_name == "help":
+            self._paint_help(painter, center_x, center_y)
         else:
             self._paint_skills(painter, center_x, center_y)
 
@@ -262,6 +264,45 @@ class SideIconButton(QPushButton):
             painter.drawEllipse(point, 1.8, 1.8)
 
         painter.drawEllipse(QPointF(center_x, center_y), 2.6, 2.6)
+
+    @staticmethod
+    def _paint_help(painter, center_x: float, center_y: float) -> None:
+        """Рисует знак вопроса в круге для кнопки справки."""
+
+        painter.drawEllipse(
+            QPointF(center_x, center_y),
+            9.5,
+            9.5,
+        )
+
+        question = QPainterPath()
+        question.moveTo(center_x - 3.2, center_y - 4.6)
+        question.quadTo(
+            center_x - 3.2,
+            center_y - 8.6,
+            center_x,
+            center_y - 8.6,
+        )
+        question.quadTo(
+            center_x + 3.6,
+            center_y - 8.6,
+            center_x + 3.6,
+            center_y - 5.2,
+        )
+        question.quadTo(
+            center_x + 3.6,
+            center_y - 2.2,
+            center_x,
+            center_y - 0.4,
+        )
+        question.lineTo(center_x, center_y + 1.6)
+
+        painter.drawPath(question)
+        painter.drawEllipse(
+            QPointF(center_x, center_y + 5.6),
+            1.0,
+            1.0,
+        )
 
     @staticmethod
     def _paint_drone(painter, center_x: float, center_y: float) -> None:

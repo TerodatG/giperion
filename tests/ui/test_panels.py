@@ -19,6 +19,7 @@ def test_system_buttons_live_in_system_panel(window) -> None:
         window.conference_button,
         window.personalities_button,
         window.settings_button,
+        window.help_button,
         window.performance_button,
         window.update_button,
         window.drone_button,

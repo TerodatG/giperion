@@ -1,6 +1,6 @@
-# Giperion/app/ui/settings_dialog.py                                v004
-# Вложенное окно настроек и страница «Вид».
-# Последнее изменение: раздел «О нас» с версией, командой и принципами.
+# Giperion/app/ui/settings_dialog.py                                v007
+# Вложенное окно настроек: «Вид», «Скины», «Клавиши» и «О нас».
+# Последнее изменение: раздел «Справка» вынесен в отдельное окно.
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -9,22 +9,19 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QStackedWidget,
-    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
-from terminal.core.help_handler import get_system_command_lines
-from terminal.ui.dialog_text import (
-    build_help_html,
-)
 from terminal.ui.dialogs_base import SkinDialog
 from terminal.ui.settings_about import build_about_page
+from terminal.ui.settings_keys import KeysPage
+from terminal.ui.settings_skins import SkinsPage
 from terminal.ui.view_settings import ViewSettingsPanel
 
 
 class SettingsDialog(SkinDialog):
-    """Вложенное окно настроек с разделами «Вид», «Справка», «О нас»."""
+    """Вложенное окно настроек с разделами «Вид», «Скины», «Клавиши», «О нас»."""
 
     def __init__(
         self,
@@ -36,6 +33,10 @@ class SettingsDialog(SkinDialog):
         response_settings: dict,
         on_apply,
         font_sizes: dict[str, int] | None = None,
+        on_apply_skin=None,
+        skin_id: str = "terminal",
+        on_apply_keys=None,
+        keybindings: dict | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -69,7 +70,9 @@ class SettingsDialog(SkinDialog):
 
         self.nav_buttons = []
 
-        for index, title in enumerate(("ВИД", "СПРАВКА", "О НАС")):
+        for index, title in enumerate(
+            ("ВИД", "СКИНЫ", "КЛАВИШИ", "О НАС")
+        ):
             button = QPushButton(title, nav)
             button.setObjectName("settingsNavButton")
             button.setCheckable(True)
@@ -95,7 +98,22 @@ class SettingsDialog(SkinDialog):
 
         self.stack = QStackedWidget(self.body)
         self.stack.addWidget(self.view_panel)
-        self.stack.addWidget(self._build_help_page())
+
+        self.skins_panel = SkinsPage(
+            self,
+            skin_id,
+            on_apply=on_apply_skin,
+        )
+
+        self.stack.addWidget(self.skins_panel)
+
+        self.keys_panel = KeysPage(
+            self,
+            bindings=keybindings,
+            on_apply=on_apply_keys,
+        )
+
+        self.stack.addWidget(self.keys_panel)
         self.stack.addWidget(self._build_about_page())
 
         self.nav_group.idClicked.connect(self.stack.setCurrentIndex)
@@ -145,41 +163,6 @@ class SettingsDialog(SkinDialog):
 
         self.apply_button.setVisible(is_view)
         self.status_label.setVisible(is_view)
-
-    def _build_help_page(self) -> QWidget:
-        """Собирает справку по системным командам."""
-
-        page = QWidget(self)
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-
-        title = QLabel("СИСТЕМНЫЕ КОМАНДЫ", page)
-        title.setObjectName("dialogTitle")
-
-        hint = QLabel(
-            "Команда вводится в чат целиком, вместе со словом «Гиперион». "
-            "Часть команд спрашивает подтверждение — ответь «принять» "
-            "или «отмена». Навыки ядра — в окне «Умения».",
-            page,
-        )
-        hint.setObjectName("dialogHint")
-        hint.setWordWrap(True)
-
-        view = QTextBrowser(page)
-        view.setObjectName("helpView")
-        view.setOpenLinks(False)
-        view.setHtml(
-            build_help_html(
-                [("", get_system_command_lines())]
-            )
-        )
-
-        layout.addWidget(title)
-        layout.addWidget(hint)
-        layout.addWidget(view, 1)
-
-        return page
 
     def _build_about_page(self) -> QWidget:
         """Собирает страницу «О нас»."""
