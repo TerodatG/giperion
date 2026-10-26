@@ -660,8 +660,11 @@ QLabel#dialogTitleText {
 }
 
 QWidget#settingsNav {
-    background-color: #0f0c0a;
-    border: 1px solid #2a2119;
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
 }
 
 QPushButton#settingsNavButton {
@@ -676,9 +679,9 @@ QPushButton#settingsNavButton {
 }
 
 QPushButton#settingsNavButton:hover {
-    background-color: #1b1512;
-    border: 1px solid #3d2f26;
-    color: #ffe2d2;
+    background-color: #0d2816;
+    border: 1px solid #3d6b45;
+    color: #eaffea;
 }
 
 QPushButton#settingsNavButton:checked {
@@ -1056,28 +1059,6 @@ QPushButton#aiParamsButton:disabled {
     color: #5a4f45;
 }
 
-QPushButton#workshopAction {
-    border-image: none;
-    background-color: #10281a;
-    border: 1px solid #23421f;
-    border-radius: 3px;
-    color: #b8f0b0;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 9pt;
-    padding: 5px 10px;
-}
-
-QPushButton#workshopAction:hover {
-    background-color: #123d1f;
-    border: 1px solid #5ce07a;
-    color: #eaffea;
-}
-
-QPushButton#workshopAction:pressed {
-    background-color: #1d5a2a;
-    border: 1px solid #7cf58f;
-}
-
 QWidget#paramsContent {
     background: transparent;
 }
@@ -1292,6 +1273,12 @@ QPlainTextEdit#workshopInput:focus {
     border: 1px solid #5ce07a;
 }
 
+QSizeGrip#workshopSizeGrip {
+    background-color: #10281a;
+    border: 1px solid #3d6b45;
+    border-radius: 2px;
+}
+
 QToolTip {
     background-color: #1b1512;
     color: #ffe2d2;
@@ -1301,27 +1288,32 @@ QToolTip {
 /* --- Раздел «Скины» в настройках --- */
 
 QListWidget#skinList {
-    background-color: #0f0c0a;
-    border: 1px solid #2a2119;
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
     border-radius: 4px;
-    color: #d8b48e;
-    padding: 6px;
+    color: #b8f0b0;
+    padding: 4px;
+    outline: none;
 }
 
 QListWidget#skinList::item {
-    padding: 8px 6px;
-    border-radius: 3px;
-    margin-bottom: 4px;
+    padding: 7px 8px;
+    margin: 0 0 2px 0;
+    border-radius: 2px;
+    border-left: 2px solid transparent;
+    outline: none;
 }
 
 QListWidget#skinList::item:hover {
-    background-color: #1b1512;
-    border: 1px solid #3d2f26;
+    background-color: rgba(18, 61, 31, 130);
+    border-left: 2px solid #3d6b45;
 }
 
 QListWidget#skinList::item:selected {
     background-color: #123d1f;
-    border: 1px solid #7cf58f;
+    border-left: 2px solid #7cf58f;
     color: #eaffea;
 }
 

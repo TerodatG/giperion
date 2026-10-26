@@ -126,9 +126,9 @@ def test_tool_windows_do_not_block_each_other(window) -> None:
 
 
 def test_workshop_dialog_lists_tools(window) -> None:
-    """«Мастерская» открывается и предлагает пять инструментов."""
+    """«Мастерская» открывается и предлагает шесть инструментов."""
 
-    from PySide6.QtWidgets import QPushButton
+    from PySide6.QtWidgets import QPushButton, QSizeGrip
 
     window.open_workshop_dialog()
 
@@ -143,14 +143,16 @@ def test_workshop_dialog_lists_tools(window) -> None:
     ]
 
     assert actions == [
-        "Открыть агента",
-        "Открыть «Модель»",
-        "Открыть личности",
-        "Открыть умения",
+        "Агент",
+        "Модель",
+        "Личности",
+        "Умения",
         "Добавить модель",
-        "Открыть журнал",
+        "Журнал",
     ]
     assert window.settings_button.toolTip() == "Настройки"
+    assert dialog.findChild(QSizeGrip, "workshopSizeGrip") is not None
+    assert dialog.findChild(QPushButton, "titleButton") is not None
 
     dialog.close()
 

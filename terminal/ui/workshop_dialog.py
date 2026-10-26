@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QSizeGrip,
     QSizePolicy,
     QTextBrowser,
     QVBoxLayout,
@@ -20,13 +21,98 @@ from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
 # Порядок важен: он же порядок кнопок в правой плите.
 WORKSHOP_ACTIONS = (
-    ("Открыть агента", "agent"),
-    ("Открыть «Модель»", "models"),
-    ("Открыть личности", "personalities"),
-    ("Открыть умения", "skills"),
+    ("Агент", "agent"),
+    ("Модель", "models"),
+    ("Личности", "personalities"),
+    ("Умения", "skills"),
     ("Добавить модель", "add_model"),
-    ("Открыть журнал", "runs"),
+    ("Журнал", "runs"),
 )
+
+
+class WorkshopDialog(SkinDialog):
+    """Окно мастерской с кнопками свернуть, развернуть и закрыть."""
+
+    def __init__(
+        self,
+        parent,
+        title: str,
+        min_width: int = 540,
+        min_height: int = 420,
+    ) -> None:
+        super().__init__(parent, title, min_width, min_height)
+
+        self.setSizeGripEnabled(False)
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setObjectName("workshopSizeGrip")
+        self.size_grip.setFixedSize(18, 18)
+        self.size_grip.raise_()
+
+        layout = self.title_bar.layout()
+        close_button = self.title_bar.findChild(
+            QPushButton,
+            "closeButton",
+        )
+
+        if layout is None or close_button is None:
+            return
+
+        position = layout.indexOf(close_button)
+
+        self.minimize_button = self._title_button(
+            "—",
+            "Свернуть",
+        )
+        self.maximize_button = self._title_button(
+            "▢",
+            "Развернуть",
+        )
+
+        layout.insertWidget(position, self.minimize_button)
+        layout.insertWidget(position + 1, self.maximize_button)
+
+        self.minimize_button.clicked.connect(self.showMinimized)
+        self.maximize_button.clicked.connect(self._toggle_maximize)
+
+    def resizeEvent(self, event) -> None:
+        """Держит размерный уголок в правом нижнем углу."""
+
+        super().resizeEvent(event)
+
+        if hasattr(self, "size_grip"):
+            self.size_grip.move(
+                max(0, self.width() - 20),
+                max(0, self.height() - 20),
+            )
+            self.size_grip.raise_()
+
+    def _title_button(
+        self,
+        text: str,
+        tooltip: str,
+    ) -> QPushButton:
+        """Создаёт кнопку планки в стиле главного окна."""
+
+        button = QPushButton(text, self.title_bar)
+        button.setObjectName("titleButton")
+        button.setToolTip(tooltip)
+        button.setFixedSize(40, 30)
+        button.setCursor(Qt.ArrowCursor)
+        button.setFocusPolicy(Qt.NoFocus)
+
+        return button
+
+    def _toggle_maximize(self) -> None:
+        """Разворачивает окно на экран и возвращает обратно."""
+
+        if self.isMaximized():
+            self.showNormal()
+            self.maximize_button.setText("▢")
+            self.maximize_button.setToolTip("Развернуть")
+        else:
+            self.showMaximized()
+            self.maximize_button.setText("❐")
+            self.maximize_button.setToolTip("Свернуть в окно")
 
 
 def _panel(
@@ -324,7 +410,7 @@ def _build_workshop(dialog: QWidget, window, parent) -> None:
 def show_workshop_dialog(parent, window) -> None:
     """Открывает «Мастерскую» как окно-станцию с терминалом и кнопками."""
 
-    dialog = SkinDialog(
+    dialog = WorkshopDialog(
         parent,
         "Мастерская",
         min_width=1120,
