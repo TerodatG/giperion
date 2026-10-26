@@ -47,7 +47,7 @@ def test_tokens_split_names() -> None:
         "relevant",
         "путь",
     ]
-    assert semantic.tokens("и в на the a") == []
+    assert semantic.tokens("и в на the a почему") == []
     assert semantic.tokens("AppContainer") == ["app", "container"]
 
 
@@ -272,3 +272,137 @@ def test_semantic_settings_defaults(tmp_path, monkeypatch) -> None:
 
     assert settings.semantic_enabled() is False
     assert settings.embedding_model() == "my-embed"
+
+def test_vector_only_hit(tmp_path, monkeypatch) -> None:
+    """Фрагмент без общих слов находится по вектору, а не по BM25."""
+
+    root = _project(
+        tmp_path,
+        {
+            "a.py": "def alpha():\n    return 'общий термин'\n",
+            "b.py": "def beta():\n    return 'смысл'\n",
+        },
+    )
+
+    monkeypatch.setattr(semantic, "CANDIDATES", 1)
+    monkeypatch.setattr(
+        embeddings,
+        "client",
+        lambda: ("http://127.0.0.1:1234/v1", "", "fake-embed"),
+    )
+
+    def fake_embed(texts, *, target=None, timeout=30):
+        return [
+            [1.0, 0.0]
+            if ("смысл" in text or text.strip() == "общий термин")
+            else [0.0, 1.0]
+            for text in texts
+        ]
+
+    monkeypatch.setattr(embeddings, "embed", fake_embed)
+
+    chunks = semantic.load_chunks(root)["chunks"]
+    added, total = semantic.cache_vectors(chunks, batch=2)
+
+    assert added == total == len(chunks)
+
+    result = semantic.find_relevant(root, "общий термин")
+    first = result.text.splitlines()[1]
+
+    assert "b.py" in first
+    assert "2/2 фрагментов" in result.text
+
+
+def test_cache_vectors_is_incremental(tmp_path, monkeypatch) -> None:
+    """Векторы считаются пачками и не пересчитываются повторно."""
+
+    root = _project(
+        tmp_path,
+        {
+            "a.py": "def alpha():\n    return 1\n",
+            "b.py": "def beta():\n    return 2\n",
+            "c.py": "def gamma():\n    return 3\n",
+        },
+    )
+
+    batches: list[int] = []
+
+    monkeypatch.setattr(
+        embeddings,
+        "client",
+        lambda: ("http://127.0.0.1:1234/v1", "", "fake-embed"),
+    )
+
+    def fake_embed(texts, *, target=None, timeout=30):
+        batches.append(len(texts))
+
+        return [[1.0, 0.0] for _ in texts]
+
+    monkeypatch.setattr(embeddings, "embed", fake_embed)
+
+    chunks = semantic.load_chunks(root)["chunks"]
+
+    added, total = semantic.cache_vectors(chunks, batch=2)
+
+    assert added == total == len(chunks)
+    assert batches == [2, 1]
+
+    again, again_total = semantic.cache_vectors(chunks, batch=2)
+
+    assert again == 0
+    assert again_total == 0
+
+
+def test_vector_stats(tmp_path, monkeypatch) -> None:
+    """Покрытие показывает модель и число фрагментов с вектором."""
+
+    root = _project(
+        tmp_path,
+        {"a.py": "def alpha():\n    return 1\n"},
+    )
+
+    monkeypatch.setattr(embeddings, "client", lambda: None)
+
+    stats = semantic.vector_stats(root)
+
+    assert stats["model"] == ""
+    assert stats["covered"] == 0
+    assert stats["total"] >= 1
+
+    monkeypatch.setattr(
+        embeddings,
+        "client",
+        lambda: ("http://127.0.0.1:1234/v1", "", "fake-embed"),
+    )
+    monkeypatch.setattr(
+        embeddings,
+        "embed",
+        lambda texts, *, target=None, timeout=30: [
+            [1.0, 0.0] for _ in texts
+        ],
+    )
+
+    chunks = semantic.load_chunks(root)["chunks"]
+    semantic.cache_vectors(chunks, batch=8)
+
+    stats = semantic.vector_stats(root)
+
+    assert stats["model"] == "fake-embed"
+    assert stats["covered"] == stats["total"]
+
+
+def test_cache_vectors_needs_local_provider(tmp_path, monkeypatch) -> None:
+    """Без локального провайдера глубокий индекс не строится."""
+
+    root = _project(
+        tmp_path,
+        {"a.py": "def alpha():\n    return 1\n"},
+    )
+
+    monkeypatch.setattr(embeddings, "client", lambda: None)
+
+    chunks = semantic.load_chunks(root)["chunks"]
+
+    with pytest.raises(embeddings.EmbeddingError):
+        semantic.cache_vectors(chunks)
+

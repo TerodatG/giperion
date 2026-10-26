@@ -31,7 +31,7 @@ STOPWORDS = frozenset(
     сегодня можно при наконец два об другой хоть после над больше тот через
     эти нас про всего них какая много разве три эту моя впрочем хорошо свою
     этой перед иногда лучше чуть том нельзя такой им более всегда конечно
-    всю между the a an and or if in on at to for of is are was were be been
+    всю между почему отчего the a an and or if in on at to for of is are was were be been
     it this that with as by not from but you your we our they their he she
     his her have has had do does did can could should would may might will
     just than then there here what which who whom whose when where why how

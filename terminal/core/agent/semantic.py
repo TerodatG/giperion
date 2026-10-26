@@ -18,6 +18,7 @@ from terminal.core.agent.semantic_text import (
 CACHE_FILE = DATA_DIR / "agent_semantic.json"
 VECTOR_FILE = DATA_DIR / "agent_vectors.json"
 CANDIDATES = 80
+VECTOR_HITS = 80
 MAX_EMBED_PER_CALL = 120
 MAX_VECTORS = 4000
 DEFAULT_LIMIT = 8
@@ -199,13 +200,35 @@ def _embed_missing(
     return stored, ""
 
 
+def _vector_hits(
+    chunks: list[dict],
+    query_vector: list[float],
+    stored: dict[str, list[float]],
+) -> list[int]:
+    """Лучшие фрагменты по косинусу среди уже посчитанных векторов."""
+
+    hits = []
+
+    for index, chunk in enumerate(chunks):
+        vector = stored.get(chunk["hash"])
+
+        if vector is None:
+            continue
+
+        hits.append((embeddings.cosine(query_vector, vector), index))
+
+    hits.sort(reverse=True)
+
+    return [index for _score, index in hits[:VECTOR_HITS]]
+
+
 def _hybrid(
     ranked: list[int],
     chunks: list[dict],
     lexical: list[float],
     query: str,
 ) -> tuple[dict[int, float], str]:
-    """Пересчёт кандидатов по косинусу; пусто — эмбеддинги недоступны."""
+    """BM25-кандидаты плюс лучшие по вектору; пусто — эмбеддинги недоступны."""
 
     target = embeddings.client()
 
@@ -223,25 +246,36 @@ def _hybrid(
 
     candidates = [chunks[index] for index in ranked]
     stored, error = _embed_missing(target, candidates)
+    vector_hits = _vector_hits(chunks, query_vector, stored)
+    merged = list(dict.fromkeys(list(ranked) + vector_hits))
     best = max(lexical) or 1.0
     scores: dict[int, float] = {}
 
-    for position, index in enumerate(ranked):
-        vector = stored.get(candidates[position]["hash"])
+    for index in merged:
+        vector = stored.get(chunks[index]["hash"])
+        norm = lexical[index] / best
 
         if vector is None:
+            scores[index] = LEXICAL_WEIGHT * norm
             continue
 
         similarity = embeddings.cosine(query_vector, vector)
-        norm = lexical[index] / best
         scores[index] = (
             VECTOR_WEIGHT * similarity + LEXICAL_WEIGHT * norm
         )
 
-    if error:
-        return scores, f"часть векторов не получена: {error}"
+    covered = sum(
+        1 for chunk in chunks if chunk["hash"] in stored
+    )
+    note = (
+        f"эмбеддинги «{target[2]}», "
+        f"{covered}/{len(chunks)} фрагментов"
+    )
 
-    return scores, f"эмбеддинги «{target[2]}»"
+    if error:
+        return scores, f"часть векторов не получена: {error}; {note}"
+
+    return scores, note
 
 
 def _snippet(chunk: dict) -> str:
@@ -297,7 +331,6 @@ def _path_weight(relative: str) -> float:
 
 
 def _scored(
-    ranked: list[int],
     chunks: list[dict],
     lexical: list[float],
     hybrid: dict[int, float],
@@ -313,17 +346,95 @@ def _scored(
 
         return [value / best for value in weighted]
 
-    best = max(lexical) or 1.0
     scores = [0.0] * len(chunks)
 
-    for index in ranked:
-        norm = lexical[index] / best
-        scores[index] = hybrid.get(index, LEXICAL_WEIGHT * norm)
+    for index, value in hybrid.items():
+        scores[index] = value
 
     return [
         value * _path_weight(chunk["path"])
         for value, chunk in zip(scores, chunks)
     ]
+
+
+def cache_vectors(
+    chunks: list[dict],
+    batch: int = 32,
+    progress=None,
+) -> tuple[int, int]:
+    """Считает векторы для всех фрагментов пачками; возвращает (новых, всего).
+
+    Нужен локальный провайдер. Кеш пишется по ходу, поэтому обрыв не
+    теряет уже посчитанное.
+    """
+
+    target = embeddings.client()
+
+    if target is None:
+        raise embeddings.EmbeddingError(
+            "Нужен локальный провайдер с /embeddings."
+        )
+
+    model = target[2]
+    stored = _load_vectors(model)
+    missing = [
+        chunk for chunk in chunks
+        if chunk["hash"] not in stored
+    ]
+    total = len(missing)
+    added = 0
+    saved_at = 0
+    size = max(1, int(batch))
+
+    for start in range(0, total, size):
+        part = missing[start:start + size]
+        vectors = embeddings.embed(
+            [chunk["payload"] for chunk in part],
+            target=target,
+            timeout=180,
+        )
+
+        for chunk, vector in zip(part, vectors):
+            stored[chunk["hash"]] = [
+                round(float(value), 4) for value in vector
+            ]
+
+        added += len(part)
+
+        if progress is not None:
+            progress(added, total)
+
+        if added - saved_at >= size * 5:
+            _save_vectors(model, stored)
+            saved_at = added
+
+    _save_vectors(model, stored)
+
+    return added, total
+
+
+def vector_stats(root: Path) -> dict:
+    """Сколько фрагментов уже имеет вектор."""
+
+    document = load_chunks(root)
+    chunks = document.get("chunks") or []
+    target = embeddings.client()
+    stats = {
+        "total": len(chunks),
+        "covered": 0,
+        "model": "",
+    }
+
+    if target is None:
+        return stats
+
+    stored = _load_vectors(target[2])
+    stats["covered"] = sum(
+        1 for chunk in chunks if chunk["hash"] in stored
+    )
+    stats["model"] = target[2]
+
+    return stats
 
 
 def find_relevant(
@@ -358,7 +469,7 @@ def find_relevant(
         key=lambda item: -lexical[item],
     )[:CANDIDATES]
     hybrid, note = _hybrid(ranked, chunks, lexical, text)
-    scores = _scored(ranked, chunks, lexical, hybrid)
+    scores = _scored(chunks, lexical, hybrid)
 
     if hybrid:
         method = note or "слова и эмбеддинги"
