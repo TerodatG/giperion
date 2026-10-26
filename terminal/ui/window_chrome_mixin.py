@@ -20,6 +20,7 @@ from shared.action_log import add_action
 from terminal.ui.dialogs_base import SkinDialog
 from terminal.ui.theme import WINDOW_EDGE_MARGIN
 from terminal.ui.window_events import WindowCursorFilter
+from terminal.ui.window_help import show_window_help
 
 # Ширина левой панели: запас под две закладки параметров.
 LEFT_PANEL_WIDTH = 336
@@ -197,6 +198,9 @@ class WindowChromeMixin:
 
         layout.addStretch(1)
 
+        help_button = self._make_title_button(
+            bar, "?", "Справка по окну"
+        )
         minimize_button = self._make_title_button(
             bar, "—", "Свернуть"
         )
@@ -207,9 +211,15 @@ class WindowChromeMixin:
             bar, "✕", "Закрыть", closing=True
         )
 
-        for button in (minimize_button, self.maximize_button, close_button):
+        for button in (
+            help_button,
+            minimize_button,
+            self.maximize_button,
+            close_button,
+        ):
             layout.addWidget(button)
 
+        help_button.clicked.connect(self._request_window_help)
         minimize_button.clicked.connect(self.window.showMinimized)
         self.maximize_button.clicked.connect(self._toggle_maximize)
         close_button.clicked.connect(self.window.close)
@@ -240,14 +250,27 @@ class WindowChromeMixin:
 
         return button
 
+    def _request_window_help(self) -> None:
+        """Открывает раздел справки по главному окну."""
+
+        show_window_help(self.window, "Гиперион")
+
     def _toggle_maximize(self) -> None:
         """Разворачивает окно на весь экран и обратно."""
 
         if self.window.isMaximized():
             self.window.showNormal()
+
+            geometry = getattr(self, "_normal_geometry", None)
+
+            if geometry is not None:
+                self.window.setGeometry(geometry)
+                self._normal_geometry = None
+
             self.maximize_button.setText("▢")
             self.maximize_button.setToolTip("Развернуть")
         else:
+            self._normal_geometry = self.window.geometry()
             self.window.showMaximized()
             self.maximize_button.setText("❐")
             self.maximize_button.setToolTip("Свернуть в окно")

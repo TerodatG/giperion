@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from terminal.ui.window_help import show_window_help
+
 
 class DialogTitleBar(QWidget):
     """Планка заголовка дополнительных окон в стиле «шкуры»."""
@@ -41,6 +43,14 @@ class DialogTitleBar(QWidget):
         layout.addWidget(title)
         layout.addStretch(1)
 
+        help_button = QPushButton("?", self)
+        help_button.setObjectName("titleButton")
+        help_button.setToolTip("Справка по окну")
+        help_button.setFixedSize(40, 30)
+        help_button.setCursor(Qt.ArrowCursor)
+        help_button.setFocusPolicy(Qt.NoFocus)
+        help_button.clicked.connect(self._request_help)
+
         close_button = QPushButton("✕", self)
         close_button.setObjectName("closeButton")
         close_button.setToolTip("Закрыть окно")
@@ -49,6 +59,7 @@ class DialogTitleBar(QWidget):
         close_button.setFocusPolicy(Qt.NoFocus)
         close_button.clicked.connect(self.window().close)
 
+        layout.addWidget(help_button)
         layout.addWidget(close_button)
 
         for element in (emblem, title):
@@ -56,6 +67,14 @@ class DialogTitleBar(QWidget):
                 Qt.WA_TransparentForMouseEvents,
                 True,
             )
+
+    def _request_help(self) -> None:
+        """Передаёт запрос справки окну-владельцу."""
+
+        request = getattr(self.window(), "request_help", None)
+
+        if callable(request):
+            request()
 
     def mousePressEvent(self, event) -> None:
         """Запоминает точку, за которую тянут окно."""
@@ -129,6 +148,11 @@ class SkinDialog(QDialog):
         self.body_layout.setSpacing(8)
 
         outer.addWidget(self.body, 1)
+
+    def request_help(self) -> None:
+        """Открывает раздел справки по этому окну."""
+
+        show_window_help(self, self.windowTitle())
 
 
 class ChatRenameDialog(SkinDialog):

@@ -23,9 +23,17 @@ class PetCard(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
-        self.setObjectName("modelCard")
+        self.setObjectName("paramsPlate")
 
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        self.screen = QWidget(self)
+        self.screen.setObjectName("paramsScreen")
+        self.screen.setAttribute(Qt.WA_StyledBackground, True)
+
+        layout = QVBoxLayout(self.screen)
         layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(10)
 
@@ -130,6 +138,7 @@ class PetCard(QWidget):
         layout.addWidget(self.speech_label)
         layout.addStretch(1)
         layout.addWidget(self.status_label)
+        outer.addWidget(self.screen)
 
     def show_pet(self, pet: dict | None, active: str = "") -> None:
         """Заполняет карточку выбранным дроном или пустым состоянием."""

@@ -47,9 +47,17 @@ class ModelCard(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self.setObjectName("modelCard")
+        self.setObjectName("paramsPlate")
 
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        self.screen = QWidget(self)
+        self.screen.setObjectName("paramsScreen")
+        self.screen.setAttribute(Qt.WA_StyledBackground, True)
+
+        layout = QVBoxLayout(self.screen)
         layout.setContentsMargins(16, 14, 16, 14)
         layout.setSpacing(10)
 
@@ -152,6 +160,7 @@ class ModelCard(QWidget):
 
         self._build_limits(layout)
         self._build_footer(layout)
+        outer.addWidget(self.screen)
 
         self._model_widgets = (
             self.avatar_label,

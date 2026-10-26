@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from terminal.ui.add_model_dialog import show_add_model_dialog
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 
 # Порядок важен: он же порядок кнопок в правой плите.
@@ -25,7 +24,6 @@ WORKSHOP_ACTIONS = (
     ("Модель", "models"),
     ("Личности", "personalities"),
     ("Умения", "skills"),
-    ("Добавить модель", "add_model"),
     ("Журнал", "runs"),
 )
 
@@ -107,9 +105,17 @@ class WorkshopDialog(SkinDialog):
 
         if self.isMaximized():
             self.showNormal()
+
+            geometry = getattr(self, "_normal_geometry", None)
+
+            if geometry is not None:
+                self.setGeometry(geometry)
+                self._normal_geometry = None
+
             self.maximize_button.setText("▢")
             self.maximize_button.setToolTip("Развернуть")
         else:
+            self._normal_geometry = self.geometry()
             self.showMaximized()
             self.maximize_button.setText("❐")
             self.maximize_button.setToolTip("Свернуть в окно")
@@ -312,7 +318,6 @@ def _build_terminal(
 def _build_actions_panel(
     dialog: QWidget,
     window,
-    parent,
 ) -> QWidget:
     """Правая верхняя плита: все кнопки мастерской."""
 
@@ -329,7 +334,6 @@ def _build_actions_panel(
         "models": window.open_models_dialog,
         "personalities": window.open_personalities_dialog,
         "skills": window.open_skills_dialog,
-        "add_model": lambda: show_add_model_dialog(parent),
         "runs": window.open_agent_runs_dialog,
     }
 
@@ -368,7 +372,7 @@ def _build_system_panel(dialog: QWidget) -> QWidget:
     return panel
 
 
-def _build_workshop(dialog: QWidget, window, parent) -> None:
+def _build_workshop(dialog: QWidget, window) -> None:
     """Собирает сетку мастерской по образцу главного окна."""
 
     root = QGridLayout()
@@ -384,7 +388,7 @@ def _build_workshop(dialog: QWidget, window, parent) -> None:
         tools,
         message_input,
     ) = _build_terminal(dialog)
-    actions_panel = _build_actions_panel(dialog, window, parent)
+    actions_panel = _build_actions_panel(dialog, window)
     system_panel = _build_system_panel(dialog)
 
     root.addWidget(image_panel, 0, 0)
@@ -419,6 +423,6 @@ def show_workshop_dialog(parent, window) -> None:
     dialog.body_layout.setContentsMargins(10, 8, 10, 10)
     dialog.body_layout.setSpacing(8)
 
-    _build_workshop(dialog, window, parent)
+    _build_workshop(dialog, window)
 
     show_tool_window(parent, dialog, "workshop")

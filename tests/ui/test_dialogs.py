@@ -147,14 +147,36 @@ def test_workshop_dialog_lists_tools(window) -> None:
         "Модель",
         "Личности",
         "Умения",
-        "Добавить модель",
         "Журнал",
     ]
     assert window.settings_button.toolTip() == "Настройки"
     assert dialog.findChild(QSizeGrip, "workshopSizeGrip") is not None
     assert dialog.findChild(QPushButton, "titleButton") is not None
+    title_buttons = dialog.findChildren(QPushButton, "titleButton")
+
+    assert len(title_buttons) == 3
+    assert any(
+        button.toolTip() == "Справка по окну"
+        for button in title_buttons
+    )
 
     dialog.close()
+
+
+def test_main_title_bar_has_help(window) -> None:
+    """На планке главного окна есть кнопка справки."""
+
+    from PySide6.QtWidgets import QPushButton
+
+    buttons = window.title_bar.findChildren(
+        QPushButton,
+        "titleButton",
+    )
+
+    assert any(
+        button.toolTip() == "Справка по окну"
+        for button in buttons
+    )
 
 
 def test_workshop_has_terminal_and_panels(window) -> None:
@@ -189,7 +211,7 @@ def test_workshop_has_terminal_and_panels(window) -> None:
 
     actions = dialog.findChildren(QPushButton, "workshopAction")
 
-    assert len(actions) == 6
+    assert len(actions) == 5
 
     dialog.close()
 
