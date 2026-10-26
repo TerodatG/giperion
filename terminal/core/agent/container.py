@@ -9,8 +9,12 @@ import shutil
 import subprocess
 import sys
 import uuid
-from ctypes import wintypes
 from pathlib import Path
+
+try:  # ctypes.wintypes есть не на всех платформах
+    from ctypes import wintypes
+except (ImportError, ValueError):  # pragma: no cover - не-Windows
+    wintypes = None
 
 from config import BASE_DIR, DATA_DIR
 from terminal.core.agent import sandbox
