@@ -1,17 +1,18 @@
-# Giperion/app/core/action_log.py                                 v001
+# Giperion/app/core/action_log.py                                 v002
 # Журнал действий Giperion с датой, временем и номером записи.
-# Последнее изменение: создан инструмент записи и просмотра действий.
+# Последнее изменение: запись под блокировкой, чтобы не терять номера.
 
 from datetime import datetime
 from pathlib import Path
 
 from config import ACTIONS_LOG_FILE
+from shared.storage.json_store import path_guard
 
 LOG_FILE: Path = ACTIONS_LOG_FILE
 
 
-def get_last_record_number() -> int:
-    """Возвращает номер последней записи журнала."""
+def _last_record_number_unlocked() -> int:
+    """Последний номер журнала; вызывающий уже держит блокировку."""
 
     if not LOG_FILE.exists():
         return 0
@@ -39,6 +40,13 @@ def get_last_record_number() -> int:
     return last_number
 
 
+def get_last_record_number() -> int:
+    """Возвращает номер последней записи журнала."""
+
+    with path_guard(LOG_FILE):
+        return _last_record_number_unlocked()
+
+
 def add_action(description: str) -> int:
     """Добавляет короткое описание действия и возвращает номер записи."""
 
@@ -56,17 +64,18 @@ def add_action(description: str) -> int:
         exist_ok=True,
     )
 
-    record_number = get_last_record_number() + 1
-    created_at = datetime.now().strftime(
-        "%d.%m.%Y %H:%M:%S"
-    )
-
-    with LOG_FILE.open("a", encoding="utf-8") as file:
-        file.write(
-            f"{record_number:06d} | "
-            f"{created_at} | "
-            f"{clean_description}\n"
+    with path_guard(LOG_FILE):
+        record_number = _last_record_number_unlocked() + 1
+        created_at = datetime.now().strftime(
+            "%d.%m.%Y %H:%M:%S"
         )
+
+        with LOG_FILE.open("a", encoding="utf-8") as file:
+            file.write(
+                f"{record_number:06d} | "
+                f"{created_at} | "
+                f"{clean_description}\n"
+            )
 
     return record_number
 
@@ -80,11 +89,12 @@ def get_recent_actions(limit: int = 10) -> list[str]:
     if not LOG_FILE.exists():
         return []
 
-    with LOG_FILE.open("r", encoding="utf-8") as file:
-        lines = [
-            line.rstrip("\n")
-            for line in file
-            if line.strip()
-        ]
+    with path_guard(LOG_FILE):
+        with LOG_FILE.open("r", encoding="utf-8") as file:
+            lines = [
+                line.rstrip("\n")
+                for line in file
+                if line.strip()
+            ]
 
     return lines[-limit:]

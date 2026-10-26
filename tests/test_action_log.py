@@ -3,6 +3,7 @@
 # Последнее изменение: добавлены тесты номера, времени и вывода записей.
 
 import re
+import threading
 
 import pytest
 
@@ -168,3 +169,44 @@ def test_damaged_log_is_not_renumbered(
         )
         == "неверная запись\n"
     )
+
+
+def test_concurrent_actions_keep_numbering(
+    isolated_log,
+) -> None:
+    """Параллельные записи не дублируют номера и не ломают журнал."""
+
+    workers = 8
+    rounds = 10
+    start = threading.Barrier(workers)
+    numbers: list[int] = []
+    errors: list[BaseException] = []
+
+    def write_actions(worker: int) -> None:
+        try:
+            start.wait()
+
+            for round_number in range(rounds):
+                numbers.append(
+                    action_log.add_action(
+                        f"Поток {worker}, запись {round_number}"
+                    )
+                )
+        except BaseException as error:  # noqa: BLE001 — покажем в тесте
+            errors.append(error)
+
+    threads = [
+        threading.Thread(target=write_actions, args=(worker,))
+        for worker in range(workers)
+    ]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    assert not errors
+    assert len(numbers) == workers * rounds
+    assert sorted(numbers) == list(range(1, workers * rounds + 1))
+    assert action_log.get_last_record_number() == workers * rounds

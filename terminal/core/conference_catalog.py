@@ -3,7 +3,7 @@
 # Последнее изменение: короткие подписи для вертикального каталога.
 
 from config import DATA_DIR
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import read_json_object, update_json
 from terminal.core.model_catalog import (
     get_model,
 )
@@ -89,9 +89,16 @@ def set_selected_mode_id(mode_id: str) -> bool:
     if get_mode(mode_id) is None:
         return False
 
-    document = read_json_object(CONFERENCE_SETTINGS_FILE)
-    document["mode_id"] = mode_id
-    write_json(CONFERENCE_SETTINGS_FILE, document)
+    def mutate(document: dict) -> dict:
+        document["mode_id"] = mode_id
+
+        return document
+
+    update_json(
+        CONFERENCE_SETTINGS_FILE,
+        mutate,
+        default={},
+    )
 
     return True
 

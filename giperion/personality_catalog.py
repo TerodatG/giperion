@@ -5,7 +5,7 @@
 from pathlib import Path
 
 from config import DATA_DIR
-from shared.storage.json_store import read_json, write_json
+from shared.storage.json_store import read_json, update_json
 
 PERSONALITIES_FILE = DATA_DIR / "personality_matrices.json"
 SETTINGS_FILE = DATA_DIR / "personality_settings.json"
@@ -17,12 +17,6 @@ def _read_document(path: Path) -> dict:
     document = read_json(path, {})
 
     return document if isinstance(document, dict) else {}
-
-
-def _write_document(path: Path, document: dict) -> None:
-    """Сохраняет JSON-документ с русскими подписями."""
-
-    write_json(path, document)
 
 
 def _clean_traits(value: object) -> dict[str, int]:
@@ -133,11 +127,14 @@ def set_selected_personality_id(
         return False
 
     file_path = path or SETTINGS_FILE
-    document = _read_document(file_path)
-    document["selected"] = matrix_id
+
+    def mutate(document: dict) -> dict:
+        document["selected"] = matrix_id
+
+        return document
 
     try:
-        _write_document(file_path, document)
+        update_json(file_path, mutate, default={})
     except OSError:
         return False
 

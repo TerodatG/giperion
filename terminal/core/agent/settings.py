@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from config import DATA_DIR
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import read_json_object, update_json
 
 SETTINGS_FILE = DATA_DIR / "agent_settings.json"
 
@@ -32,6 +32,17 @@ def load_settings() -> dict[str, str]:
     return result
 
 
+def _update_fields(values: dict[str, object]) -> None:
+    """Меняет несколько полей настроек под блокировкой файла."""
+
+    def mutate(document: dict) -> dict:
+        document.update(values)
+
+        return document
+
+    update_json(SETTINGS_FILE, mutate, default={})
+
+
 def save_settings(
     base_url: str,
     api_key: str,
@@ -45,9 +56,7 @@ def save_settings(
         "model": str(model or "").strip(),
     }
 
-    document = read_json_object(SETTINGS_FILE)
-    document.update(values)
-    write_json(SETTINGS_FILE, document)
+    _update_fields(values)
 
     return values
 
@@ -109,9 +118,7 @@ def plugins_enabled() -> bool:
 def set_plugins_enabled(enabled: bool) -> None:
     """Включает или выключает плагины в настройках агента."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["plugins_enabled"] = bool(enabled)
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"plugins_enabled": bool(enabled)})
 
 
 def stream_enabled() -> bool:
@@ -125,9 +132,7 @@ def stream_enabled() -> bool:
 def set_stream_enabled(enabled: bool) -> None:
     """Включает или выключает потоковый ответ."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["stream_enabled"] = bool(enabled)
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"stream_enabled": bool(enabled)})
 
 
 def allow_unsafe_plugins() -> bool:
@@ -141,9 +146,7 @@ def allow_unsafe_plugins() -> bool:
 def set_allow_unsafe_plugins(enabled: bool) -> None:
     """Разрешает или запрещает опасные разрешения плагинов."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["unsafe_plugins"] = bool(enabled)
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"unsafe_plugins": bool(enabled)})
 
 
 def mcp_enabled() -> bool:
@@ -157,9 +160,7 @@ def mcp_enabled() -> bool:
 def set_mcp_enabled(enabled: bool) -> None:
     """Включает или выключает MCP-серверы."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["mcp_enabled"] = bool(enabled)
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"mcp_enabled": bool(enabled)})
 
 
 def browser_enabled() -> bool:
@@ -173,9 +174,7 @@ def browser_enabled() -> bool:
 def set_browser_enabled(enabled: bool) -> None:
     """Включает или выключает чтение веб-страниц."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["browser_enabled"] = bool(enabled)
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"browser_enabled": bool(enabled)})
 
 
 DEFAULT_MAX_STEPS = 12
@@ -198,9 +197,7 @@ def max_steps() -> int:
 def set_max_steps(steps: int) -> None:
     """Сохраняет лимит шагов задачи."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["max_steps"] = min(40, max(1, int(steps)))
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"max_steps": min(40, max(1, int(steps)))})
 
 
 def model_choice() -> str:
@@ -215,9 +212,9 @@ def model_choice() -> str:
 def set_model_choice(choice: str) -> None:
     """Запоминает выбор модели в окне агента."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["model_choice"] = str(choice or "").strip()[:120]
-    write_json(SETTINGS_FILE, document)
+    _update_fields(
+        {"model_choice": str(choice or "").strip()[:120]}
+    )
 
 
 SANDBOX_MODES = ("process", "appcontainer")
@@ -238,9 +235,7 @@ def set_plugin_sandbox(mode: str) -> None:
     if mode not in SANDBOX_MODES:
         raise ValueError(f"Неизвестный режим песочницы: {mode}")
 
-    document = read_json_object(SETTINGS_FILE)
-    document["plugin_sandbox"] = mode
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"plugin_sandbox": mode})
 
 
 POLICIES = ("read", "confirm", "trust")
@@ -260,9 +255,7 @@ def set_approval_policy(policy: str) -> None:
     if policy not in POLICIES:
         raise ValueError(f"Неизвестная политика: {policy}")
 
-    document = read_json_object(SETTINGS_FILE)
-    document["approval_policy"] = policy
-    write_json(SETTINGS_FILE, document)
+    _update_fields({"approval_policy": policy})
 
 
 def _number(
@@ -312,12 +305,14 @@ def save_budget_limits(
 ) -> None:
     """Сохраняет лимиты задачи; отрицательные значения приводятся к нулю."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["token_limit"] = max(0, int(tokens))
-    document["cost_limit"] = max(0.0, float(cost))
-    document["price_in"] = max(0.0, float(price_in))
-    document["price_out"] = max(0.0, float(price_out))
-    write_json(SETTINGS_FILE, document)
+    _update_fields(
+        {
+            "token_limit": max(0, int(tokens)),
+            "cost_limit": max(0.0, float(cost)),
+            "price_in": max(0.0, float(price_in)),
+            "price_out": max(0.0, float(price_out)),
+        }
+    )
 
 
 DEFAULT_TIMEOUT = 120
@@ -341,12 +336,14 @@ def context_limit_chars() -> int:
 def set_context_limit_chars(chars: int) -> None:
     """Сохраняет бюджет промпта в символах."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["context_chars"] = min(
-        2_000_000,
-        max(8_000, int(chars)),
+    _update_fields(
+        {
+            "context_chars": min(
+                2_000_000,
+                max(8_000, int(chars)),
+            )
+        }
     )
-    write_json(SETTINGS_FILE, document)
 
 
 def request_timeout() -> int:
@@ -361,6 +358,6 @@ def request_timeout() -> int:
 def set_request_timeout(seconds: int) -> None:
     """Сохраняет таймаут запроса."""
 
-    document = read_json_object(SETTINGS_FILE)
-    document["request_timeout"] = min(900, max(10, int(seconds)))
-    write_json(SETTINGS_FILE, document)
+    _update_fields(
+        {"request_timeout": min(900, max(10, int(seconds)))}
+    )

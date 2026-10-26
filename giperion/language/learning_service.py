@@ -4,12 +4,17 @@
 
 import json
 import re
+import threading
 
 from config import DATA_DIR
 from shared.storage.json_store import write_json
 from shared.text_tools import normalize_message
 
 INTENTS_FILE = DATA_DIR / "intents.json"
+
+# Обучение и правка знаний меняют один и тот же intents.json:
+# проверка и запись должны идти одной операцией.
+INTENTS_LOCK = threading.Lock()
 
 CATEGORY_NAME_PATTERN = re.compile(
     r"^[a-zA-Z][a-zA-Z0-9_]*$"
@@ -158,6 +163,21 @@ def create_category(
 ) -> str:
     """Создаёт категорию после повторной проверки данных."""
 
+    with INTENTS_LOCK:
+        return _create_category_locked(
+            category,
+            phrase,
+            response,
+        )
+
+
+def _create_category_locked(
+    category: str,
+    phrase: str,
+    response: str,
+) -> str:
+    """Создаёт категорию; вызывающий уже держит блокировку файла."""
+
     validation_error = validate_new_category(
         category,
         phrase,
@@ -197,6 +217,19 @@ def add_phrase_to_category(
     category: str,
 ) -> str:
     """Добавляет фразу к существующей категории."""
+
+    with INTENTS_LOCK:
+        return _add_phrase_to_category_locked(
+            phrase,
+            category,
+        )
+
+
+def _add_phrase_to_category_locked(
+    phrase: str,
+    category: str,
+) -> str:
+    """Добавляет фразу; вызывающий уже держит блокировку файла."""
 
     clean_phrase = " ".join(phrase.split())
     clean_category = category.strip()

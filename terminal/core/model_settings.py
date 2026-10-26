@@ -4,7 +4,10 @@
 
 from dataclasses import dataclass
 
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import (
+    read_json_object,
+    update_json,
+)
 from terminal.core import model_files
 from terminal.core.model_catalog import (
     COMPANION_GROUP,
@@ -67,9 +70,16 @@ def save_model_group_flags(flags: dict) -> dict[str, bool]:
         for key in MODEL_GROUP_FLAGS
     }
 
-    document = read_json_object(model_files.SETTINGS_FILE)
-    document["model_groups"] = clean
-    write_json(model_files.SETTINGS_FILE, document)
+    def mutate(document: dict) -> dict:
+        document["model_groups"] = clean
+
+        return document
+
+    update_json(
+        model_files.SETTINGS_FILE,
+        mutate,
+        default={},
+    )
 
     return clean
 
@@ -172,10 +182,12 @@ def _is_usable_with(model: dict, flags: dict[str, bool]) -> bool:
     return ModelPolicy(flags).usable(model)
 
 
-def _stored_ids(key: str) -> list[str]:
-    """Сохранённые идентификаторы без фильтра по группам."""
+def _stored_ids_from_document(
+    document: dict,
+    key: str,
+) -> list[str]:
+    """Сохранённые идентификаторы из уже прочитанного документа."""
 
-    document = read_json_object(model_files.SETTINGS_FILE)
     raw = document.get(key, [])
 
     if not isinstance(raw, list):
@@ -193,6 +205,15 @@ def _stored_ids(key: str) -> list[str]:
             result.append(model_id)
 
     return result
+
+
+def _stored_ids(key: str) -> list[str]:
+    """Сохранённые идентификаторы без фильтра по группам."""
+
+    return _stored_ids_from_document(
+        read_json_object(model_files.SETTINGS_FILE),
+        key,
+    )
 
 
 def _visible_ids(key: str) -> list[str]:
@@ -236,9 +257,16 @@ def _save_members(key: str, model_ids: list[str]) -> list[str]:
         ):
             members.append(model_id)
 
-    document = read_json_object(model_files.SETTINGS_FILE)
-    document[key] = members
-    write_json(model_files.SETTINGS_FILE, document)
+    def mutate(document: dict) -> dict:
+        document[key] = members
+
+        return document
+
+    update_json(
+        model_files.SETTINGS_FILE,
+        mutate,
+        default={},
+    )
 
     return members
 
@@ -255,16 +283,26 @@ def _set_member(key: str, model_id: str, enabled: bool) -> bool:
     if enabled and not is_model_usable(model):
         return False
 
-    # Берём сохранённый список без фильтра: выключенные группы не теряются.
-    members = _stored_ids(key)
+    def mutate(document: dict) -> dict:
+        # Берём сохранённый список без фильтра: выключенные группы
+        # не теряются.
+        members = _stored_ids_from_document(document, key)
 
-    if enabled:
-        if model_id not in members:
-            members.append(model_id)
-    elif model_id in members:
-        members.remove(model_id)
+        if enabled:
+            if model_id not in members:
+                members.append(model_id)
+        elif model_id in members:
+            members.remove(model_id)
 
-    _save_members(key, members)
+        document[key] = members
+
+        return document
+
+    update_json(
+        model_files.SETTINGS_FILE,
+        mutate,
+        default={},
+    )
 
     return True
 
@@ -407,15 +445,26 @@ def set_current_model_id(model_id: str) -> bool:
     if model is None:
         return False
 
-    # Компаньоны живут в том же файле, поэтому не теряем их при выборе.
-    document = read_json_object(model_files.SETTINGS_FILE)
+    allowed = {"value": True}
 
-    if not _is_usable_with(model, _flags_from_document(document)):
-        return False
+    def mutate(document: dict) -> dict:
+        if not _is_usable_with(
+            model,
+            _flags_from_document(document),
+        ):
+            allowed["value"] = False
 
-    document["model_id"] = model_id
-    document.setdefault("companions", [])
+            return document
 
-    write_json(model_files.SETTINGS_FILE, document)
+        document["model_id"] = model_id
+        document.setdefault("companions", [])
 
-    return True
+        return document
+
+    update_json(
+        model_files.SETTINGS_FILE,
+        mutate,
+        default={},
+    )
+
+    return bool(allowed["value"])

@@ -6,7 +6,7 @@ import re
 from datetime import date
 
 from config import DATA_DIR
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import read_json_object, update_json
 
 # Имя продукта в окне обновления и в журнале действий.
 APP_NAME = "Giperion Terminal"
@@ -87,18 +87,26 @@ def set_installed(
 ) -> None:
     """Запоминает установленную версию после удачного обновления."""
 
-    state = read_state()
+    def mutate(state: dict) -> dict:
+        state.update(
+            {
+                "version": "v001",
+                "app": APP_NAME,
+                "installed": str(version),
+                "released": str(
+                    released or date.today().isoformat()
+                ),
+                "patch": str(patch),
+                "note": str(note),
+                "updated_at": date.today().isoformat(),
+            }
+        )
 
-    state.update(
-        {
-            "version": "v001",
-            "app": APP_NAME,
-            "installed": str(version),
-            "released": str(released or date.today().isoformat()),
-            "patch": str(patch),
-            "note": str(note),
-            "updated_at": date.today().isoformat(),
-        }
+        return state
+
+    update_json(
+        STATE_FILE,
+        mutate,
+        default={},
+        trailing_newline=True,
     )
-
-    write_json(STATE_FILE, state, trailing_newline=True)

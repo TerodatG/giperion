@@ -2,7 +2,7 @@
 # Свои модели пользователя: добавление и удаление в отдельном файле.
 # Последнее изменение: удаление своей модели из каталога.
 
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import update_json
 from terminal.core import model_files
 from terminal.core.model_catalog import (
     DEFAULT_STRENGTHS,
@@ -13,28 +13,38 @@ from terminal.core.model_catalog import (
 def remove_custom_model(model_id: str) -> bool:
     """Удаляет свою модель из data/custom_models.json."""
 
-    document = read_json_object(model_files.CUSTOM_MODELS_FILE)
-    records = document.get("models", [])
+    removed = {"value": False}
 
-    if not isinstance(records, list):
-        return False
+    def mutate(document: dict) -> dict:
+        records = document.get("models", [])
 
-    kept = [
-        record
-        for record in records
-        if not (
-            isinstance(record, dict)
-            and record.get("id") == model_id
-        )
-    ]
+        if not isinstance(records, list):
+            return document
 
-    if len(kept) == len(records):
-        return False
+        kept = [
+            record
+            for record in records
+            if not (
+                isinstance(record, dict)
+                and record.get("id") == model_id
+            )
+        ]
 
-    document["models"] = kept
-    write_json(model_files.CUSTOM_MODELS_FILE, document)
+        if len(kept) == len(records):
+            return document
 
-    return True
+        document["models"] = kept
+        removed["value"] = True
+
+        return document
+
+    update_json(
+        model_files.CUSTOM_MODELS_FILE,
+        mutate,
+        default={},
+    )
+
+    return bool(removed["value"])
 
 
 def add_custom_model(
@@ -52,46 +62,55 @@ def add_custom_model(
     if not clean_name:
         return None
 
-    document = read_json_object(model_files.CUSTOM_MODELS_FILE)
-    records = document.get("models", [])
+    created: dict[str, dict | None] = {"model": None}
 
-    if not isinstance(records, list):
-        records = []
+    def mutate(document: dict) -> dict:
+        records = document.get("models", [])
 
-    taken_ids = {
-        record.get("id")
-        for record in records
-        if isinstance(record, dict)
-    }
+        if not isinstance(records, list):
+            records = []
 
-    number = len(records) + 1
+        taken_ids = {
+            record.get("id")
+            for record in records
+            if isinstance(record, dict)
+        }
 
-    while f"custom-{number}" in taken_ids:
-        number += 1
+        number = len(records) + 1
 
-    record = {
-        "id": f"custom-{number}",
-        "name": clean_name,
-        "provider": " ".join(provider.split()) or "своя модель",
-        "description": " ".join(description.split()),
-        "available": False,
-        "group": "own",
-        "avatar": "",
-        "url": " ".join(url.split()),
-        "api": "",
-        "price": "",
-        "model_id": "",
-        "provider_id": "",
-        "context_limit": max(0, int(context_limit)),
-        "token_budget": max(0, int(token_budget)),
-        "strengths": {
-            strength: 0 for strength in DEFAULT_STRENGTHS
-        },
-    }
+        while f"custom-{number}" in taken_ids:
+            number += 1
 
-    records.append(record)
+        record = {
+            "id": f"custom-{number}",
+            "name": clean_name,
+            "provider": " ".join(provider.split()) or "своя модель",
+            "description": " ".join(description.split()),
+            "available": False,
+            "group": "own",
+            "avatar": "",
+            "url": " ".join(url.split()),
+            "api": "",
+            "price": "",
+            "model_id": "",
+            "provider_id": "",
+            "context_limit": max(0, int(context_limit)),
+            "token_budget": max(0, int(token_budget)),
+            "strengths": {
+                strength: 0 for strength in DEFAULT_STRENGTHS
+            },
+        }
 
-    document["models"] = records
-    write_json(model_files.CUSTOM_MODELS_FILE, document)
+        records.append(record)
+        document["models"] = records
+        created["model"] = _parse_model(record)
 
-    return _parse_model(record)
+        return document
+
+    update_json(
+        model_files.CUSTOM_MODELS_FILE,
+        mutate,
+        default={},
+    )
+
+    return created["model"]

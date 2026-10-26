@@ -4,6 +4,7 @@
 
 import re
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +19,10 @@ from shared.storage.json_store import read_json, write_json
 ARCHIVE_ID_PATTERN = re.compile(r"^\d{5}$")
 ARCHIVE_INFO_FILE_NAME = "archive_info.json"
 ARCHIVE_COUNTER_FILE_NAME = "archive_counter.json"
+
+# Создание архива — операция «прочитать счётчик и выдать номер».
+# Без блокировки два потока могли получить один и тот же номер.
+_CREATE_ARCHIVE_LOCK = threading.Lock()
 
 MEMORY_FILES = [
     USER_PROFILE_FILE,
@@ -113,6 +118,13 @@ def save_last_issued_archive_number(archive_number: int) -> None:
 
 def create_archive() -> dict[str, str]:
     """Создаёт снимок памяти с новым, ранее не выданным номером."""
+
+    with _CREATE_ARCHIVE_LOCK:
+        return _create_archive_locked()
+
+
+def _create_archive_locked() -> dict[str, str]:
+    """Создаёт архив; вызывающий уже держит блокировку выдачи номера."""
 
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
 

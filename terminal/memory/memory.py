@@ -9,7 +9,7 @@ from config import (
     UNKNOWN_MESSAGES_FILE,
     USER_PROFILE_FILE,
 )
-from shared.storage.json_store import read_json, write_json
+from shared.storage.json_store import read_json, update_json, write_json
 
 DEFAULT_USER_PROFILE = {
     "name": None,
@@ -42,10 +42,18 @@ def get_user_name() -> str | None:
 def set_user_name(name: str) -> None:
     """Сохраняет имя пользователя в профиль."""
 
-    profile = get_user_profile()
-    profile["name"] = name
+    def mutate(document: object) -> dict:
+        profile = document if isinstance(document, dict) else {}
 
-    write_json(USER_PROFILE_FILE, profile)
+        profile["name"] = name
+
+        return profile
+
+    update_json(
+        USER_PROFILE_FILE,
+        mutate,
+        default=DEFAULT_USER_PROFILE.copy(),
+    )
 
 
 def reset_user_profile() -> None:
@@ -76,8 +84,6 @@ def add_message(
     обучение не принимало ответы внешних моделей за речь Гипериона.
     """
 
-    conversations = get_conversations()
-
     record = {
         "role": role,
         "text": text,
@@ -89,9 +95,17 @@ def add_message(
     if model and role == "assistant":
         record["model"] = model
 
-    conversations.append(record)
+    def mutate(document: object) -> list:
+        conversations = document if isinstance(document, list) else []
+        conversations.append(record)
 
-    write_json(CONVERSATIONS_FILE, conversations)
+        return conversations
+
+    update_json(
+        CONVERSATIONS_FILE,
+        mutate,
+        default=[],
+    )
 
 
 def get_messages_count() -> int:
@@ -120,25 +134,35 @@ def get_unknown_messages() -> list[dict]:
 def add_unknown_message(text: str) -> None:
     """Добавляет уникальную непонятую фразу в постоянную память."""
 
-    unknown_messages = get_unknown_messages()
     normalized_text = text.lower().strip()
 
-    for message in unknown_messages:
-        saved_text = message.get("text", "").lower().strip()
+    def mutate(document: object) -> list:
+        unknown_messages = (
+            document if isinstance(document, list) else []
+        )
 
-        if saved_text == normalized_text:
-            return
+        for message in unknown_messages:
+            saved_text = str(message.get("text", "")).lower().strip()
 
-    unknown_messages.append(
-        {
-            "text": text,
-            "created_at": datetime.now().isoformat(
-                timespec="seconds",
-            ),
-        }
+            if saved_text == normalized_text:
+                return unknown_messages
+
+        unknown_messages.append(
+            {
+                "text": text,
+                "created_at": datetime.now().isoformat(
+                    timespec="seconds",
+                ),
+            }
+        )
+
+        return unknown_messages
+
+    update_json(
+        UNKNOWN_MESSAGES_FILE,
+        mutate,
+        default=[],
     )
-
-    write_json(UNKNOWN_MESSAGES_FILE, unknown_messages)
 
 
 def remove_unknown_messages(texts: list[str]) -> None:
@@ -149,16 +173,23 @@ def remove_unknown_messages(texts: list[str]) -> None:
         for text in texts
     }
 
-    unknown_messages = get_unknown_messages()
+    def mutate(document: object) -> list:
+        unknown_messages = (
+            document if isinstance(document, list) else []
+        )
 
-    remaining_messages = [
-        message
-        for message in unknown_messages
-        if message.get("text", "").lower().strip()
-        not in normalized_texts
-    ]
+        return [
+            message
+            for message in unknown_messages
+            if str(message.get("text", "")).lower().strip()
+            not in normalized_texts
+        ]
 
-    write_json(UNKNOWN_MESSAGES_FILE, remaining_messages)
+    update_json(
+        UNKNOWN_MESSAGES_FILE,
+        mutate,
+        default=[],
+    )
 
 
 def clear_unknown_messages() -> None:

@@ -3,6 +3,7 @@
 # Последнее изменение: добавлены просмотр, изменение ответа и удаление знаний.
 
 from giperion.language.learning_service import (
+    INTENTS_LOCK,
     load_intents_document,
     save_intents_document,
 )
@@ -110,6 +111,19 @@ def change_category_answer(
 ) -> str:
     """Заменяет первый ответ категории после повторной проверки."""
 
+    with INTENTS_LOCK:
+        return _change_category_answer_locked(
+            category,
+            new_response,
+        )
+
+
+def _change_category_answer_locked(
+    category: str,
+    new_response: str,
+) -> str:
+    """Меняет ответ; вызывающий уже держит блокировку intents.json."""
+
     error = validate_answer_change(
         category,
         new_response,
@@ -195,6 +209,16 @@ def remove_phrase(
 ) -> str:
     """Удаляет фразу после повторной проверки."""
 
+    with INTENTS_LOCK:
+        return _remove_phrase_locked(category, phrase)
+
+
+def _remove_phrase_locked(
+    category: str,
+    phrase: str,
+) -> str:
+    """Удаляет фразу; вызывающий уже держит блокировку intents.json."""
+
     error = validate_phrase_removal(
         category,
         phrase,
@@ -244,6 +268,15 @@ def remove_category(
     category: str,
 ) -> str:
     """Удаляет категорию после повторной проверки."""
+
+    with INTENTS_LOCK:
+        return _remove_category_locked(category)
+
+
+def _remove_category_locked(
+    category: str,
+) -> str:
+    """Удаляет категорию; вызывающий уже держит блокировку intents.json."""
 
     error = validate_category_removal(category)
 

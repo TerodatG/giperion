@@ -2,9 +2,22 @@
 # Обращения к моделям, расход токенов, репутация и лимиты.
 # Последнее изменение: выделено из model_registry.
 
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import (
+    read_json_object,
+    update_json,
+    write_json,
+)
 from terminal.core import model_files
 from terminal.core.model_catalog import get_model
+
+
+def _clean_counter(value: object) -> int:
+    """Неотрицательное целое из JSON; мусор превращается в ноль."""
+
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+
+    return max(0, value)
 
 
 def load_stats() -> dict[str, dict[str, int]]:
@@ -17,12 +30,9 @@ def load_stats() -> dict[str, dict[str, int]]:
         if not isinstance(record, dict):
             continue
 
-        requests = record.get("requests", 0)
-        tokens = record.get("tokens", 0)
-
         stats[model_id] = {
-            "requests": requests if isinstance(requests, int) else 0,
-            "tokens": tokens if isinstance(tokens, int) else 0,
+            "requests": _clean_counter(record.get("requests", 0)),
+            "tokens": _clean_counter(record.get("tokens", 0)),
         }
 
     return stats
@@ -34,8 +44,8 @@ def save_stats(stats: dict[str, dict[str, int]]) -> None:
     document = {
         "models": {
             model_id: {
-                "requests": record.get("requests", 0),
-                "tokens": record.get("tokens", 0),
+                "requests": _clean_counter(record.get("requests", 0)),
+                "tokens": _clean_counter(record.get("tokens", 0)),
             }
             for model_id, record in sorted(stats.items())
         }
@@ -48,18 +58,47 @@ def record_model_request(
     model_id: str,
     tokens: int = 0,
 ) -> dict[str, int]:
-    """Считает обращение и израсходованные токены."""
+    """Считает обращение и израсходованные токены.
 
-    stats = load_stats()
-    record = stats.get(model_id, {"requests": 0, "tokens": 0})
+    Чтение и запись идут под блокировкой файла: два потока не потеряют
+    обращение друг друга.
+    """
 
-    record["requests"] += 1
-    record["tokens"] += max(0, int(tokens))
-    stats[model_id] = record
+    recorded: dict[str, int] = {}
 
-    save_stats(stats)
+    def mutate(document: dict) -> None:
+        records = document.get("models")
 
-    return record
+        if not isinstance(records, dict):
+            records = {}
+
+        record = records.get(model_id)
+
+        if not isinstance(record, dict):
+            record = {"requests": 0, "tokens": 0}
+
+        requests = _clean_counter(record.get("requests", 0)) + 1
+        spent = _clean_counter(record.get("tokens", 0))
+
+        try:
+            spent += max(0, int(tokens))
+        except (TypeError, ValueError):
+            pass
+
+        record = {"requests": requests, "tokens": spent}
+        records[model_id] = record
+        document["models"] = {
+            key: records[key] for key in sorted(records)
+        }
+        recorded.update(record)
+
+    update_json(
+        model_files.STATS_FILE,
+        mutate,
+        default={"models": {}},
+    )
+
+    return recorded
 
 
 def get_reputation(model_id: str) -> dict:

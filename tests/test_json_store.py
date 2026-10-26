@@ -1,7 +1,14 @@
 # Giperion/tests/test_json_store.py                                v001
 # Проверки общего слоя хранения: чтение, атомарная запись, кириллица.
 
-from shared.storage.json_store import read_json, read_json_object, write_json
+import threading
+
+from shared.storage.json_store import (
+    read_json,
+    read_json_object,
+    update_json,
+    write_json,
+)
 
 
 def test_missing_file_returns_default(tmp_path) -> None:
@@ -96,3 +103,44 @@ def test_trailing_newline_is_optional(tmp_path) -> None:
     write_json(path, {"intents": []}, trailing_newline=True)
 
     assert path.read_text(encoding="utf-8").endswith("\n")
+
+
+def test_update_json_keeps_all_concurrent_changes(tmp_path) -> None:
+    """Чтение и запись под блокировкой не теряют инкременты."""
+
+    path = tmp_path / "counter.json"
+    write_json(path, {"value": 0})
+
+    workers = 8
+    rounds = 10
+    start = threading.Barrier(workers)
+    errors: list[BaseException] = []
+
+    def increment() -> None:
+        try:
+            start.wait()
+
+            for _ in range(rounds):
+                update_json(
+                    path,
+                    lambda document: document.update(
+                        {"value": int(document["value"]) + 1}
+                    ),
+                    default={"value": 0},
+                )
+        except BaseException as error:  # noqa: BLE001 — покажем в тесте
+            errors.append(error)
+
+    threads = [
+        threading.Thread(target=increment)
+        for _ in range(workers)
+    ]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    assert not errors
+    assert read_json_object(path)["value"] == workers * rounds

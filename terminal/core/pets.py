@@ -6,7 +6,11 @@ import copy
 from datetime import date
 
 from config import DATA_DIR
-from shared.storage.json_store import read_json_object, write_json
+from shared.storage.json_store import (
+    read_json_object,
+    update_json,
+    write_json,
+)
 
 PETS_FILE = DATA_DIR / "pets.json"
 
@@ -202,10 +206,9 @@ def _clean_pet(value: object) -> dict | None:
     return pet
 
 
-def load_pets() -> list[dict]:
-    """Читает дронов, всегда оставляя двух базовых."""
+def _pets_from_document(document: dict) -> list[dict]:
+    """Собирает дронов из документа, всегда оставляя двух базовых."""
 
-    document = read_json_object(PETS_FILE)
     raw = document.get("pets", [])
     pets = _default_pets()
 
@@ -238,6 +241,56 @@ def load_pets() -> list[dict]:
             known.add(pet["id"])
 
     return pets
+
+
+def _document_from_pets(pets: list[dict], active_id: str) -> dict:
+    """Документ для записи без служебных полей."""
+
+    return {
+        "active_pet_id": active_id or "",
+        "pets": [
+            {
+                key: value
+                for key, value in pet.items()
+                if key != "species_title"
+            }
+            for pet in pets
+        ],
+        "_meta": {
+            "version": "v004",
+            "description": (
+                "Дроны терминала: лёгкие личности, клички и успехи "
+                "обучения."
+            ),
+        },
+    }
+
+
+def _mutate_pets(mutator):
+    """Меняет дронов под блокировкой файла и возвращает итог mutator."""
+
+    outcome: dict[str, object] = {}
+
+    def mutate(document: dict) -> dict:
+        pets = _pets_from_document(document)
+        raw_active = document.get("active_pet_id")
+        state = {
+            "active": raw_active if isinstance(raw_active, str) else "",
+        }
+
+        outcome["value"] = mutator(pets, state)
+
+        return _document_from_pets(pets, state["active"])
+
+    update_json(PETS_FILE, mutate, default={})
+
+    return outcome.get("value")
+
+
+def load_pets() -> list[dict]:
+    """Читает дронов, всегда оставляя двух базовых."""
+
+    return _pets_from_document(read_json_object(PETS_FILE))
 
 
 def get_pet(pet_id: str) -> dict | None:
@@ -273,78 +326,60 @@ def get_active_pet() -> dict | None:
 def _write_pets(pets: list[dict], active_id: str) -> None:
     """Сохраняет дронов и закрепление без служебных полей."""
 
-    document = {
-        "active_pet_id": active_id or "",
-        "pets": [
-            {
-                key: value
-                for key, value in pet.items()
-                if key != "species_title"
-            }
-            for pet in pets
-        ],
-        "_meta": {
-            "version": "v004",
-            "description": (
-                "Дроны терминала: лёгкие личности, клички и успехи "
-                "обучения."
-            ),
-        },
-    }
-    write_json(PETS_FILE, document)
+    write_json(PETS_FILE, _document_from_pets(pets, active_id))
 
 
 def set_pet_nickname(pet_id: str, nickname: str) -> dict | None:
     """Меняет кличку дрона, не трогая вид и успехи обучения."""
 
-    pets = load_pets()
-    updated = None
-
-    for pet in pets:
-        if pet["id"] != pet_id:
-            continue
-
-        clean = str(nickname or "").strip()[:40]
-
-        pet["nickname"] = clean
-        updated = pet
-
-        break
-
-    if updated is None:
+    if get_pet(pet_id) is None:
         return None
 
-    _write_pets(pets, get_active_pet_id())
+    clean = str(nickname or "").strip()[:40]
 
-    return updated
+    def mutate(pets: list[dict], _state: dict) -> dict | None:
+        for pet in pets:
+            if pet["id"] == pet_id:
+                pet["nickname"] = clean
+
+                return pet
+
+        return None
+
+    return _mutate_pets(mutate)
 
 
 def remove_custom_pet(pet_id: str) -> bool:
     """Удаляет своего дрона; базовых удалить нельзя."""
 
-    pets = load_pets()
-    kept = []
-    removed = False
+    target = get_pet(pet_id)
 
-    for pet in pets:
-        if pet["id"] == pet_id and pet.get("custom"):
-            removed = True
-
-            continue
-
-        kept.append(pet)
-
-    if not removed:
+    if target is None or not target.get("custom"):
         return False
 
-    active = get_active_pet_id()
+    def mutate(pets: list[dict], state: dict) -> bool:
+        kept = []
+        removed = False
 
-    if active == pet_id:
-        active = ""
+        for pet in pets:
+            if pet["id"] == pet_id and pet.get("custom"):
+                removed = True
 
-    _write_pets(kept, active)
+                continue
 
-    return True
+            kept.append(pet)
+
+        if not removed:
+            return False
+
+        pets[:] = kept
+
+        if state["active"] == pet_id:
+            state["active"] = ""
+
+        return True
+
+    return bool(_mutate_pets(mutate))
 
 
 def set_active_pet_id(pet_id: str) -> bool:
@@ -353,40 +388,43 @@ def set_active_pet_id(pet_id: str) -> bool:
     if pet_id and get_pet(pet_id) is None:
         return False
 
-    _write_pets(load_pets(), pet_id or "")
+    def mutate(pets: list[dict], state: dict) -> bool:
+        if pet_id and not any(pet["id"] == pet_id for pet in pets):
+            return False
 
-    return True
+        state["active"] = pet_id or ""
+
+        return True
+
+    return bool(_mutate_pets(mutate))
 
 
 def record_pet_activity(pet_id: str, learned: int = 0) -> dict | None:
     """Учитывает разговор с дроном и, возможно, новую фразу."""
 
-    pets = load_pets()
-    updated = None
-
-    for pet in pets:
-        if pet["id"] != pet_id:
-            continue
-
-        progress = _clean_progress(pet.get("progress"))
-        progress["conversations"] += 1
-        progress["experience"] += 10
-
-        if learned:
-            progress["learned_phrases"] += max(0, int(learned))
-
-        progress["level"] = pet_level(progress["experience"])
-        pet["progress"] = progress
-        updated = pet
-
-        break
-
-    if updated is None:
+    if get_pet(pet_id) is None:
         return None
 
-    _write_pets(pets, get_active_pet_id())
+    def mutate(pets: list[dict], _state: dict) -> dict | None:
+        for pet in pets:
+            if pet["id"] != pet_id:
+                continue
 
-    return updated
+            progress = _clean_progress(pet.get("progress"))
+            progress["conversations"] += 1
+            progress["experience"] += 10
+
+            if learned:
+                progress["learned_phrases"] += max(0, int(learned))
+
+            progress["level"] = pet_level(progress["experience"])
+            pet["progress"] = progress
+
+            return pet
+
+        return None
+
+    return _mutate_pets(mutate)
 
 
 def add_custom_pet(
@@ -404,49 +442,49 @@ def add_custom_pet(
     if species not in SPECIES_TITLES:
         species = "custom"
 
-    existing = load_pets()
-    used_ids = {pet["id"] for pet in existing}
-    number = 1
+    def mutate(pets: list[dict], _state: dict) -> dict:
+        used_ids = {pet["id"] for pet in pets}
+        number = 1
 
-    while f"custom-{number}" in used_ids:
-        number += 1
+        while f"custom-{number}" in used_ids:
+            number += 1
 
-    pet = {
-        "id": f"custom-{number}",
-        "name": clean_name[:40],
-        "nickname": clean_name[:40],
-        "species": species,
-        "species_title": SPECIES_TITLES[species],
-        "symbol": {
-            "spider": "🕷️",
-            "vacuum": "🤖",
-            "custom": "🛠️",
-        }[species],
-        "description": (
-            description.strip()[:600]
-            or (
-                "Свой дрон терминала. Наследует базовый шаблон "
-                "личности и учится общению через чат."
-            )
-        ),
-        "greeting": (
-            f"Привет! Я {clean_name[:40]}. "
-            "Буду жить в терминале и учиться разговаривать."
-        ),
-        "self_description": (
-            f"Я {clean_name[:40]} — дрон терминала. "
-            "Учусь разговаривать и исследовать мир."
-        ),
-        "custom": True,
-        "created": date.today().isoformat(),
-        "role": BASE_TEMPLATE["role"],
-        "base_model": BASE_TEMPLATE["base_model"],
-        "traits": dict(BASE_TEMPLATE["traits"]),
-        "speech": BASE_TEMPLATE["speech"],
-        "progress": dict(DEFAULT_PROGRESS),
-    }
+        pet = {
+            "id": f"custom-{number}",
+            "name": clean_name[:40],
+            "nickname": clean_name[:40],
+            "species": species,
+            "species_title": SPECIES_TITLES[species],
+            "symbol": {
+                "spider": "🕷️",
+                "vacuum": "🤖",
+                "custom": "🛠️",
+            }[species],
+            "description": (
+                description.strip()[:600]
+                or (
+                    "Свой дрон терминала. Наследует базовый шаблон "
+                    "личности и учится общению через чат."
+                )
+            ),
+            "greeting": (
+                f"Привет! Я {clean_name[:40]}. "
+                "Буду жить в терминале и учиться разговаривать."
+            ),
+            "self_description": (
+                f"Я {clean_name[:40]} — дрон терминала. "
+                "Учусь разговаривать и исследовать мир."
+            ),
+            "custom": True,
+            "created": date.today().isoformat(),
+            "role": BASE_TEMPLATE["role"],
+            "base_model": BASE_TEMPLATE["base_model"],
+            "traits": dict(BASE_TEMPLATE["traits"]),
+            "speech": BASE_TEMPLATE["speech"],
+            "progress": dict(DEFAULT_PROGRESS),
+        }
+        pets.append(pet)
 
-    existing.append(pet)
-    _write_pets(existing, get_active_pet_id())
+        return pet
 
-    return pet
+    return _mutate_pets(mutate)
