@@ -33,6 +33,23 @@ python -m tools.agent_schedule remove <id>
   powershell -ExecutionPolicy Bypass -File tools/install_schedule_task.ps1 -EveryMinutes 30
   powershell -ExecutionPolicy Bypass -File tools/install_schedule_task.ps1 -Remove
   ```
+
+Демон на время сеанса (проверяет расписание каждые 5 минут):
+
+```powershell
+python -m tools.agent_daemon --interval 300
+python -m tools.agent_daemon --once
+```
+
+## Дашборд
+
+```powershell
+python -m tools.agent_dashboard
+```
+
+Собирает `data/agent_dashboard.html`: последний успех, число прогонов,
+задачи расписания, записи аудита, график успеха и таблицу последних
+20 прогонов. Открывается в браузере, ничего не отправляет наружу.
 - Модель и провайдер берутся из настроек; можно передать `--model`,
   `--provider`.
 
@@ -64,6 +81,21 @@ python -m tools.plugin_install path/to/plugin --force
 копируется в `data/agent_tools/<name>`, в манифест добавляются
 `installed_at` и `sha256` файлов. Это контроль целостности, **не**
 подпись автора.
+
+Подпись (HMAC-SHA256 по файлам):
+
+```
+python -m tools.plugin_sign path/to/plugin --gen-key
+python -m tools.plugin_sign path/to/plugin
+python -m tools.plugin_sign path/to/plugin --verify
+python -m tools.plugin_install path/to/plugin --require-signature
+```
+
+Ключ лежит в `data/plugin_signing.key` (вне git). Если `signature.json`
+есть, установщик проверяет его и при расхождении отказывает; с
+`--require-signature` подпись обязательна. Это защита от подмены файлов,
+но не удостоверение личности автора: ключ можно передать вместе с
+плагином.
 
 ## Публикация ветки и PR
 

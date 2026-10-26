@@ -162,7 +162,11 @@ def render(request: dict) -> dict:
     with sync_playwright() as runtime:
         browser = runtime.chromium.launch(
             headless=True,
-            args=["--disable-dev-shm-usage"],
+            args=[
+                "--disable-dev-shm-usage",
+                "--disable-crash-reporter",
+                "--disable-breakpad",
+            ],
         )
 
         try:
@@ -237,7 +241,11 @@ def _new_page(runtime):
 
     browser = runtime.chromium.launch(
         headless=True,
-        args=["--disable-dev-shm-usage"],
+        args=[
+            "--disable-dev-shm-usage",
+            "--disable-crash-reporter",
+            "--disable-breakpad",
+        ],
     )
     context = browser.new_context(accept_downloads=False)
     context.route("**/*", _guard)

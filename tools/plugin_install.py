@@ -36,7 +36,11 @@ def validate(
     """Проверяет манифест и возвращает его, манифест-файл и модули."""
 
     base = Path(folder)
-    manifests = sorted(base.glob("*.json"))
+    manifests = sorted(
+        path
+        for path in base.glob("*.json")
+        if path.name != "signature.json"
+    )
 
     if len(manifests) != 1:
         raise ValueError(
@@ -105,10 +109,22 @@ def install(
     folder: Path,
     target: Path = PLUGIN_DIR,
     force: bool = False,
+    require_signature: bool = False,
 ) -> dict:
     """Копирует плагин в data/agent_tools и пишет хеши."""
 
     document, manifest_path, modules = validate(folder)
+    signature_file = Path(folder) / "signature.json"
+
+    if signature_file.is_file() or require_signature:
+        from importlib import import_module
+
+        checker = import_module("tools.plugin_sign")
+        ok, message = checker.verify(Path(folder))
+
+        if not ok:
+            raise ValueError(f"Подпись не принята: {message}")
+
     name = str(document["name"])
     destination = Path(target) / name
 
@@ -155,6 +171,11 @@ def main() -> int:
     )
     parser.add_argument("folder")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--require-signature",
+        action="store_true",
+        help="требовать signature.json (HMAC-SHA256)",
+    )
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--target", default=str(PLUGIN_DIR))
     args = parser.parse_args()
@@ -174,6 +195,7 @@ def main() -> int:
             folder,
             target=Path(args.target),
             force=args.force,
+            require_signature=args.require_signature,
         )
     except ValueError as error:
         print("Не установлено:", error)
