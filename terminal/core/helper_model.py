@@ -2,11 +2,15 @@
 # Помощь внешней модели, когда локальное ядро не уверено в ответе.
 # Последнее изменение: компаньоны и выбор по репутации и навыкам.
 
-from terminal.core.model_registry import (
+from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
-    get_reputation,
-    load_companion_ids,
     load_models,
+)
+from terminal.core.model_settings import (
+    load_companion_ids,
+)
+from terminal.core.model_stats import (
+    get_reputation,
     record_model_request,
 )
 from terminal.core.opencode_client import ask_model

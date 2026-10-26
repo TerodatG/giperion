@@ -3,8 +3,10 @@
 # Последнее изменение: без подписи модели на планке заголовка.
 
 from shared.action_log import add_action
-from terminal.core.model_registry import (
+from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
+)
+from terminal.core.model_settings import (
     get_current_model_id,
     load_conference_ids,
 )

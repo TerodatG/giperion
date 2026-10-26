@@ -2,7 +2,9 @@
 # Дрон терминала: закрепление, личность и локальный ответ.
 # Последнее изменение: питомцы переименованы в дронов (внутри — pets).
 
-from terminal.core.model_registry import get_active_model
+from terminal.core.model_settings import (
+    get_active_model,
+)
 from terminal.core.pets import get_active_pet, set_active_pet_id
 from terminal.ui.pets_dialog import show_pets_dialog
 from terminal.ui.theme import BOT_NAME, BOT_NICKNAME

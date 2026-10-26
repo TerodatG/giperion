@@ -4,7 +4,12 @@
 
 from config import DATA_DIR
 from shared.storage.json_store import read_json_object, write_json
-from terminal.core.model_registry import get_model, load_conference_ids
+from terminal.core.model_catalog import (
+    get_model,
+)
+from terminal.core.model_settings import (
+    load_conference_ids,
+)
 
 CONFERENCE_SETTINGS_FILE = DATA_DIR / "conference_settings.json"
 

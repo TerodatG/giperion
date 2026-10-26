@@ -10,10 +10,12 @@ from terminal.core.conference_roster import (
     reputation_requests,
     select_conference_models,
 )
+from terminal.core.model_catalog import (
+    DEFAULT_MODEL_ID,
+)
 from terminal.core.model_engine import build_external_prompt
 from terminal.core.model_errors import describe_model_error
-from terminal.core.model_registry import (
-    DEFAULT_MODEL_ID,
+from terminal.core.model_stats import (
     record_model_request,
 )
 from terminal.core.opencode_client import OpenCodeError, ask_model

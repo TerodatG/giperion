@@ -11,8 +11,10 @@ from PySide6.QtWidgets import QApplication
 from config import BASE_DIR
 from shared.action_log import add_action
 from terminal.core.conference_catalog import get_conference_members
-from terminal.core.model_registry import (
+from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
+)
+from terminal.core.model_settings import (
     get_active_model,
     get_current_model_id,
 )

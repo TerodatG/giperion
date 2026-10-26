@@ -5,9 +5,11 @@
 import threading
 
 from terminal.core.chatbot import get_response
-from terminal.core.model_engine import get_model_response
-from terminal.core.model_registry import (
+from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
+)
+from terminal.core.model_engine import get_model_response
+from terminal.core.model_settings import (
     get_current_model_id,
 )
 from terminal.core.pets import record_pet_activity

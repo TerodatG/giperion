@@ -16,9 +16,11 @@ from terminal.core.conference_roster import (
     senator_role,
 )
 from terminal.core.evolution_service import get_rank_name
-from terminal.core.model_registry import (
+from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
     get_model,
+)
+from terminal.core.model_settings import (
     load_conference_ids,
 )
 from terminal.core.module_state import is_module_enabled

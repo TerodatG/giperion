@@ -2,15 +2,19 @@
 # Панели состояния: параметры модели ИИ и карточка активной модели.
 # Последнее изменение: обновление чисел агента вместе с панелью ядра.
 
+from terminal.core.model_catalog import (
+    DEFAULT_MODEL_ID,
+)
 from terminal.core.model_passport import (
     compact_metrics,
     get_passport,
     passport_accuracy,
 )
-from terminal.core.model_registry import (
-    DEFAULT_MODEL_ID,
-    build_stars,
+from terminal.core.model_settings import (
     get_active_model,
+)
+from terminal.core.model_stats import (
+    build_stars,
     get_reputation,
     get_usage,
 )

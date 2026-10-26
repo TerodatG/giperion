@@ -11,7 +11,9 @@ from PySide6.QtWidgets import (
 )
 
 from terminal.core import chat_context, pending_state
-from terminal.core.model_registry import get_active_model
+from terminal.core.model_settings import (
+    get_active_model,
+)
 from terminal.ui.dialogs_base import ChatRenameDialog, ConfirmDialog
 
 

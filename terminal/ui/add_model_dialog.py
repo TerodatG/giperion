@@ -11,7 +11,9 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
-from terminal.core.model_registry import add_custom_model
+from terminal.core.model_custom import (
+    add_custom_model,
+)
 from terminal.ui.dialogs_base import SkinDialog
 
 

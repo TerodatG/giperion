@@ -20,9 +20,11 @@ from terminal.core.conference_roster import (
     MAX_CONFERENCE_MODELS,
     select_conference_models,
 )
-from terminal.core.model_registry import (
-    get_current_model_id,
+from terminal.core.model_catalog import (
     get_model,
+)
+from terminal.core.model_settings import (
+    get_current_model_id,
     load_conference_ids,
     set_conference_member,
 )

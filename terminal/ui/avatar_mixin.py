@@ -12,7 +12,12 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QSizePolicy
 
 from config import BASE_DIR
-from terminal.core.model_registry import DEFAULT_MODEL_ID, get_active_model
+from terminal.core.model_catalog import (
+    DEFAULT_MODEL_ID,
+)
+from terminal.core.model_settings import (
+    get_active_model,
+)
 from terminal.ui.avatar_data import (
     AVATAR_FILE,
     AVATAR_FRAME_MS,

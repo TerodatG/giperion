@@ -29,7 +29,7 @@ def _available_models() -> list[dict]:
     """Модели каталога, которые можно запустить прямо сейчас."""
 
     try:
-        from terminal.core.model_registry import load_models
+        from terminal.core.model_catalog import load_models
 
         models = load_models()
     except Exception:  # noqa: BLE001 — без каталога остаётся провайдер

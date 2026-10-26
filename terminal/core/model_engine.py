@@ -5,13 +5,17 @@
 from dataclasses import dataclass
 
 from terminal.core.chatbot import get_response
+from terminal.core.model_catalog import (
+    DEFAULT_MODEL_ID,
+    get_model,
+)
 from terminal.core.model_errors import (
     describe_model_error as _describe_model_error,
 )
-from terminal.core.model_registry import (
-    DEFAULT_MODEL_ID,
+from terminal.core.model_settings import (
     get_current_model_id,
-    get_model,
+)
+from terminal.core.model_stats import (
     record_model_request,
 )
 from terminal.core.opencode_client import OpenCodeError, ask_model

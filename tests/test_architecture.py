@@ -94,3 +94,31 @@ def test_model_does_not_import_agent() -> None:
         "Модель импортирует агента (границу нарушать нельзя):\n"
         + "\n".join(violations)
     )
+
+
+def test_production_code_uses_catalog_not_registry_facade() -> None:
+    """Рабочий код ходит в конкретные модули, а не в фасад."""
+
+    files = [
+        path
+        for path in (ROOT / "terminal").rglob("*.py")
+        if "__pycache__" not in path.parts
+        and path.name != "model_registry.py"
+    ]
+    files.append(ROOT / "gui.py")
+    violations = []
+
+    for path in files:
+        for module, _names in imported_modules(path):
+            if (
+                module == "terminal.core.model_registry"
+                or module.startswith("terminal.core.model_registry.")
+            ):
+                violations.append(
+                    f"{path.relative_to(ROOT).as_posix()}: {module}"
+                )
+
+    assert not violations, (
+        "Фасад model_registry снова попал в рабочий код:\n"
+        + "\n".join(violations)
+    )
