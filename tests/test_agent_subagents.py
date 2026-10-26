@@ -2,9 +2,14 @@
 # Параллельные читающие подагенты: разбор аргументов и общий расход.
 
 import json
+import threading
 import time
 
-from terminal.core.agent.loop import _subagent_tasks, run_agent
+from terminal.core.agent.loop import (
+    _run_subagent,
+    _subagent_tasks,
+    run_agent,
+)
 from terminal.core.agent.protocol import ToolCall
 from terminal.core.agent.providers import (
     NativeBrain,
@@ -194,3 +199,56 @@ def test_native_fork_shares_usage() -> None:
     assert parent.total_tokens == 120
     assert parent.calls == 1
     assert child.total_tokens == 0
+
+
+def test_parallel_subagents_stop_on_cancel(tmp_path) -> None:
+    """Остановка задачи не ждёт медленных подагентов."""
+
+    class SlowBrain:
+        def __init__(self, delay: float = 1.2) -> None:
+            self.delay = delay
+
+        def decide(self, prompt: str):
+            time.sleep(self.delay)
+
+            return json.dumps(
+                {"action": "answer", "text": "поздно"},
+                ensure_ascii=False,
+            )
+
+        def fork(self):
+            return SlowBrain(self.delay)
+
+    state = {"stop": False}
+
+    def should_stop() -> bool:
+        return state["stop"]
+
+    timer = threading.Timer(
+        0.3,
+        lambda: state.__setitem__("stop", True),
+    )
+    timer.start()
+
+    started = time.monotonic()
+
+    try:
+        result = _run_subagent(
+            ToolCall(
+                "ask_subagent",
+                {"tasks": ["a", "b", "c"]},
+            ),
+            SlowBrain(),
+            tmp_path,
+            depth=0,
+            allow_subagent=True,
+            should_stop=should_stop,
+        )
+    finally:
+        timer.cancel()
+
+    elapsed = time.monotonic() - started
+
+    assert not result.ok
+    assert "остановлены" in result.text
+    assert elapsed < 1.0

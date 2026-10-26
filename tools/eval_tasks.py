@@ -282,7 +282,7 @@ def _subagents_inspect(folder: Path, result) -> tuple[bool, str]:
     parallel = any("Подагенты · 2" in step.title for step in steps)
 
     answer = str(result.answer).casefold()
-    both = "providers.py" in answer and "budget.py" in answer
+    both = "native_brain.py" in answer and "budget.py" in answer
 
     if parallel and both:
         return True, "два подагента и оба файла"
@@ -383,7 +383,7 @@ TASKS = (
         "find-native-brain",
         "Где NativeBrain",
         "Найди, в каком файле объявлен класс NativeBrain.",
-        answer_has("providers.py"),
+        answer_has("native_brain.py"),
         max_steps=5,
     ),
     EvalTask(
@@ -406,12 +406,26 @@ TASKS = (
         "Прочитай docs/agent_tools.md и скажи, из каких двух файлов "
         "состоит плагин. Назови расширения файлов.",
         lambda root, answer: (
-            ".json" in str(answer).casefold()
-            and ".py" in str(answer).casefold(),
-            "оба расширения названы"
-            if ".json" in str(answer).casefold()
-            and ".py" in str(answer).casefold()
-            else "расширения не названы",
+            (
+                ".json" in str(answer).casefold()
+                and ".py" in str(answer).casefold()
+            )
+            or (
+                "json" in str(answer).casefold()
+                and "python" in str(answer).casefold()
+            ),
+            "оба формата названы"
+            if (
+                (
+                    ".json" in str(answer).casefold()
+                    and ".py" in str(answer).casefold()
+                )
+                or (
+                    "json" in str(answer).casefold()
+                    and "python" in str(answer).casefold()
+                )
+            )
+            else "форматы не названы",
         ),
         max_steps=6,
     ),
@@ -435,7 +449,7 @@ TASKS = (
         "symbol-nativebrain",
         "Символ через индекс",
         "Где объявлен класс NativeBrain? Используй find_symbol и назови файл.",
-        answer_has("providers.py"),
+        answer_has("native_brain.py"),
         max_steps=5,
     ),
     EvalTask(

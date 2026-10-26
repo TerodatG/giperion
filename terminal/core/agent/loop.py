@@ -60,6 +60,69 @@ def _subagent_tasks(call: ToolCall) -> list[str]:
     return tasks[:4]
 
 
+def _run_parallel(
+    run_one,
+    tasks: list[str],
+    should_stop: Callable[[], bool] | None,
+) -> tuple[list[tuple[str, object]], bool]:
+    """Параллельно выполняет подзадачи и умеет бросить их при отмене."""
+
+    from concurrent.futures import (
+        FIRST_COMPLETED,
+        ThreadPoolExecutor,
+        wait,
+    )
+
+    outcomes: list[tuple[str, object]] = []
+    pool = ThreadPoolExecutor(max_workers=min(3, len(tasks)))
+    futures = {pool.submit(run_one, task): task for task in tasks}
+    interrupted = False
+
+    try:
+        while futures:
+            if should_stop is not None and should_stop():
+                interrupted = True
+
+                for future in futures:
+                    future.cancel()
+
+                break
+
+            done, _pending = wait(
+                futures,
+                timeout=0.2,
+                return_when=FIRST_COMPLETED,
+            )
+
+            for future in done:
+                task = futures.pop(future)
+
+                try:
+                    outcomes.append(future.result())
+                except Exception as error:  # noqa: BLE001 — покажем в отчёте
+                    outcomes.append(
+                        (
+                            task,
+                            _FailedSubagent(
+                                f"{type(error).__name__}: {error}"
+                            ),
+                        )
+                    )
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    return outcomes, interrupted
+
+
+class _FailedSubagent:
+    """Заглушка результата, если подзадача упала с исключением."""
+
+    def __init__(self, error: str) -> None:
+        self.answer = ""
+        self.cancelled = False
+        self.error = error
+
+
 def _run_subagent(
     call: ToolCall,
     brain: "Brain",
@@ -103,13 +166,14 @@ def _run_subagent(
 
         return task, result
 
-    if can_parallel:
-        from concurrent.futures import ThreadPoolExecutor
+    interrupted = False
 
-        with ThreadPoolExecutor(
-            max_workers=min(3, len(tasks)),
-        ) as pool:
-            outcomes = list(pool.map(run_one, tasks))
+    if can_parallel:
+        outcomes, interrupted = _run_parallel(
+            run_one,
+            tasks,
+            should_stop,
+        )
     else:
         outcomes = [run_one(task) for task in tasks]
 
@@ -127,7 +191,12 @@ def _run_subagent(
 
         parts.append(f"Задача: {task}\nРезультат: {text}")
 
-    return ToolResult(answered, "\n\n".join(parts))
+    if interrupted:
+        parts.append(
+            "Подагенты остановлены: часть подзадач не завершена."
+        )
+
+    return ToolResult(answered and not interrupted, "\n\n".join(parts))
 
 
 def run_agent(

@@ -346,14 +346,14 @@ def test_plan_and_subagent_inspectors() -> None:
                 "Задача: a\nРезультат: x",
             )
         ],
-        answer="providers.py и budget.py",
+        answer="native_brain.py и budget.py",
     )
 
     ok, note = eval_agent._subagents_inspect(None, subagents)
     assert ok
     assert "оба" in note
 
-    subagents.answer = "только providers.py"
+    subagents.answer = "только native_brain.py"
     ok, _note = eval_agent._subagents_inspect(None, subagents)
     assert not ok
 
