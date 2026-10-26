@@ -7,12 +7,16 @@ import argparse
 from config import BASE_DIR
 from terminal.core.agent.worktrees import WorktreeError
 from tools.eval_report import (
+    BASELINE,
     LATEST,
     OUTPUT_DIR,
     append_history,
+    baseline_note,
+    load_baseline,
     load_previous,
     read_history,
     regression_note,
+    save_baseline,
     save_report,
     summarize,
 )
@@ -32,6 +36,7 @@ from tools.eval_tasks import (
 )
 
 __all__ = [
+    "BASELINE",
     "LATEST",
     "OUTPUT_DIR",
     "TASKS",
@@ -42,15 +47,18 @@ __all__ = [
     "_web_prepare",
     "answer_has",
     "append_history",
+    "baseline_note",
     "build_brain",
     "file_equals",
     "file_has",
     "is_fatal",
+    "load_baseline",
     "load_previous",
     "read_history",
     "readme_line_count",
     "regression_note",
     "run_task",
+    "save_baseline",
     "save_report",
     "summarize",
     "tests_passed",
@@ -183,6 +191,13 @@ def _print_comparison(previous: dict, summary: dict) -> None:
 
         return
 
+    if int(previous.get("runs") or 1) != int(summary.get("runs") or 1):
+        print(
+            "Прошлый прогон: другое число повторов — сравнение пропущено."
+        )
+
+        return
+
     old_total = int(previous.get("total") or 0)
     old_passed = int(previous.get("passed") or 0)
     old_rate = float(previous.get("success_rate") or 0.0)
@@ -196,6 +211,55 @@ def _print_comparison(previous: dict, summary: dict) -> None:
     )
 
 
+def _select_tasks(args) -> list[EvalTask]:
+    """Задачи под фильтры --full и --only."""
+
+    return [
+        task for task in TASKS
+        if (args.full or not task.slow)
+        and (not args.only or task.id == args.only)
+    ]
+
+
+def _with_steps(task: EvalTask, max_steps: int) -> EvalTask:
+    """Копия задачи с другим лимитом шагов."""
+
+    if not max_steps:
+        return task
+
+    return EvalTask(
+        id=task.id,
+        title=task.title,
+        task=task.task,
+        check=task.check,
+        setup=task.setup,
+        max_steps=max_steps,
+        slow=task.slow,
+        notes=task.notes,
+        inspect=task.inspect,
+        prepare=task.prepare,
+    )
+
+
+def _worktree_failure(task: EvalTask, error: Exception) -> dict:
+    """Результат задачи, если worktree не создался."""
+
+    return {
+        "id": task.id,
+        "title": task.title,
+        "ok": False,
+        "note": f"worktree: {error}",
+        "steps": 0,
+        "approvals": 0,
+        "duration_s": 0.0,
+        "context_chars": 0,
+        "tokens": 0,
+        "cost": 0.0,
+        "answer": "",
+        "error": str(error),
+    }
+
+
 def _report(
     *,
     tasks,
@@ -203,20 +267,49 @@ def _report(
     summary: dict,
     path,
     previous: dict,
+    baseline: dict,
+    model_name: str,
     args,
 ) -> None:
-    """Печатает стабильность, итог и сравнение с прошлым прогоном."""
+    """Печатает стабильность, итог и сравнение с базовой линией."""
 
     attempts = max(1, int(args.repeat))
 
     _print_stability(tasks, summary, attempts)
     _print_totals(tasks, results, summary, attempts)
-    _print_comparison(previous, summary)
 
-    note = regression_note(previous, summary, args.threshold)
+    if args.baseline:
+        if baseline:
+            print(
+                "Базовая линия: "
+                f"{float(baseline.get('success_rate') or 0.0) * 100:.0f} % "
+                f"· повторов {int(baseline.get('runs') or 1)}"
+            )
+            note = baseline_note(baseline, summary, args.threshold)
+        else:
+            print(
+                "Базовая линия не найдена: сначала "
+                "python -m tools.eval_agent --repeat 3 --save-baseline"
+            )
+            note = ""
+    else:
+        _print_comparison(previous, summary)
+        note = regression_note(previous, summary, args.threshold)
 
     if note:
         print(note)
+
+    if args.save_baseline:
+        expected = len(tasks) * attempts
+
+        if len(results) < expected:
+            print(
+                "Baseline не сохранён: прогон неполный "
+                f"({len(results)} из {expected} попыток)."
+            )
+        else:
+            saved = save_baseline(model_name, summary)
+            print("Baseline сохранён:", saved)
 
     print("Отчёт:", path)
 
@@ -255,17 +348,23 @@ def main() -> None:
         action="store_true",
         help="показать историю прогонов и выйти",
     )
+    parser.add_argument(
+        "--save-baseline",
+        action="store_true",
+        help="сохранить стабильность задач как базовую линию",
+    )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="сравнивать с сохранённой базовой линией",
+    )
     args = parser.parse_args()
 
     if args.history:
         _show_history()
         return
 
-    tasks = [
-        task for task in TASKS
-        if (args.full or not task.slow)
-        and (not args.only or task.id == args.only)
-    ]
+    tasks = _select_tasks(args)
 
     if not tasks:
         raise SystemExit("Нет задач под такие фильтры.")
@@ -273,6 +372,13 @@ def main() -> None:
     attempts = max(1, int(args.repeat))
     brain, model_name = build_brain(args.model, args.provider)
     previous = load_previous()
+    baseline = load_baseline()
+
+    if args.save_baseline and attempts < 2:
+        print(
+            "Внимание: baseline без повторов ненадёжен — "
+            "лучше --repeat 3."
+        )
 
     print("=== Оценка агента ===")
     print("Модель:", model_name)
@@ -292,39 +398,12 @@ def main() -> None:
         for index, task in enumerate(tasks, start=1):
             print(f"[{index}/{len(tasks)}] {task.title}…")
 
-            current = task
-
-            if args.max_steps:
-                current = EvalTask(
-                    id=task.id,
-                    title=task.title,
-                    task=task.task,
-                    check=task.check,
-                    setup=task.setup,
-                    max_steps=args.max_steps,
-                    slow=task.slow,
-                    notes=task.notes,
-                    inspect=task.inspect,
-                    prepare=task.prepare,
-                )
+            current = _with_steps(task, args.max_steps)
 
             try:
                 result = run_task(current, brain, BASE_DIR)
             except WorktreeError as error:
-                result = {
-                    "id": task.id,
-                    "title": task.title,
-                    "ok": False,
-                    "note": f"worktree: {error}",
-                    "steps": 0,
-                    "approvals": 0,
-                    "duration_s": 0.0,
-                    "context_chars": 0,
-                    "tokens": 0,
-                    "cost": 0.0,
-                    "answer": "",
-                    "error": str(error),
-                }
+                result = _worktree_failure(task, error)
 
             result["attempt"] = attempt
             results.append(result)
@@ -358,6 +437,8 @@ def main() -> None:
         summary=summary,
         path=path,
         previous=previous,
+        baseline=baseline,
+        model_name=model_name,
         args=args,
     )
 

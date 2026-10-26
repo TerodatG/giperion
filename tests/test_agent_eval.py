@@ -449,3 +449,133 @@ def test_report_roundtrip(tmp_path, monkeypatch) -> None:
         "summary"
     ]["passed"] == 1
     assert eval_agent.load_previous()["passed"] == 1
+
+def test_baseline_roundtrip(tmp_path, monkeypatch) -> None:
+    """Базовая линия сохраняет ставки задач и читается обратно."""
+
+    monkeypatch.setattr(
+        eval_agent,
+        "BASELINE",
+        tmp_path / "baseline.json",
+    )
+
+    def item(task_id, attempt, ok):
+        return {
+            "id": task_id,
+            "ok": ok,
+            "steps": 3,
+            "duration_s": 2.0,
+            "context_chars": 100,
+            "attempt": attempt,
+        }
+
+    summary = eval_agent.summarize(
+        [
+            item("stable", 1, True),
+            item("stable", 2, True),
+            item("flaky", 1, False),
+            item("flaky", 2, True),
+        ]
+    )
+
+    saved = eval_agent.save_baseline("test-model", summary)
+
+    assert saved.exists()
+
+    loaded = eval_agent.load_baseline()
+
+    assert loaded["model"] == "test-model"
+    assert loaded["runs"] == 2
+    assert loaded["task_ids"] == summary["task_ids"]
+    assert loaded["per_task"]["stable"]["rate"] == 1.0
+    assert loaded["per_task"]["flaky"]["rate"] == 0.5
+
+
+def test_baseline_note_names_dropped_task() -> None:
+    """Просевшая стабильная задача называется по имени."""
+
+    baseline = {
+        "runs": 3,
+        "success_rate": 1.0,
+        "task_ids": ["a", "b"],
+        "per_task": {
+            "a": {"attempts": 3, "passed": 3, "rate": 1.0},
+            "b": {"attempts": 3, "passed": 3, "rate": 1.0},
+        },
+    }
+    summary = {
+        "total": 6,
+        "runs": 3,
+        "success_rate": 0.5,
+        "task_ids": ["a", "b"],
+        "per_task": {
+            "a": {"attempts": 3, "passed": 0},
+            "b": {"attempts": 3, "passed": 3},
+        },
+    }
+
+    note = eval_agent.baseline_note(baseline, summary, 10)
+
+    assert "РЕГРЕССИЯ" in note
+    assert "a: было 3/3, стало 0/3" in note
+    assert "b: было" not in note
+
+
+def test_baseline_note_ignores_single_run_baseline() -> None:
+    """Ставка из одного повтора не считается стабильной базой."""
+
+    baseline = {
+        "runs": 1,
+        "success_rate": 1.0,
+        "task_ids": ["a"],
+        "per_task": {"a": {"attempts": 1, "passed": 1, "rate": 1.0}},
+    }
+    summary = {
+        "total": 1,
+        "runs": 1,
+        "success_rate": 1.0,
+        "task_ids": ["a"],
+        "per_task": {"a": {"attempts": 1, "passed": 0}},
+    }
+
+    assert eval_agent.baseline_note(baseline, summary, 10) == ""
+
+
+def test_baseline_note_skips_other_task_set() -> None:
+    """Другой набор задач с базовой линией не сравнивается."""
+
+    baseline = {
+        "runs": 2,
+        "success_rate": 1.0,
+        "task_ids": ["a"],
+        "per_task": {"a": {"attempts": 2, "passed": 2, "rate": 1.0}},
+    }
+    summary = {
+        "total": 2,
+        "runs": 2,
+        "success_rate": 0.0,
+        "task_ids": ["b"],
+        "per_task": {"b": {"attempts": 2, "passed": 0}},
+    }
+
+    assert eval_agent.baseline_note(baseline, summary, 10) == ""
+
+
+def test_regression_skips_different_runs() -> None:
+    """Прогон с одним повтором не сравнивается с тремя."""
+
+    previous = {
+        "success_rate": 1.0,
+        "total": 22,
+        "runs": 1,
+        "task_ids": ["a", "b"],
+    }
+    summary = {
+        "success_rate": 0.5,
+        "total": 66,
+        "runs": 3,
+        "task_ids": ["a", "b"],
+    }
+
+    assert eval_agent.regression_note(previous, summary, 10) == ""
+

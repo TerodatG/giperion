@@ -131,6 +131,7 @@ def load_previous() -> dict:
 
 
 HISTORY = OUTPUT_DIR / "history.jsonl"
+BASELINE = OUTPUT_DIR / "baseline.json"
 
 
 def append_history(model_name: str, summary: dict) -> None:
@@ -182,6 +183,146 @@ def read_history(limit: int = 10) -> list[dict]:
     return records
 
 
+def save_baseline(model_name: str, summary: dict) -> Path:
+    """Сохраняет стабильность задач как базовую линию."""
+
+    per_task = {}
+
+    for task_id, stats in (summary.get("per_task") or {}).items():
+        attempts = int(stats.get("attempts") or 0)
+        passed = int(stats.get("passed") or 0)
+        per_task[str(task_id)] = {
+            "attempts": attempts,
+            "passed": passed,
+            "rate": round(passed / attempts, 3) if attempts else 0.0,
+        }
+
+    payload = {
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "model": model_name,
+        "runs": int(summary.get("runs") or 1),
+        "success_rate": float(summary.get("success_rate") or 0.0),
+        "task_ids": list(summary.get("task_ids") or []),
+        "per_task": per_task,
+    }
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    BASELINE.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    return BASELINE
+
+
+def load_baseline() -> dict:
+    """Читает сохранённую базовую линию, если она есть."""
+
+    try:
+        document = json.loads(BASELINE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    return document if isinstance(document, dict) else {}
+
+
+def _same_task_set(old_ids, new_ids) -> bool:
+    """Наборы задач совпадают (или сравнивать не с чем)."""
+
+    if (
+        not isinstance(old_ids, list)
+        or not isinstance(new_ids, list)
+        or not old_ids
+        or not new_ids
+    ):
+        return True
+
+    return sorted(old_ids) == sorted(new_ids)
+
+
+def _rate_drop(baseline: dict, summary: dict) -> float:
+    """Падение успеха в процентных пунктах."""
+
+    old_rate = float(baseline.get("success_rate") or 0.0)
+    new_rate = float(summary.get("success_rate") or 0.0)
+
+    return (new_rate - old_rate) * 100
+
+
+def _dropped_tasks(old_tasks, new_tasks) -> list[str]:
+    """Задачи, которые были стабильны, а теперь почти всегда падают."""
+
+    if not isinstance(old_tasks, dict) or not isinstance(new_tasks, dict):
+        return []
+
+    dropped = []
+
+    for task_id, old in old_tasks.items():
+        if not isinstance(old, dict):
+            continue
+
+        attempts = int(old.get("attempts") or 0)
+        old_rate = float(old.get("rate") or 0.0)
+
+        if attempts < 2 or old_rate < 0.67:
+            continue
+
+        new = new_tasks.get(task_id)
+
+        if not isinstance(new, dict):
+            continue
+
+        new_attempts = int(new.get("attempts") or 0)
+        new_passed = int(new.get("passed") or 0)
+
+        if not new_attempts:
+            continue
+
+        if new_passed / new_attempts <= 0.34:
+            dropped.append(
+                f"{task_id}: было {int(old.get('passed') or 0)}/"
+                f"{attempts}, стало {new_passed}/{new_attempts}"
+            )
+
+    return dropped
+
+
+def baseline_note(
+    baseline: dict,
+    summary: dict,
+    threshold: float = 10.0,
+) -> str:
+    """Сравнивает прогон с базовой линией: общий успех и просевшие задачи."""
+
+    if not baseline or not summary.get("total"):
+        return ""
+
+    if not _same_task_set(
+        baseline.get("task_ids"),
+        summary.get("task_ids"),
+    ):
+        return ""
+
+    lines = []
+    delta = _rate_drop(baseline, summary)
+
+    if delta < -abs(threshold):
+        lines.append(
+            f"РЕГРЕССИЯ: успех ниже базовой линии на {abs(delta):.0f} п.п. "
+            f"(порог {abs(threshold):.0f})."
+        )
+
+    dropped = _dropped_tasks(
+        baseline.get("per_task"),
+        summary.get("per_task"),
+    )
+
+    if dropped:
+        lines.append("Просели задачи: " + "; ".join(dropped))
+
+    return "\n".join(lines)
+
+
 def regression_note(
     previous: dict,
     summary: dict,
@@ -190,6 +331,12 @@ def regression_note(
     """Предупреждение, если успех упал сильнее порога."""
 
     if not previous or not summary.get("total"):
+        return ""
+
+    old_runs = int(previous.get("runs") or 1)
+    new_runs = int(summary.get("runs") or 1)
+
+    if old_runs != new_runs:
         return ""
 
     old_ids = previous.get("task_ids")
