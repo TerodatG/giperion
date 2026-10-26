@@ -195,3 +195,14 @@ def test_remove_worktree_and_branch(repo) -> None:
     )
 
     assert branches.stdout.strip() == ""
+
+
+def test_remove_worktree_rejects_foreign_branch(repo) -> None:
+    """Нельзя удалить дерево вместе с веткой вне agent/*."""
+
+    folder, _branch = create_worktree(repo, "guard")
+
+    with pytest.raises(WorktreeError):
+        remove_worktree(repo, folder, "main")
+
+    assert folder.exists()

@@ -219,6 +219,7 @@ def load_models() -> list[dict]:
     """
 
     models = []
+    seen_ids: set[str] = set()
 
     for path in (
         model_files.MODELS_FILE,
@@ -229,7 +230,7 @@ def load_models() -> list[dict]:
         for record in document.get("models", []):
             model = _parse_model(record)
 
-            if model is None:
+            if model is None or model["id"] in seen_ids:
                 continue
 
             # Недоступные и нерабочие модели не показываем.
@@ -237,6 +238,7 @@ def load_models() -> list[dict]:
                 continue
 
             models.append(model)
+            seen_ids.add(model["id"])
 
     models.sort(
         key=lambda model: model["id"] != DEFAULT_MODEL_ID

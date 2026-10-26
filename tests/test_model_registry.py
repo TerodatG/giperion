@@ -368,6 +368,37 @@ def test_custom_model_needs_name(
     assert model_registry.add_custom_model("   ") is None
 
 
+def test_duplicate_ids_are_loaded_once(
+    isolated_registry,
+) -> None:
+    """Своя модель не дублирует запись каталога с тем же id."""
+
+    model_files.CUSTOM_MODELS_FILE.write_text(
+        json.dumps(
+            {
+                "models": [
+                    {
+                        "id": "giperion",
+                        "name": "Дубль",
+                        "provider": "тест",
+                        "available": True,
+                        "group": "own",
+                        "api": "local",
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    ids = [
+        model["id"] for model in model_registry.load_models()
+    ]
+
+    assert ids.count("giperion") == 1
+
+
 def test_external_model_keeps_opencode_ids(
     isolated_registry,
 ) -> None:

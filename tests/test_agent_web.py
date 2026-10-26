@@ -85,6 +85,43 @@ def test_fetch_blocks_localhost() -> None:
     assert "локальную" in result.text
 
 
+def test_redirect_to_private_host_is_blocked(monkeypatch) -> None:
+    """Редирект на localhost не проходит проверку."""
+
+    monkeypatch.setattr(
+        web,
+        "is_public_host",
+        lambda host: host == "example.com",
+    )
+
+    with pytest.raises(web.WebError):
+        web._checked_redirect("http://127.0.0.1/secret")
+
+
+def test_fetch_rejects_private_final_url(monkeypatch) -> None:
+    """Если GET вернул приватный адрес, текст не показывается."""
+
+    monkeypatch.setattr(
+        web,
+        "HTTP_GET",
+        lambda url: (
+            "http://127.0.0.1/secret",
+            "text/plain; charset=utf-8",
+            b"secret",
+        ),
+    )
+    monkeypatch.setattr(
+        web,
+        "is_public_host",
+        lambda host: host == "example.com",
+    )
+
+    result = web.fetch("https://example.com/start")
+
+    assert not result.ok
+    assert "127.0.0.1" in result.text
+
+
 def test_fetch_returns_text(monkeypatch) -> None:
     """Успешная страница превращается в текст с источником."""
 

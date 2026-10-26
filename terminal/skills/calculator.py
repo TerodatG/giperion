@@ -5,6 +5,9 @@
 import ast
 import operator
 
+MAX_POWER = 1000
+MAX_RESULT_BITS = 20_000
+
 ALLOWED_BINARY_OPERATORS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -52,6 +55,31 @@ def evaluate_node(node: ast.AST) -> int | float:
 
         left_value = evaluate_node(node.left)
         right_value = evaluate_node(node.right)
+
+        if operator_type is ast.Pow:
+            try:
+                exponent = float(right_value)
+            except OverflowError as error:
+                raise ValueError(
+                    "Степень слишком большая."
+                ) from error
+
+            if abs(exponent) > MAX_POWER:
+                raise ValueError(
+                    "Степень слишком большая."
+                )
+
+            result = left_value ** right_value
+
+            if (
+                isinstance(result, int)
+                and result.bit_length() > MAX_RESULT_BITS
+            ):
+                raise ValueError(
+                    "Результат степени слишком большой."
+                )
+
+            return result
 
         return ALLOWED_BINARY_OPERATORS[operator_type](
             left_value,

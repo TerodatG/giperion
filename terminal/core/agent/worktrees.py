@@ -263,6 +263,11 @@ def remove_worktree(
     target = Path(path).resolve()
     allowed = (base / WORKTREE_DIR).resolve()
 
+    if branch and not branch.startswith("agent/"):
+        raise WorktreeError(
+            "Удалять можно только ветки agent/*."
+        )
+
     if target != allowed and allowed not in target.parents:
         raise WorktreeError("Удалять можно только деревья агента.")
 

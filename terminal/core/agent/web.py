@@ -23,6 +23,46 @@ class WebError(RuntimeError):
     """Страницу нельзя или не удалось прочитать."""
 
 
+def _checked_redirect(url: str) -> str:
+    """Проверяет адрес редиректа теми же правилами, что и исходный."""
+
+    clean = validate_url(url)
+
+    if not is_public_host(host_of(clean)):
+        raise WebError(
+            f"Редирект на «{host_of(clean)}» ведёт в локальную "
+            "или приватную сеть — запрещено."
+        )
+
+    return clean
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Не даёт urlopen уйти редиректом на localhost или в приватную сеть."""
+
+    def redirect_request(
+        self,
+        request,
+        file_pointer,
+        code,
+        message,
+        headers,
+        new_url,
+    ):
+        target = _checked_redirect(
+            urllib.parse.urljoin(request.full_url, new_url)
+        )
+
+        return super().redirect_request(
+            request,
+            file_pointer,
+            code,
+            message,
+            headers,
+            target,
+        )
+
+
 def validate_url(url: str) -> str:
     """Проверяет URL и возвращает нормализованный адрес."""
 
@@ -150,15 +190,21 @@ def _http_get(url: str) -> tuple[str, str, bytes]:
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        opener = urllib.request.build_opener(
+            _SafeRedirectHandler()
+        )
+
+        with opener.open(request, timeout=TIMEOUT) as response:
             content_type = response.headers.get("Content-Type", "")
             data = response.read(MAX_BYTES + 1)
+
+            final_url = response.geturl()
     except urllib.error.HTTPError as error:
         raise WebError(f"Сайт ответил кодом {error.code}.") from error
     except (urllib.error.URLError, TimeoutError, OSError) as error:
         raise WebError(f"Не удалось открыть страницу: {error}") from error
 
-    return response.geturl(), content_type, data
+    return final_url, content_type, data
 
 
 HTTP_GET = _http_get
@@ -210,6 +256,15 @@ def fetch(url: str) -> ToolResult:
         final_url, content_type, data = HTTP_GET(clean)
     except WebError as error:
         return ToolResult(False, str(error))
+
+    final_host = host_of(final_url)
+
+    if not is_public_host(final_host):
+        return ToolResult(
+            False,
+            f"Страница перенаправила на «{final_host}» — локальную "
+            "или приватную сеть. Запрос запрещён.",
+        )
 
     if len(data) > MAX_BYTES:
         data = data[:MAX_BYTES]

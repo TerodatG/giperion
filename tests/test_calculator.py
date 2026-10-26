@@ -30,3 +30,10 @@ def test_calculator_rejects_function_call() -> None:
 
     with pytest.raises(ValueError):
         calculate_expression("__import__('os').system('dir')")
+
+
+def test_calculator_rejects_huge_power() -> None:
+    """Огромная степень не должна занимать процессор."""
+
+    with pytest.raises(ValueError):
+        calculate_expression("10 ** 1000000")

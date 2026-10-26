@@ -7,7 +7,9 @@ from terminal.core.model_catalog import (
     load_models,
 )
 from terminal.core.model_settings import (
+    ModelPolicy,
     load_companion_ids,
+    load_model_group_flags,
 )
 from terminal.core.model_stats import (
     get_reputation,
@@ -66,6 +68,11 @@ def get_helper_model() -> dict | None:
         if model["id"] != DEFAULT_MODEL_ID
         and model["available"]
         and model["model_id"]
+    ]
+
+    policy = ModelPolicy(load_model_group_flags())
+    external = [
+        model for model in external if policy.usable(model)
     ]
 
     if not external:

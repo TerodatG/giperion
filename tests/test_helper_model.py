@@ -27,6 +27,7 @@ def patch_models(
     models: list[dict],
     requests: dict[str, int],
     companions: list[str] | None = None,
+    flags: dict[str, bool] | None = None,
 ) -> None:
     """Подменяет каталог, статистику и список компаньонов."""
 
@@ -49,6 +50,13 @@ def patch_models(
             "percent": 0,
         },
     )
+
+    if flags is not None:
+        monkeypatch.setattr(
+            helper_model,
+            "load_model_group_flags",
+            lambda: dict(flags),
+        )
 
 
 def test_companion_wins_over_higher_reputation(
@@ -114,5 +122,26 @@ def test_no_external_models_gives_none(
     """Если внешних моделей нет, помощь недоступна."""
 
     patch_models(monkeypatch, [], {})
+
+    assert helper_model.get_helper_model() is None
+
+
+def test_disabled_group_is_not_used(monkeypatch) -> None:
+    """Выключенная группа free не попадает в помощники."""
+
+    free_model = make_model("free-1", "Free", 5)
+    free_model.update(
+        {
+            "api": "opencode",
+            "provider_id": "opencode",
+            "group": "popular",
+        }
+    )
+    patch_models(
+        monkeypatch,
+        [free_model],
+        {"free-1": 100},
+        flags={"free": False, "go": True},
+    )
 
     assert helper_model.get_helper_model() is None

@@ -195,7 +195,11 @@ def _search_with_python(
 
     needle = query.lower()
     hits = []
-    paths = [folder] if folder.is_file() else _iter_text_files(base)
+    paths = (
+        [folder]
+        if folder.is_file()
+        else _iter_text_files(folder)
+    )
 
     for path in paths:
         try:
@@ -320,7 +324,7 @@ def search_text(
         hits = _search_with_python(
             base,
             text,
-            folder if folder.is_dir() else folder.parent,
+            folder,
         )
 
     if not hits:

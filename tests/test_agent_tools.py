@@ -100,6 +100,21 @@ def test_search_needs_two_characters(project) -> None:
     assert not result.ok
 
 
+def test_search_inside_one_file_does_not_touch_siblings(project) -> None:
+    """Поиск по файлу не читает соседние файлы папки."""
+
+    (project / "sub" / "c.py").write_text(
+        "secret = 'сосед'\n",
+        encoding="utf-8",
+    )
+
+    result = tools.search_text(project, "secret", "sub/b.py")
+
+    assert result.ok
+    assert "sub/b.py" in result.text
+    assert "sub/c.py" not in result.text
+
+
 def test_archive_and_logs_are_denied(project) -> None:
     """Архивы и журналы закрыты: там личная история."""
 
