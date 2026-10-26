@@ -88,3 +88,5 @@ data/agent_vectors.db-shm
 %SystemDrive%/
 data/agent_audit.jsonl
 dist/
+data/agent_schedule.json
+data/agent_schedule_runs.jsonl
