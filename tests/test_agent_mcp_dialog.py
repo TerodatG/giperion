@@ -95,3 +95,34 @@ def test_dialog_rejects_broken_json(tmp_path, monkeypatch, qapp) -> None:
         assert "JSON не разобрался" in dialog.status.text()
     finally:
         dialog.close()
+
+def test_dialog_checks_servers(tmp_path, monkeypatch, qapp) -> None:
+    """Кнопка «Проверить» показывает инструменты и ресурсы."""
+
+    from terminal.core.agent import mcp
+    from terminal.ui.mcp_dialog import McpDialog
+
+    _config(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        mcp,
+        "probe_all",
+        lambda: [
+            {
+                "name": "web",
+                "ok": True,
+                "tools": 2,
+                "resources": 1,
+                "error": "",
+            }
+        ],
+    )
+
+    dialog = McpDialog(None)
+
+    try:
+        dialog._check_servers()
+
+        assert "инструментов 2" in dialog.status.text()
+        assert "ресурсов 1" in dialog.status.text()
+    finally:
+        dialog.close()

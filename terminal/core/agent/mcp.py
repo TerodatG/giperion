@@ -231,6 +231,45 @@ class McpClient:
 
         return [tool for tool in tools if isinstance(tool, dict)]
 
+    def list_resources(self) -> list[dict]:
+        """Список ресурсов сервера (если он их поддерживает)."""
+
+        try:
+            result = self.request("resources/list", {})
+        except McpError:
+            return []
+
+        resources = result.get("resources")
+
+        if not isinstance(resources, list):
+            return []
+
+        return [
+            item for item in resources if isinstance(item, dict)
+        ]
+
+    def read_resource(self, uri: str) -> str:
+        """Текст ресурса по URI."""
+
+        result = self.request("resources/read", {"uri": str(uri)})
+        contents = result.get("contents")
+
+        if not isinstance(contents, list):
+            return ""
+
+        parts = []
+
+        for item in contents:
+            if not isinstance(item, dict):
+                continue
+
+            text = item.get("text")
+
+            if isinstance(text, str) and text.strip():
+                parts.append(text)
+
+        return "\n".join(parts)
+
     def call_tool(self, name: str, arguments: dict) -> ToolResult:
         """Вызов инструмента и разбор content-блока."""
 
@@ -474,6 +513,39 @@ def mcp_tools() -> tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]]:
             _cache = _build_cache()
 
         return _cache
+
+
+def probe(server: McpServer) -> dict:
+    """Проверяет один сервер: инструменты, ресурсы и ошибку."""
+
+    result = {
+        "name": server.name,
+        "ok": False,
+        "tools": 0,
+        "resources": 0,
+        "error": "",
+    }
+
+    try:
+        client = _session(server)
+        result["tools"] = len(client.list_tools())
+        result["resources"] = len(client.list_resources())
+        result["ok"] = True
+    except McpError as error:
+        _drop_session(server.name)
+        result["error"] = str(error)
+
+    return result
+
+
+def probe_all() -> list[dict]:
+    """Проверяет все включённые серверы из конфига."""
+
+    return [
+        probe(server)
+        for server in load_servers()
+        if server.enabled
+    ]
 
 
 def call_tool(root: Path, name: str, arguments: dict | None = None) -> ToolResult:

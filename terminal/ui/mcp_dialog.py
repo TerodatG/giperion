@@ -59,14 +59,43 @@ class McpDialog(SkinDialog):
         layout.addWidget(self.status)
 
         row = QHBoxLayout()
+        check = QPushButton("Проверить", self)
+        check.clicked.connect(self._check_servers)
         save = QPushButton("Проверить и сохранить", self)
         save.clicked.connect(self._save)
         close = QPushButton("Закрыть", self)
         close.clicked.connect(self.close)
+        row.addWidget(check)
         row.addWidget(save)
         row.addStretch(1)
         row.addWidget(close)
         layout.addLayout(row)
+
+    def _check_servers(self) -> None:
+        """Запускает серверы и показывает число инструментов и ресурсов."""
+
+        self.status.setText("Проверяю серверы…")
+        self.status.repaint()
+
+        rows = mcp.probe_all()
+
+        if not rows:
+            self.status.setText("Серверы не настроены.")
+
+            return
+
+        parts = []
+
+        for row in rows:
+            if row["ok"]:
+                parts.append(
+                    f"{row['name']}: инструментов {row['tools']}, "
+                    f"ресурсов {row['resources']}"
+                )
+            else:
+                parts.append(f"{row['name']}: ошибка — {row['error']}")
+
+        self.status.setText(" · ".join(parts))
 
     def _save(self) -> None:
         """Проверяет JSON, пишет файл и перезагружает MCP."""

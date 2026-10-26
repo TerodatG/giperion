@@ -59,11 +59,28 @@ for line in sys.stdin:
                 },
             },
         ]}})
+    elif method == "resources/list":
+        send({"jsonrpc": "2.0", "id": request_id, "result": {
+            "resources": [
+                {
+                    "uri": "mem://note",
+                    "name": "note",
+                    "mimeType": "text/plain",
+                }
+            ]
+        }})
+    elif method == "resources/read":
+        params = message.get("params") or {}
+        uri = str(params.get("uri") or "")
+        send({"jsonrpc": "2.0", "id": request_id, "result": {
+            "contents": [
+                {"uri": uri, "text": "ресурс: " + uri},
+            ]
+        }})
     elif method == "tools/call":
         params = message.get("params") or {}
         name = params.get("name")
         arguments = params.get("arguments") or {}
-
         if name == "write_note":
             send({"jsonrpc": "2.0", "id": request_id, "result": {
                 "isError": True,
@@ -401,3 +418,28 @@ def test_session_is_reused(monkeypatch) -> None:
 
     assert third.closed
     assert mcp._SESSIONS == {}
+
+def test_resources_and_probe(tmp_path) -> None:
+    """Клиент читает ресурсы, probe показывает статус."""
+
+    from terminal.core.agent import mcp
+
+    server = mcp.McpServer(
+        "stub",
+        sys.executable,
+        (str(_server_file(tmp_path)),),
+    )
+
+    with mcp.McpClient(server) as client:
+        resources = client.list_resources()
+
+        assert resources[0]["uri"] == "mem://note"
+        assert "ресурс: mem://note" in client.read_resource("mem://note")
+
+    status = mcp.probe(server)
+
+    assert status["ok"]
+    assert status["tools"] >= 2
+    assert status["resources"] == 1
+
+    mcp.close_sessions()
