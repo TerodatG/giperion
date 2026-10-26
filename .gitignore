@@ -75,3 +75,6 @@ data/agent_plugin_out/
 *.tmp
 .intents_*.tmp
 .*.tmp
+
+# --- Python-окружение для MCP-серверов ---
+data/mcp_venv/

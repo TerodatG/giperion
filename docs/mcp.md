@@ -68,3 +68,45 @@
   запустился», «не ответил за 20 с», «закрыл поток».
 - `python -m pytest tests/test_agent_mcp.py` — проверка клиента на
   локальном стенде-сервере.
+
+## Живой пример: mcp-server-fetch
+
+Проверено на настоящем сервере из PyPI (не на стенде):
+
+```powershell
+python -m venv data\mcp_venv
+data\mcp_venv\Scripts\python.exe -m pip install mcp-server-fetch
+```
+
+`data/agent_mcp.json`:
+
+```json
+{
+  "servers": [
+    {
+      "name": "web",
+      "command": "D:\\Projects\\...\\data\\mcp_venv\\Scripts\\python.exe",
+      "args": ["-m", "mcp_server_fetch"],
+      "enabled": true
+    }
+  ]
+}
+```
+
+После включения галочки «Включить MCP-серверы» в «Провайдере» агент
+видит инструмент `mcp_web_fetch` со схемой `url`, `max_length`,
+`start_index`, `raw`. Сервер объявляет `readOnlyHint`, поэтому
+подтверждение не требуется.
+
+Проверено два уровня:
+
+- `McpClient` напрямую: `initialize`, `tools/list`, `tools/call` —
+  страница `https://example.com` прочитана и вернулась текстом;
+- живая задача на `qwen3-coder-30b`: модель сама вызвала
+  `mcp_web_fetch`, получила страницу и ответила за 7.4 с (6.5k токенов).
+
+Node.js на этой машине нет, поэтому `npx`-серверы
+(`@modelcontextprotocol/server-filesystem`) не проверялись; Python-сервер
+подтверждает совместимость протокола.
+
+Папка `data/mcp_venv/` не попадает в git.
