@@ -3,14 +3,49 @@
 # Последнее изменение: первый вариант — пул и отдельные ветки.
 
 import argparse
+import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from config import BASE_DIR
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.worktrees import create_worktree
 from tools.eval_runner import build_brain
+
+GIT = r"C:\Program Files\Git\cmd\git.exe"
+
+
+def _git() -> str:
+    return GIT if Path(GIT).is_file() else "git"
+
+
+def merge_branches(branches: list[str]) -> list[tuple[str, int, str]]:
+    """Сливает ветки в текущую; конфликт возвращает ошибку."""
+
+    results = []
+    git = _git()
+
+    for branch in branches:
+        try:
+            done = subprocess.run(
+                [git, "merge", "--no-ff", branch],
+                cwd=str(BASE_DIR),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+            )
+            output = (
+                (done.stdout or "") + (done.stderr or "")
+            ).strip()[-500:]
+            results.append((branch, done.returncode, output))
+        except (OSError, subprocess.TimeoutExpired) as error:
+            results.append((branch, 1, str(error)))
+
+    return results
 
 
 def _fork(brain):
@@ -81,6 +116,11 @@ def main() -> int:
     parser.add_argument("--steps", type=int, default=6)
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--write", action="store_true")
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="слить успешные ветки в текущую (только с --write)",
+    )
     parser.add_argument("--policy", default="confirm")
     parser.add_argument("--model", default="")
     parser.add_argument("--provider", default="")
@@ -114,6 +154,23 @@ def main() -> int:
             print(f"папка: {item['folder']}")
 
         print("ответ:", (item["answer"] or item["error"] or "—")[:400])
+
+    if args.merge and args.write:
+        branches = [
+            item["branch"]
+            for item in results
+            if item["ok"] and item["branch"]
+        ]
+
+        if not branches:
+            print("Нет успешных веток для слияния.")
+        else:
+            print()
+            print("Слияние веток:")
+
+            for branch, code, output in merge_branches(branches):
+                mark = "OK" if code == 0 else "КОНФЛИКТ"
+                print(f"{mark} · {branch}: {output[:300]}")
 
     return 0 if all(item["ok"] for item in results) else 1
 

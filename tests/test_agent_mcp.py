@@ -422,7 +422,7 @@ def test_session_is_reused(monkeypatch) -> None:
 def test_resources_and_probe(tmp_path) -> None:
     """Клиент читает ресурсы, probe показывает статус."""
 
-    from terminal.core.agent import mcp
+    from terminal.core.agent import mcp, mcp_status
 
     server = mcp.McpServer(
         "stub",
@@ -436,7 +436,7 @@ def test_resources_and_probe(tmp_path) -> None:
         assert resources[0]["uri"] == "mem://note"
         assert "ресурс: mem://note" in client.read_resource("mem://note")
 
-    status = mcp.probe(server)
+    status = mcp_status.probe(server)
 
     assert status["ok"]
     assert status["tools"] >= 2

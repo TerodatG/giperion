@@ -99,12 +99,12 @@ def test_dialog_rejects_broken_json(tmp_path, monkeypatch, qapp) -> None:
 def test_dialog_checks_servers(tmp_path, monkeypatch, qapp) -> None:
     """Кнопка «Проверить» показывает инструменты и ресурсы."""
 
-    from terminal.core.agent import mcp
+    from terminal.core.agent import mcp_status
     from terminal.ui.mcp_dialog import McpDialog
 
     _config(tmp_path, monkeypatch)
     monkeypatch.setattr(
-        mcp,
+        mcp_status,
         "probe_all",
         lambda: [
             {
@@ -124,5 +124,54 @@ def test_dialog_checks_servers(tmp_path, monkeypatch, qapp) -> None:
 
         assert "инструментов 2" in dialog.status.text()
         assert "ресурсов 1" in dialog.status.text()
+    finally:
+        dialog.close()
+
+def test_tool_checkboxes_update_allowlist(tmp_path, monkeypatch, qapp) -> None:
+    """Галочки инструментов пишут tools в конфиг."""
+
+    import json
+
+    from terminal.core.agent import mcp_status
+    from terminal.ui.mcp_dialog import McpDialog
+
+    path = _config(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        mcp_status,
+        "probe_all",
+        lambda: [
+            {
+                "name": "web",
+                "ok": True,
+                "tools": 2,
+                "resources": 0,
+                "tool_names": ["fetch", "search"],
+                "resource_names": [],
+                "error": "",
+            }
+        ],
+    )
+
+    dialog = McpDialog(None)
+
+    try:
+        dialog._check_servers()
+
+        assert len(dialog._tool_checks) == 2
+
+        dialog._apply_tool_choices()
+
+        saved = json.loads(path.read_text(encoding="utf-8"))
+
+        assert saved["servers"][0]["tools"] == ["fetch"]
+
+        for _server, _tool, check in dialog._tool_checks:
+            check.setChecked(True)
+
+        dialog._apply_tool_choices()
+
+        saved = json.loads(path.read_text(encoding="utf-8"))
+
+        assert saved["servers"][0]["tools"] == []
     finally:
         dialog.close()

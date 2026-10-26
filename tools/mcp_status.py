@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from terminal.core.agent import mcp
+from terminal.core.agent import mcp, mcp_status
 
 
 def main() -> int:
@@ -22,7 +22,7 @@ def main() -> int:
         print("MCP-серверы не настроены: data/agent_mcp.json.")
         return 0
 
-    rows = mcp.probe_all()
+    rows = mcp_status.probe_all()
 
     if args.json:
         print(json.dumps(rows, ensure_ascii=False, indent=2))

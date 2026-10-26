@@ -515,39 +515,6 @@ def mcp_tools() -> tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]]:
         return _cache
 
 
-def probe(server: McpServer) -> dict:
-    """Проверяет один сервер: инструменты, ресурсы и ошибку."""
-
-    result = {
-        "name": server.name,
-        "ok": False,
-        "tools": 0,
-        "resources": 0,
-        "error": "",
-    }
-
-    try:
-        client = _session(server)
-        result["tools"] = len(client.list_tools())
-        result["resources"] = len(client.list_resources())
-        result["ok"] = True
-    except McpError as error:
-        _drop_session(server.name)
-        result["error"] = str(error)
-
-    return result
-
-
-def probe_all() -> list[dict]:
-    """Проверяет все включённые серверы из конфига."""
-
-    return [
-        probe(server)
-        for server in load_servers()
-        if server.enabled
-    ]
-
-
 def call_tool(root: Path, name: str, arguments: dict | None = None) -> ToolResult:
     """Выполняет MCP-инструмент по имени."""
 
@@ -587,3 +554,6 @@ def call_tool(root: Path, name: str, arguments: dict | None = None) -> ToolResul
         _drop_session(server_name)
 
         return ToolResult(False, str(error))
+
+
+
