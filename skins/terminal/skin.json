@@ -1,0 +1,36 @@
+{
+  "id": "terminal",
+  "name": "Терминал",
+  "tagline": "Металл и зелёный фосфор",
+  "description": "Текущая шкура: тёмный металл с заклёпками, зелёные экраны со скан-линиями и янтарные подписи. Мягкие скругления, красное свечение кнопок закрытия.",
+  "status": "ready",
+  "palette": {
+    "window": "#0d0a08",
+    "panel": "#1e1a17",
+    "border": "#23421f",
+    "screen": "#05100a",
+    "text": "#b8f0b0",
+    "accent": "#7cf58f",
+    "label": "#d09a6a",
+    "button": "#1b1512",
+    "button_text": "#d8b48e",
+    "lamp": "#ff5a3c",
+    "title": "#ffb37a"
+  },
+  "decor": {
+    "rivets": false,
+    "hazard": false,
+    "paper": false,
+    "scanlines": true,
+    "radius": 4
+  },
+  "textures": {
+    "@METAL@": "metal_tile.png",
+    "@PANEL_PURPLE@": "panel_purple.png",
+    "@PANEL@": "panel.png",
+    "@SCANLINE@": "scanline.png",
+    "@BUTTON_HOVER@": "button_hover.png",
+    "@BUTTON@": "button.png",
+    "@BAR@": "bar.png"
+  }
+}

@@ -1,6 +1,6 @@
-# Giperion/app/core/window_settings.py                             v008
+# Giperion/app/core/window_settings.py                              v010
 # Настройки окна: шрифт, цвета, стили текста, печать и модули.
-# Последнее изменение: доступ к файлам включается всегда.
+# Последнее изменение: назначения клавиш в общих настройках.
 
 import copy
 from pathlib import Path
@@ -65,9 +65,14 @@ DEFAULT_MODULE_STATES = {
 # Модули без выключателя: доступ к файлам теперь постоянный, кнопки нет.
 ALWAYS_ON_MODULES = ("files",)
 
+# Скин интерфейса по умолчанию (каталог скинов — terminal/core/skins.py).
+DEFAULT_SKIN = "terminal"
+
 DEFAULT_WINDOW_SETTINGS = {
     "chat_font_family": "",
     "chat_font_size": 11,
+    "skin": DEFAULT_SKIN,
+    "keys": {},
     "colors": {},
     "styles": DEFAULT_STYLES,
     "font_sizes": DEFAULT_FONT_SIZES,
@@ -116,6 +121,37 @@ def _clean_response(value: object) -> dict:
         )
 
     return settings
+
+
+def _clean_skin(value: object) -> str:
+    """Проверяет имя скина; неизвестное заменит каталог."""
+
+    if not isinstance(value, str):
+        return DEFAULT_SKIN
+
+    clean = value.strip()[:40]
+
+    return clean or DEFAULT_SKIN
+
+
+def _clean_keys(value: object) -> dict:
+    """Проверяет сохранённые назначения клавиш."""
+
+    if not isinstance(value, dict):
+        return {}
+
+    keys = {}
+
+    for action_id, binding in value.items():
+        if (
+            isinstance(action_id, str)
+            and isinstance(binding, str)
+            and len(action_id) <= 40
+            and len(binding) <= 40
+        ):
+            keys[action_id] = " ".join(binding.split())
+
+    return keys
 
 
 def _clean_styles(value: object) -> dict:
@@ -208,6 +244,8 @@ def load_window_settings(
     settings["font_sizes"] = _clean_font_sizes(
         document.get("font_sizes")
     )
+    settings["skin"] = _clean_skin(document.get("skin"))
+    settings["keys"] = _clean_keys(document.get("keys"))
     settings["response"] = _clean_response(
         document.get("response")
     )
@@ -255,6 +293,8 @@ def save_window_settings(
         "font_sizes": _clean_font_sizes(
             settings.get("font_sizes")
         ),
+        "skin": _clean_skin(settings.get("skin")),
+        "keys": _clean_keys(settings.get("keys")),
         "response": _clean_response(
             settings.get("response")
         ),

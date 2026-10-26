@@ -1328,3 +1328,58 @@ QWidget#skinPreview {
     border-radius: 4px;
 }
 
+/* --- Раздел «Назначение клавиш» --- */
+
+QWidget#keysScreen {
+    background-color: #05100a;
+    background-image: url(@SCANLINE@);
+    background-repeat: repeat;
+    border: 1px solid #23421f;
+    border-radius: 4px;
+}
+
+QLabel#keyActionName {
+    background: transparent;
+    color: #8ee08a;
+    font-size: 9pt;
+    font-weight: bold;
+}
+
+QLabel#keyActionHint {
+    background: transparent;
+    color: #7fa58a;
+    font-size: 8pt;
+}
+
+QPushButton#keyBindingButton {
+    border-image: none;
+    background-color: #10281a;
+    border: 1px solid #23421f;
+    border-radius: 3px;
+    color: #b8f0b0;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9pt;
+    padding: 4px 10px;
+}
+
+QPushButton#keyBindingButton:hover {
+    background-color: #123d1f;
+    border: 1px solid #5ce07a;
+    color: #eaffea;
+}
+
+QPushButton#keyResetButton {
+    border-image: none;
+    background-color: #1b1512;
+    border: 1px solid #3d2f26;
+    border-radius: 3px;
+    color: #d8b48e;
+    font-size: 10pt;
+}
+
+QPushButton#keyResetButton:hover {
+    background-color: #2a1f18;
+    border: 1px solid #7a5a3c;
+    color: #ffe2d2;
+}
+

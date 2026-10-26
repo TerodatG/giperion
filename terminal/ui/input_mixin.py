@@ -1,8 +1,7 @@
-# Giperion/app/ui/input_mixin.py                                    v001
-# Ввод с Enter и русские контекстные меню чата и поля ввода.
-# Последнее изменение: методы вынесены из GiperionWindow как отдельный слой.
+# Giperion/app/ui/input_mixin.py                                    v002
+# Ввод по назначенной клавише и русские контекстные меню.
+# Последнее изменение: отправка по настраиваемой клавише.
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMenu
 
 from terminal.ui.window_events import ChatEventFilter
@@ -12,13 +11,14 @@ class InputMixin:
     """Методы окна для клавиатуры и контекстных меню."""
 
     def _input_key_press(self, event) -> bool:
-        """Отправляет сообщение по Enter без Shift."""
+        """Отправляет сообщение по назначенной клавише.
 
-        if (
-            event.key() in (Qt.Key_Return, Qt.Key_Enter)
-            and not event.modifiers() & Qt.ShiftModifier
-        ):
-            # Пока идёт ответ, Enter не должен добавлять пустые строки.
+        По умолчанию это Enter; Shift+Enter остаётся переводом строки,
+        потому что модификатор меняет сочетание.
+        """
+
+        if self.binding_matches("send", event):
+            # Пока идёт ответ, клавиша не должна добавлять пустые строки.
             if not self.answering:
                 self.send_message()
 

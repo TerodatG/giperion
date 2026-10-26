@@ -1,6 +1,6 @@
-# Giperion/app/ui/settings_mixin.py                                 v003
-# Применение настроек вида, шрифта и заголовка окна.
-# Последнее изменение: без подписи на планке заголовка.
+# Giperion/app/ui/settings_mixin.py                                 v005
+# Применение настроек вида, шрифта, скина и клавиш.
+# Последнее изменение: применение назначенных клавиш.
 
 from terminal.core.window_settings import (
     DEFAULT_FONT_SIZES,
@@ -10,6 +10,9 @@ from terminal.core.window_settings import (
 from terminal.ui.dialogs_base import show_tool_window
 from terminal.ui.settings_dialog import SettingsDialog
 from terminal.ui.theme import DEFAULT_COLORS
+from terminal.ui.window_style import build_window_style
+from terminal.core.keybindings import load_bindings, save_bindings
+from terminal.core.skins import get_skin, save_skin_id
 
 
 class SettingsMixin:
@@ -39,9 +42,36 @@ class SettingsMixin:
             self.response_settings,
             on_apply=self.apply_view_settings,
             font_sizes=self.font_sizes,
+            on_apply_skin=self.apply_skin,
+            skin_id=getattr(self, "skin_id", "terminal"),
+            on_apply_keys=self.apply_keybindings,
+            keybindings=dict(
+                getattr(self, "keybindings", None) or load_bindings()
+            ),
         )
 
         show_tool_window(self.window, dialog, "settings")
+
+    def apply_skin(self, skin_id: str) -> str:
+        """Применяет скин интерфейса и запоминает выбор."""
+
+        skin = get_skin(skin_id)
+
+        if not skin.ready:
+            return getattr(self, "skin_id", "terminal")
+
+        self.skin_id = save_skin_id(skin.id)
+        self.window.setStyleSheet(build_window_style(self.skin_id))
+
+        return self.skin_id
+
+    def apply_keybindings(self, bindings: dict) -> dict:
+        """Сохраняет назначения клавиш и ставит горячие клавиши."""
+
+        saved = save_bindings(bindings)
+        self.install_shortcuts(saved)
+
+        return saved
 
     def apply_view_settings(
         self,

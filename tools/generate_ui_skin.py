@@ -1,6 +1,6 @@
-# Giperion/tools/generate_ui_skin.py                               v002
+# Giperion/tools/generate_ui_skin.py                               v003
 # Генерация текстур интерфейса: тёмный металл, заклёпки, экраны.
-# Последнее изменение: фиолетовый экран и планка заголовка.
+# Последнее изменение: текстуры пишутся в skins/terminal.
 
 import os
 import random
@@ -21,7 +21,7 @@ from PySide6.QtGui import (
 
 from config import BASE_DIR
 
-UI_DIR = BASE_DIR / "assets" / "ui"
+UI_DIR = BASE_DIR / "skins" / "terminal"
 
 # Тёмная сталь с коричневым оттенком.
 BASE_COLOR = (32, 28, 25)

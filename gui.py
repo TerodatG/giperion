@@ -1,6 +1,6 @@
-# Giperion/gui.py                                                v040
+# Giperion/gui.py                                                v042
 # Оконный ИИ-собеседник Гиперион на PySide6.
-# Последнее изменение: кнопка «Обновление» в плите «Система».
+# Последнее изменение: горячие клавиши из настроек при запуске.
 
 import sys
 
@@ -27,12 +27,14 @@ from terminal.core.window_settings import (
     DEFAULT_STYLES,
     load_window_settings,
 )
+from terminal.core.skins import load_skin_id
 from terminal.ui.answer_mixin import AnswerMixin
 from terminal.ui.avatar_mixin import AvatarMixin
 from terminal.ui.chat_sessions_mixin import ChatSessionsMixin
 from terminal.ui.dashboard_mixin import DashboardMixin
 from terminal.ui.file_attachment_mixin import FileAttachmentMixin
 from terminal.ui.input_mixin import InputMixin
+from terminal.ui.keybindings_mixin import KeybindingsMixin
 from terminal.ui.model_controls_mixin import ModelControlsMixin
 from terminal.ui.panels_mixin import PanelsMixin
 from terminal.ui.performance_mixin import PerformanceMixin
@@ -50,7 +52,7 @@ from terminal.ui.theme import (
 from terminal.ui.transcript_mixin import TranscriptMixin
 from terminal.ui.update_mixin import UpdateMixin
 from terminal.ui.window_chrome_mixin import WindowChromeMixin
-from terminal.ui.window_style import WINDOW_STYLE
+from terminal.ui.window_style import build_window_style
 
 WINDOW_FILE = BASE_DIR / "main_window.ui"
 
@@ -68,6 +70,7 @@ class GiperionWindow(
     SettingsMixin,
     PerformanceMixin,
     UpdateMixin,
+    KeybindingsMixin,
     InputMixin,
     AnswerMixin,
 ):
@@ -93,7 +96,11 @@ class GiperionWindow(
             )
 
         self.window_settings = load_window_settings()
-        self.window.setStyleSheet(WINDOW_STYLE)
+
+        # Скин интерфейса переживает перезапуск.
+        self.skin_id = load_skin_id()
+
+        self.window.setStyleSheet(build_window_style(self.skin_id))
         self._build_window_shell()
 
         self.chat = self.window.chatHistory
@@ -213,6 +220,7 @@ class GiperionWindow(
         self.chat.anchorClicked.connect(self._on_anchor_clicked)
         self.chat.setOpenLinks(False)
         self._build_context_menus()
+        self.install_shortcuts()
         self._reconcile_conference_state()
 
         if (

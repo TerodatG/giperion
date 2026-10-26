@@ -1,0 +1,28 @@
+{
+  "id": "vault",
+  "name": "Убежище",
+  "tagline": "Ржавый корпус и оливковый CRT",
+  "description": "Скин в духе старых постапокалиптических терминалов: ржавая сталь с болтами, утопленные панели, оливковые подписи, зелёный CRT с яркой обводкой, бумажные вставки и предупреждающие полосы. Готовится: пока доступен только предпросмотр.",
+  "status": "draft",
+  "palette": {
+    "window": "#1a1510",
+    "panel": "#4a3f33",
+    "border": "#241c15",
+    "screen": "#080d07",
+    "text": "#3bff6a",
+    "accent": "#ffae3a",
+    "label": "#b6a45e",
+    "button": "#3a3128",
+    "button_text": "#cbb98a",
+    "lamp": "#d62b1f",
+    "title": "#cbb98a"
+  },
+  "decor": {
+    "rivets": true,
+    "hazard": true,
+    "paper": true,
+    "scanlines": true,
+    "radius": 0
+  },
+  "textures": {}
+}

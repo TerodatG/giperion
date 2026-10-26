@@ -1,6 +1,6 @@
-# Giperion/terminal/ui/panels_misc.py                                  v001
+# Giperion/terminal/ui/panels_misc.py                                  v003
 # Подписи, фон личности, «Система», голос, инструменты и размеры чатов.
-# Последнее изменение: вынесено из panels_mixin.
+# Последнее изменение: выбранный скин в сохранении настроек.
 
 import random
 
@@ -235,6 +235,7 @@ class PanelsMiscMixin:
                     "font_sizes": dict(self.font_sizes),
                     "response": dict(self.response_settings),
                     "modules": dict(self.modules),
+                    "skin": getattr(self, "skin_id", "terminal"),
                 }
             )
         except OSError as error:
