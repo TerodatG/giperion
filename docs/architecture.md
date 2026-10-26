@@ -129,7 +129,12 @@ researcher/reviewer/tester. Память между задачами — `memory
 `grounding_calls` добавляет смысловой поиск к стартовому чтению, если
 задача похожа на вопрос и семантика включена. Каждое подтверждение
 пишется в хеш-цепочку `data/agent_audit.jsonl`
-(`audit.py`, проверка — `python -m tools.audit_log --check`). Длинные
+(`audit.py`, проверка — `python -m tools.audit_log --check`).
+Автоматизация вынесена в `tools/`: `knowledge_add` (документы в
+`knowledge/`), `agent_schedule` (read-only расписание),
+`agent_parallel` (worktree на задачу), `plugin_install` (манифест и
+хеши), `agent_pr` (push + PR), `build_portable` (zip без данных) — см.
+`docs/automation.md`. Длинные
 задачи модель ведёт по чек-листу: инструмент `update_plan` хранит
 пункты со статусами `pending`/`doing`/`done`, а трейс показывает
 `[ ]`, `[>]`, `[x]` — план переживает сохранение задачи, потому что

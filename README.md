@@ -302,6 +302,16 @@ python -m tools.update_passport
   даёт запись только в `data/agent_plugin_out/<плагин>`; подготовка —
   `python -m tools.setup_plugin_container --prepare`, удаление —
   `--remove`;
+- плагин ставится из папки с манифестом через
+  `python -m tools.plugin_install` (проверка risk/разрешений/модуля и
+  хеши файлов), а ветку агента можно отправить и превратить в PR командой
+  `python -m tools.agent_pr`;
+- документы для смыслового поиска складываются в `knowledge/` командой
+  `python -m tools.knowledge_add`; фоновые read-only задачи —
+  `python -m tools.agent_schedule` (add/list/run-due), несколько задач
+  параллельно — `python -m tools.agent_parallel` (с `--write` каждая
+  идёт в своём worktree); переносимая сборка —
+  `python -m tools.build_portable` — см. `docs/automation.md`;
 - MCP-серверы (`data/agent_mcp.json`) дают внешние инструменты по
   JSON-RPC через stdio; включаются галочкой «Включить MCP-серверы»,
   процесс сервера живёт между вызовами, а кнопка «Серверы…» открывает
