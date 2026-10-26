@@ -305,10 +305,13 @@ def _scored(
     """Итоговые баллы: гибрид в 0..1 или чистый BM25, с весом пути."""
 
     if not hybrid:
-        return [
+        weighted = [
             value * _path_weight(chunk["path"])
             for value, chunk in zip(lexical, chunks)
         ]
+        best = max(weighted, default=0.0) or 1.0
+
+        return [value / best for value in weighted]
 
     best = max(lexical) or 1.0
     scores = [0.0] * len(chunks)

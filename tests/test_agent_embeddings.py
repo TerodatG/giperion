@@ -22,7 +22,7 @@ def test_detect_model_picks_embedding(monkeypatch) -> None:
 
     calls: list[str] = []
 
-    def fake(url: str, api_key: str, payload) -> dict:
+    def fake(url: str, api_key: str, payload, timeout: int = 30) -> dict:
         calls.append(url)
 
         return {
@@ -94,7 +94,7 @@ def test_embed_sends_batch(monkeypatch) -> None:
 
     target = ("http://127.0.0.1:1234/v1", "key", "embed-model")
 
-    def fake(url: str, api_key: str, payload: dict) -> dict:
+    def fake(url: str, api_key: str, payload: dict, timeout: int = 30) -> dict:
         captured["url"] = url
         captured["payload"] = payload
 
@@ -123,7 +123,7 @@ def test_embed_rejects_broken_response(monkeypatch) -> None:
     monkeypatch.setattr(
         embeddings,
         "_json_request",
-        lambda *args: {"data": [{"embedding": [1.0]}]},
+        lambda *args, **kwargs: {"data": [{"embedding": [1.0]}]},
     )
 
     with pytest.raises(embeddings.EmbeddingError):

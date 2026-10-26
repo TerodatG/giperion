@@ -14,7 +14,6 @@ from terminal.core.agent import settings
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 MODEL_HINTS = ("embed", "bge", "e5-", "gte-")
 DETECT_TTL = 60.0
-_timeout = 30
 
 # Кеш автопоиска: (адрес, ключ) → (когда, модель).
 _detected: dict[tuple[str, str], tuple[float, str]] = {}
@@ -37,7 +36,12 @@ def is_local_url(url: str) -> bool:
     return name in LOCAL_HOSTS or name.endswith(".localhost")
 
 
-def _json_request(url: str, api_key: str, payload: dict | None) -> dict:
+def _json_request(
+    url: str,
+    api_key: str,
+    payload: dict | None,
+    timeout: int = 30,
+) -> dict:
     """Один запрос JSON; payload=None означает GET."""
 
     body = None
@@ -58,7 +62,10 @@ def _json_request(url: str, api_key: str, payload: dict | None) -> dict:
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=_timeout) as response:
+        with urllib.request.urlopen(
+            request,
+            timeout=max(5, int(timeout)),
+        ) as response:
             raw = response.read().decode("utf-8", errors="replace")
     except (urllib.error.URLError, OSError) as error:
         raise EmbeddingError(f"Сервер эмбеддингов недоступен: {error}")
@@ -98,7 +105,7 @@ def detect_model(base_url: str, api_key: str = "") -> str:
         return cached[1]
 
     try:
-        data = _json_request(base + "/models", api_key, None)
+        data = _json_request(base + "/models", api_key, None, timeout=10)
     except EmbeddingError:
         return ""
 
@@ -166,18 +173,12 @@ def embed(
         raise EmbeddingError("Эмбеддинги не настроены.")
 
     base_url, api_key, model = chat
-    global _timeout
-    previous = _timeout
-    _timeout = max(5, int(timeout))
-
-    try:
-        data = _json_request(
-            base_url + "/embeddings",
-            api_key,
-            {"model": model, "input": values},
-        )
-    finally:
-        _timeout = previous
+    data = _json_request(
+        base_url + "/embeddings",
+        api_key,
+        {"model": model, "input": values},
+        timeout=timeout,
+    )
 
     rows = data.get("data")
 

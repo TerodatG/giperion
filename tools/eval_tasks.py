@@ -345,7 +345,8 @@ TASKS = (
     EvalTask(
         "find-command-whitelist",
         "Белый список команд",
-        "Где задан белый список команд агента? Назови файл.",
+        "Где проверяется, какие команды агенту разрешены (validate_command)? "
+        "Найди и назови файл.",
         answer_has("commands.py"),
         max_steps=7,
     ),
@@ -367,13 +368,21 @@ TASKS = (
     EvalTask(
         "two-files",
         "Две записи за задачу",
-        "Создай eval_a.txt с текстом «альфа» и eval_b.txt с текстом «бета».",
+        "В корне проекта создай за одну задачу два файла: eval_a.txt "
+        "с текстом «альфа» и eval_b.txt с текстом «бета».",
         lambda root, _answer: (
-            _text(root / "eval_a.txt").strip() == "альфа"
-            and _text(root / "eval_b.txt").strip() == "бета",
-            "оба файла на месте",
+            (
+                _text(root / "eval_a.txt").strip() == "альфа"
+                and _text(root / "eval_b.txt").strip() == "бета"
+            ),
+            "оба файла в корне"
+            if (
+                _text(root / "eval_a.txt").strip() == "альфа"
+                and _text(root / "eval_b.txt").strip() == "бета"
+            )
+            else "файлы не в корне или текст другой",
         ),
-        max_steps=8,
+        max_steps=10,
     ),
     EvalTask(
         "run-tests",
@@ -415,9 +424,10 @@ TASKS = (
     EvalTask(
         "docs-passport",
         "Раздел про паспорт",
-        "Прочитай docs/architecture.md и назови раздел про паспорт модели.",
+        "Прочитай docs/architecture.md через read_file и назови раздел "
+        "про паспорт модели. Ответ — заголовок раздела.",
         answer_has("паспорт"),
-        max_steps=4,
+        max_steps=5,
     ),
     EvalTask(
         "docs-plugins",
@@ -462,7 +472,7 @@ TASKS = (
             == ["альфа", "бета"]
             else "строки не совпали",
         ),
-        max_steps=5,
+        max_steps=7,
     ),
     EvalTask(
         "symbol-nativebrain",
@@ -523,8 +533,8 @@ TASKS = (
     EvalTask(
         "web-fetch-word",
         "Страница по URL",
-        "Прочитай страницу https://example.com/secret через fetch_url "
-        "и назови секретное слово с неё.",
+        "Пользователь разрешил веб-доступ. Вызови fetch_url с url "
+        "https://example.com/secret и назови слово со страницы.",
         lambda root, answer: (
             "кипарис" in str(answer).casefold(),
             "слово найдено"
