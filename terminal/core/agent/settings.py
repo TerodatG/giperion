@@ -437,6 +437,20 @@ def semantic_enabled() -> bool:
     return document.get("semantic_search") is not False
 
 
+def review_enabled() -> bool:
+    """Проверять ли финальный ответ критиком (по умолчанию нет)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("review_answer") is True
+
+
+def set_review_enabled(enabled: bool) -> None:
+    """Включает или выключает критика ответа."""
+
+    _update_fields({"review_answer": bool(enabled)})
+
+
 def set_semantic_enabled(enabled: bool) -> None:
     """Включает или выключает смысловой поиск."""
 

@@ -39,6 +39,7 @@ from terminal.core.agent.settings import (
     plugin_sandbox,
     plugins_enabled,
     request_timeout,
+    review_enabled,
     save_budget_limits,
     save_settings,
     semantic_enabled,
@@ -53,6 +54,7 @@ from terminal.core.agent.settings import (
     set_plugin_sandbox,
     set_plugins_enabled,
     set_request_timeout,
+    set_review_enabled,
     set_semantic_enabled,
     set_step_timeout,
     set_stream_enabled,
@@ -426,6 +428,17 @@ class ProviderDialog(SkinDialog):
         )
         form.addRow("Память", self.memory_button)
 
+        self.review_check = QCheckBox(
+            "Проверять ответ критиком",
+            self,
+        )
+        self.review_check.setChecked(review_enabled())
+        self.review_check.setToolTip(
+            "После ответа отдельный проход reviewer ищет противоречия "
+            "и пропущенные случаи. Добавляет один запрос к модели."
+        )
+        form.addRow("Проверка ответа", self.review_check)
+
     def _clear_search_cache(self) -> None:
         """Удаляет кеши смыслового поиска после подтверждения."""
 
@@ -552,6 +565,7 @@ class ProviderDialog(SkinDialog):
             ]
         )
         set_semantic_enabled(self.semantic_check.isChecked())
+        set_review_enabled(self.review_check.isChecked())
         set_embedding_model(self.embedding_input.text())
 
         from terminal.core.agent import mcp, semantic

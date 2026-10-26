@@ -230,24 +230,132 @@ def _run_subagent(
     return ToolResult(answered and not interrupted, "\n\n".join(parts))
 
 
+def _review_prompt(task: str, result: AgentResult) -> str:
+    """Задача для критика."""
+
+    steps = "\n".join(
+        f"{step.index}. {step.kind}: {step.title}"
+        for step in result.steps[-12:]
+    )
+
+    return (
+        "Ты проверяющий. Оцени, решает ли ответ задачу и нет ли "
+        "противоречий с шагами. Не вызывай инструменты. Ответь «OK», "
+        "если всё в порядке, или 1–3 короткими замечаниями.\n\n"
+        f"Задача: {str(task)[:1000]}\n\n"
+        f"Ответ: {str(result.answer)[:2000]}\n\n"
+        f"Шаги:\n{steps or '—'}"
+    )
+
+
+def _maybe_review(
+    task: str,
+    brain: Brain,
+    root: Path,
+    result: AgentResult,
+) -> None:
+    """Необязательный проход критика после ответа."""
+
+    from terminal.core.agent import settings
+
+    if (
+        not settings.review_enabled()
+        or result.cancelled
+        or result.error
+        or not result.answer.strip()
+    ):
+        return
+
+    reviewer = getattr(brain, "fork", None)
+    reviewer = reviewer() if callable(reviewer) else brain
+
+    review = _run_agent_impl(
+        _review_prompt(task, result),
+        reviewer,
+        root,
+        max_steps=2,
+        require_tool_first=False,
+        ground_first=False,
+        policy="read",
+        approve=None,
+        depth=1,
+        allow_subagent=False,
+        allowed=set(),
+    )
+    text = str(review.answer or "").strip()
+
+    if not text or review.error or text.upper().startswith("OK"):
+        return
+
+    result.steps.append(
+        AgentStep(
+            len(result.steps) + 1,
+            "review",
+            "Проверка критика",
+            text[:500],
+        )
+    )
+    result.answer = (
+        result.answer.rstrip()
+        + "\n\nПроверка критика:\n"
+        + text
+    )
+
+
+def _depth_of(args: tuple, kwargs: dict) -> int:
+    depth = kwargs.get("depth")
+
+    if depth is None:
+        depth = args[9] if len(args) > 9 else 0
+
+    return int(depth or 0)
+
+
+def _close_browser() -> None:
+    try:
+        from terminal.core.agent import browser_js
+
+        browser_js.close_session()
+    except Exception:  # noqa: BLE001 — не мешает результату
+        pass
+
+
 def run_agent(*args, **kwargs) -> AgentResult:
-    """Обёртка: после задачи закрывает браузерную сессию потока."""
+    """Обёртка: критик, затем закрытие браузерной сессии потока."""
 
     try:
-        return _run_agent_impl(*args, **kwargs)
-    finally:
-        depth = kwargs.get("depth")
+        result = _run_agent_impl(*args, **kwargs)
+    except BaseException:
+        if not _depth_of(args, kwargs):
+            _close_browser()
 
-        if depth is None:
-            depth = args[9] if len(args) > 9 else 0
+        raise
 
-        if not int(depth or 0):
+    if not _depth_of(args, kwargs):
+        task = kwargs.get("task")
+
+        if task is None and args:
+            task = args[0]
+
+        brain = kwargs.get("brain")
+
+        if brain is None and len(args) > 1:
+            brain = args[1]
+
+        root = kwargs.get("root")
+
+        if root is None and len(args) > 2:
+            root = args[2]
+
+        if task and brain is not None and root is not None:
             try:
-                from terminal.core.agent import browser_js
-
-                browser_js.close_session()
-            except Exception:  # noqa: BLE001 — не мешает результату
+                _maybe_review(str(task), brain, Path(root), result)
+            except Exception:  # noqa: BLE001 — критик не ломает ответ
                 pass
+
+        _close_browser()
+
+    return result
 
 
 def _run_agent_impl(
