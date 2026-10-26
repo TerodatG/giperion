@@ -4,7 +4,11 @@
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import (
+    QApplication,
+    QMessageBox,
+    QSystemTrayIcon,
+)
 
 from config import BASE_DIR
 from terminal.core.agent.brain import ModelBrain
@@ -409,6 +413,41 @@ class AgentRunnerMixin:
             self.trace.appendPlainText(
                 "\nИЗМЕНЕНИЯ:\n" + format_changes(changes)
             )
+
+        self._notify(self.status_label.text())
+
+    def _notify(self, message: str) -> None:
+        """Мигает задачей и, если есть трей, показывает уведомление."""
+
+        try:
+            if QApplication.instance() is None:
+                return
+
+            QApplication.alert(self, 0)
+
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                return
+
+            tray = getattr(self, "_tray_icon", None)
+
+            if tray is None:
+                icon = self.windowIcon()
+
+                if icon.isNull():
+                    return
+
+                tray = QSystemTrayIcon(icon, self)
+                tray.show()
+                self._tray_icon = tray
+
+            tray.showMessage(
+                "Терминал",
+                str(message or "Задача завершена")[:200],
+                QSystemTrayIcon.MessageIcon.Information,
+                5000,
+            )
+        except Exception:  # noqa: BLE001 — уведомление не должно ломать итог
+            pass
 
     def _show_success(self, job, branch_note: str) -> None:
         """Статус успешного завершения."""
