@@ -20,22 +20,33 @@ SYSTEM_PREFIXES = (
 )
 
 
+# Знаки, которые не должны мешать распознать короткую команду.
+COMMAND_PUNCTUATION = " \t\r\n?!.,;:—–-"
+
+
+def _command_key(user_message: str) -> str:
+    """Нормализует короткую команду без завершающей пунктуации."""
+
+    return normalize_message(user_message).strip(COMMAND_PUNCTUATION)
+
+
 def is_exit_command(user_message: str) -> bool:
     """Проверяет точное совпадение команды выхода."""
 
-    return normalize_message(user_message) in EXIT_COMMANDS
+    return _command_key(user_message) in EXIT_COMMANDS
 
 
 def extract_system_command(user_message: str) -> str | None:
     """Извлекает команду после обращения «Гиперион, система»."""
 
-    message_lower = user_message.lower().strip()
+    text = user_message.strip()
+    message_lower = text.lower()
 
     for prefix in SYSTEM_PREFIXES:
         if message_lower.startswith(prefix):
-            command = user_message[len(prefix):].strip()
+            command = text[len(prefix):].strip()
 
-            return normalize_message(command)
+            return _command_key(command)
 
     return None
 
@@ -43,7 +54,7 @@ def extract_system_command(user_message: str) -> str | None:
 def is_confirmation_command(user_message: str) -> bool:
     """Проверяет команду принятия или отмены действия."""
 
-    normalized_message = normalize_message(user_message)
+    normalized_message = _command_key(user_message)
 
     return (
         normalized_message in CONFIRM_COMMANDS

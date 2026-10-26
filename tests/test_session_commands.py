@@ -44,6 +44,28 @@ def test_empty_system_command_returns_empty_string() -> None:
     assert extract_system_command("Гиперион, система:") == ""
 
 
+def test_system_command_with_leading_spaces_is_extracted() -> None:
+    """Ведущие пробелы не сдвигают границу команды."""
+
+    assert (
+        extract_system_command("  Гиперион, система: архив ядра")
+        == "архив ядра"
+    )
+
+
+def test_command_punctuation_is_ignored() -> None:
+    """Точка или восклицательный знак не мешают команде."""
+
+    assert is_exit_command("выход!")
+    assert is_exit_command("пока.")
+    assert is_confirmation_command("подтверждаю!")
+    assert is_confirmation_command("отмена.")
+    assert (
+        extract_system_command("Гиперион, система: покажи архивы!")
+        == "покажи архивы"
+    )
+
+
 def test_regular_message_is_not_system_command() -> None:
     """Без обращения команда не извлекается."""
 
