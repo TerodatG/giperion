@@ -36,3 +36,18 @@ def test_retrieval_cases_hit_at_five() -> None:
             failures.append((query, expected, paths))
 
     assert not failures, failures
+
+
+def test_retrieval_hit_at_one_threshold() -> None:
+    """Первый результат совпадает не реже чем в 60 % запросов."""
+
+    hits = 0
+
+    for query, expected in CASES:
+        result = semantic.find_relevant(BASE_DIR, query, limit=1)
+        paths = _paths(result.text)
+
+        if expected in paths:
+            hits += 1
+
+    assert hits / len(CASES) >= 0.60
