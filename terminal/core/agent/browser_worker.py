@@ -3,10 +3,13 @@
 # Последнее изменение: первый вариант — JSON в argv, текст и заголовок.
 
 import json
+import re
 import sys
 import urllib.parse
+from pathlib import Path
 
 MAX_TEXT = 12_000
+MAX_DOWNLOAD = 10 * 1024 * 1024
 SETTLE_MS = 1200
 
 
@@ -130,16 +133,68 @@ ACTIONS = {
 }
 
 
-def _run_actions(page, actions: list, timeout: int) -> None:
+def _act_download(
+    page,
+    action: dict,
+    timeout: int,
+    download_dir: str,
+    downloads: list | None,
+) -> None:
+    """Скачивает файл по клику и ограничивает размер."""
+
+    selector = str(action.get("selector") or "")
+    folder = Path(download_dir or ".").resolve()
+    folder.mkdir(parents=True, exist_ok=True)
+
+    with page.expect_download(timeout=timeout) as info:
+        page.click(selector)
+
+    download = info.value
+    name = re.sub(
+        r"[^\w.-]+",
+        "_",
+        Path(download.suggested_filename).name,
+    )[:120] or "download.bin"
+    target = folder / name
+    download.save_as(str(target))
+    size = target.stat().st_size
+
+    if size > MAX_DOWNLOAD:
+        target.unlink(missing_ok=True)
+        raise ValueError(
+            f"Файл больше {MAX_DOWNLOAD // 1024 // 1024} МБ."
+        )
+
+    if downloads is not None:
+        downloads.append(str(target))
+
+
+def _run_actions(
+    page,
+    actions: list,
+    timeout: int,
+    download_dir: str = "",
+    downloads: list | None = None,
+) -> None:
     """Выполняет переходы и действия по очереди."""
 
     for action in actions[:12]:
         if not isinstance(action, dict):
             continue
 
-        handler = ACTIONS.get(
-            str(action.get("type") or "").strip().lower()
-        )
+        kind = str(action.get("type") or "").strip().lower()
+
+        if kind == "download":
+            _act_download(
+                page,
+                action,
+                timeout,
+                download_dir,
+                downloads,
+            )
+            continue
+
+        handler = ACTIONS.get(kind)
 
         if handler is not None:
             handler(page, action, timeout)
@@ -170,7 +225,7 @@ def render(request: dict) -> dict:
         )
 
         try:
-            page = browser.new_page(accept_downloads=False)
+            page = browser.new_page(accept_downloads=True)
             page.set_default_timeout(timeout)
             page.route("**/*", _guard)
             page.goto(
@@ -187,8 +242,17 @@ def render(request: dict) -> dict:
                 )
 
             if isinstance(actions, list) and actions:
-                _run_actions(page, actions, timeout)
+                downloads: list[str] = []
+                _run_actions(
+                    page,
+                    actions,
+                    timeout,
+                    str(request.get("download_dir") or ""),
+                    downloads,
+                )
                 page.wait_for_timeout(500)
+            else:
+                downloads = []
 
             if shot_path:
                 from pathlib import Path
@@ -213,6 +277,7 @@ def render(request: dict) -> dict:
                 "text": text,
                 "truncated": truncated,
                 "shot": shot_path,
+                "downloads": downloads,
             }
         finally:
             browser.close()
@@ -247,7 +312,7 @@ def _new_page(runtime):
             "--disable-breakpad",
         ],
     )
-    context = browser.new_context(accept_downloads=False)
+    context = browser.new_context(accept_downloads=True)
     context.route("**/*", _guard)
     route_ws = getattr(context, "route_web_socket", None)
 
@@ -313,13 +378,21 @@ def _open_page(page, request: dict, timeout: int) -> dict:
         )
 
     actions = request.get("actions")
+    downloads: list[str] = []
 
     if isinstance(actions, list) and actions:
-        _run_actions(page, actions, timeout)
+        _run_actions(
+            page,
+            actions,
+            timeout,
+            str(request.get("download_dir") or ""),
+            downloads,
+        )
         page.wait_for_timeout(500)
 
     data = _page_data(page)
     data["shot"] = _take_shot(page, request)
+    data["downloads"] = downloads
 
     return data
 
@@ -328,13 +401,21 @@ def _act_page(page, request: dict, timeout: int) -> dict:
     """Действия на текущей странице без перехода."""
 
     actions = request.get("actions")
+    downloads: list[str] = []
 
     if isinstance(actions, list) and actions:
-        _run_actions(page, actions, timeout)
+        _run_actions(
+            page,
+            actions,
+            timeout,
+            str(request.get("download_dir") or ""),
+            downloads,
+        )
         page.wait_for_timeout(500)
 
     data = _page_data(page)
     data["shot"] = _take_shot(page, request)
+    data["downloads"] = downloads
 
     return data
 

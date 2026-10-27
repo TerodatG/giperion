@@ -90,3 +90,45 @@ def test_empty_journal_is_valid() -> None:
 
     assert ok
     assert "пуст" in message
+
+def test_signed_export_and_search(tmp_path, monkeypatch) -> None:
+    """Экспорт подписывается, проверяется и ищется."""
+
+    monkeypatch.setattr(audit, "AUDIT_KEY_FILE", tmp_path / "key")
+    audit.record("approval", {"tool": "write_file", "target": "a.txt"})
+    audit.record("approval", {"tool": "read_file", "target": "b.txt"})
+
+    target = tmp_path / "export.jsonl"
+    path, signature = audit.export(target)
+
+    assert path.is_file()
+    assert signature.is_file()
+
+    ok, message = audit.verify_export(path, signature)
+
+    assert ok
+    assert "2" in message
+
+    target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    ok, _message = audit.verify_export(path, signature)
+
+    assert not ok
+
+    found = audit.search("write_file", limit=5)
+
+    assert len(found) == 1
+    assert found[0]["payload"]["tool"] == "write_file"
+
+
+def test_export_filters_dates(tmp_path, monkeypatch) -> None:
+    """since/until отсекают записи по дате."""
+
+    monkeypatch.setattr(audit, "AUDIT_KEY_FILE", tmp_path / "key")
+    audit.record("old", {"x": 1})
+    audit.record("new", {"x": 2})
+
+    target = tmp_path / "part.jsonl"
+    audit.export(target, since="2999-01-01")
+
+    assert target.read_text(encoding="utf-8") == ""

@@ -582,3 +582,44 @@ def test_browser_session_setting() -> None:
     settings.set_browser_session_enabled(False)
 
     assert settings.browser_session_enabled() is False
+
+def test_download_action_is_sanitized() -> None:
+    """Скачивание требует селектор."""
+
+    actions = browser_js._sanitize_actions(
+        [
+            {"type": "download", "selector": "a.file"},
+            {"type": "download"},
+        ]
+    )
+
+    assert actions == [{"type": "download", "selector": "a.file"}]
+
+
+def test_download_paths_are_shown(tmp_path) -> None:
+    """Путь скачанного файла попадает в ответ."""
+
+    target = tmp_path / "data" / "agent_browser" / "downloads" / "a.pdf"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"%PDF")
+
+    data = {
+        "ok": True,
+        "url": "https://example.com/file",
+        "title": "",
+        "text": "",
+        "truncated": False,
+        "shot": "",
+        "downloads": [str(target)],
+    }
+
+    result = browser_js._answer(
+        data,
+        "https://example.com/file",
+        tmp_path,
+        None,
+    )
+
+    assert result.ok
+    assert "файлы:" in result.text
+    assert "a.pdf" in result.text

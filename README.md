@@ -339,6 +339,9 @@ python -m tools.update_passport
   `python -m pip install playwright` и
   `python -m playwright install chromium` (~700 МБ), подробности —
   `docs/browser.md`;
+- внешние инструменты запускают read-only задачи через локальный HTTP
+  API: `python -m tools.agent_api` (127.0.0.1, Bearer-токен,
+  `POST /task`) — см. `docs/agent_api.md`;
 - общий allowlist доменов для `fetch_url`, браузера и MCP-аргументов
   задаётся полем «Домены» в «Провайдере» (пусто — все публичные адреса);
   он проверяется до запроса, включая редиректы;

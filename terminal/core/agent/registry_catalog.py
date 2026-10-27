@@ -260,6 +260,7 @@ TOOL_SPECS = (
                                     "wait",
                                     "goto",
                                     "back",
+                                    "download",
                                 ],
                             },
                             "selector": {"type": "string"},

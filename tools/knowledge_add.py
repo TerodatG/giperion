@@ -40,8 +40,12 @@ def _destination(title: str, suffix: str = ".md") -> Path:
     return candidate
 
 
-def add_text(text: str, title: str = "note") -> Path:
-    """Сохраняет текст в knowledge/."""
+def add_text(
+    text: str,
+    title: str = "note",
+    tags: list[str] | None = None,
+) -> Path:
+    """Сохраняет текст в knowledge/ с заголовком и тегами."""
 
     body = str(text or "").strip()
 
@@ -53,14 +57,32 @@ def add_text(text: str, title: str = "note") -> Path:
             f"Документ больше {MAX_BYTES // 1000} КБ."
         )
 
+    tags = [
+        str(tag).strip().lstrip("#")
+        for tag in (tags or [])
+        if str(tag).strip()
+    ]
+    header = [f"# {title}"]
+    added = datetime.now().strftime("%Y-%m-%d")
+
+    if tags:
+        header.append("Теги: " + ", ".join(tags))
+
+    header.append("Добавлено: " + added)
+    content = "\n".join(header) + "\n\n" + body
+
     KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
     path = _destination(title)
-    path.write_text(body + "\n", encoding="utf-8")
+    path.write_text(content + "\n", encoding="utf-8")
 
     return path
 
 
-def add_file(source: Path, title: str = "") -> Path:
+def add_file(
+    source: Path,
+    title: str = "",
+    tags: list[str] | None = None,
+) -> Path:
     """Копирует текстовый файл в knowledge/."""
 
     path = Path(source)
@@ -81,7 +103,11 @@ def add_file(source: Path, title: str = "") -> Path:
             f"Не удалось прочитать файл: {error}"
         ) from error
 
-    return add_text(text, title or path.name)
+    return add_text(
+        text,
+        title or path.name,
+        tags=tags,
+    )
 
 
 def main() -> int:
@@ -94,13 +120,27 @@ def main() -> int:
     parser.add_argument("source", nargs="?", default="")
     parser.add_argument("--text", default="")
     parser.add_argument("--title", default="")
+    parser.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help="тег (можно несколько раз)",
+    )
     args = parser.parse_args()
 
     try:
         if args.text:
-            path = add_text(args.text, args.title or "note")
+            path = add_text(
+                args.text,
+                args.title or "note",
+                tags=args.tag,
+            )
         elif args.source:
-            path = add_file(Path(args.source), args.title)
+            path = add_file(
+                Path(args.source),
+                args.title,
+                tags=args.tag,
+            )
         else:
             parser.error("нужен файл или --text")
             return 2

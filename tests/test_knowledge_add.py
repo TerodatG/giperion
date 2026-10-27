@@ -68,3 +68,19 @@ def test_names_do_not_collide() -> None:
     second = knowledge_add.add_text("два", title="Заметка")
 
     assert first != second
+
+def test_tags_are_added_to_header() -> None:
+    """Теги и дата попадают в шапку документа."""
+
+    path = knowledge_add.add_text(
+        "Текст решения",
+        title="Хранилище",
+        tags=["sqlite", "#архитектура"],
+    )
+
+    text = path.read_text(encoding="utf-8")
+
+    assert "# Хранилище" in text
+    assert "Теги: sqlite, архитектура" in text
+    assert "Добавлено:" in text
+    assert "Текст решения" in text

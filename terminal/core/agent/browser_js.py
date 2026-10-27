@@ -33,6 +33,7 @@ ACTION_TYPES = {
     "wait",
     "goto",
     "back",
+    "download",
 }
 WORKER = "terminal.core.agent.browser_worker"
 ENV_KEYS = (
@@ -127,7 +128,7 @@ def _action_values(
 
     action = {"type": kind}
 
-    if kind in ("click", "fill", "press", "hover", "select"):
+    if kind in ("click", "fill", "press", "hover", "select", "download"):
         if not selector:
             return None
 
@@ -390,6 +391,23 @@ def _answer(
 
         body += f"\n\nскриншот: {Path(shown).as_posix()}"
 
+    downloads = data.get("downloads") or []
+
+    if downloads:
+        shown_downloads = []
+
+        for item in downloads:
+            try:
+                shown_item = Path(item).resolve().relative_to(
+                    Path(root).resolve()
+                )
+            except (OSError, ValueError):
+                shown_item = Path(item)
+
+            shown_downloads.append(Path(shown_item).as_posix())
+
+        body += "\n\nфайлы: " + ", ".join(shown_downloads)
+
     return ToolResult(True, body)
 
 
@@ -463,6 +481,17 @@ def _run(
 
     if target is not None:
         request["shot_path"] = str(target)
+
+    if any(
+        action.get("type") == "download"
+        for action in actions
+    ):
+        request["download_dir"] = str(
+            Path(root).resolve()
+            / "data"
+            / "agent_browser"
+            / "downloads"
+        )
 
     data, error = _invoke(root, request, seconds)
 

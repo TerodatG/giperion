@@ -3,7 +3,10 @@
 # Последнее изменение: первый вариант — record, verify, tail.
 
 import hashlib
+import hmac
 import json
+import os
+import secrets
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +15,7 @@ from config import DATA_DIR
 from terminal.core.agent.redact import redact
 
 AUDIT_FILE = DATA_DIR / "agent_audit.jsonl"
+AUDIT_KEY_FILE = DATA_DIR / "audit_export.key"
 GENESIS = "0" * 64
 _LOCK = threading.Lock()
 
@@ -138,6 +142,160 @@ def tail(limit: int = 5, path: Path | None = None) -> list[dict]:
             result.append(value)
 
     return result
+
+
+def _key(key_file: Path | None = None, create: bool = True) -> bytes:
+    """Ключ экспорта аудита."""
+
+    path = Path(key_file or AUDIT_KEY_FILE)
+
+    if not path.exists() and create:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(secrets.token_hex(32), encoding="utf-8")
+
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise ValueError(f"Ключ аудита не найден: {path}") from error
+
+    if len(text) < 32:
+        raise ValueError("Ключ аудита слишком короткий.")
+
+    return text.encode("utf-8")
+
+
+def _sign(payload: bytes, key: bytes) -> str:
+    return hmac.new(key, payload, hashlib.sha256).hexdigest()
+
+
+def export(
+    target: Path,
+    path: Path | None = None,
+    key_file: Path | None = None,
+    since: str = "",
+    until: str = "",
+) -> tuple[Path, Path]:
+    """Экспортирует записи и кладёт рядом подпись HMAC."""
+
+    source = Path(path or AUDIT_FILE)
+    output = Path(target)
+    entries = []
+
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+
+    for line in lines:
+        text = line.strip()
+
+        if not text:
+            continue
+
+        try:
+            entry = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+
+        stamp = str(entry.get("ts") or "")
+
+        if since and stamp < since:
+            continue
+
+        if until and stamp > until:
+            continue
+
+        entries.append(entry)
+
+    payload = "\n".join(
+        json.dumps(entry, ensure_ascii=False, sort_keys=True)
+        for entry in entries
+    )
+    data = (payload + ("\n" if payload else "")).encode("utf-8")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(data)
+    signature = {
+        "algorithm": "hmac-sha256",
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "records": len(entries),
+        "signature": _sign(data, _key(key_file)),
+    }
+    sig_path = output.with_name(output.name + ".sig")
+    sig_path.write_text(
+        json.dumps(signature, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    return output, sig_path
+
+
+def verify_export(
+    target: Path,
+    signature: Path | None = None,
+    key_file: Path | None = None,
+) -> tuple[bool, str]:
+    """Проверяет подпись экспортированного журнала."""
+
+    path = Path(target)
+    sig_path = signature or path.with_name(path.name + ".sig")
+
+    try:
+        signature_data = json.loads(sig_path.read_text(encoding="utf-8"))
+        key = _key(key_file, create=False)
+        data = path.read_bytes()
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return False, str(error)
+
+    expected = _sign(data, key)
+    actual = str(signature_data.get("signature") or "")
+
+    if not hmac.compare_digest(expected, actual):
+        return False, "подпись экспорта не совпадает"
+
+    return True, f"записей: {signature_data.get('records', '?')}"
+
+
+def search(
+    query: str,
+    limit: int = 20,
+    path: Path | None = None,
+) -> list[dict]:
+    """Поиск по событиям и полезной нагрузке аудита."""
+
+    needle = str(query or "").strip().casefold()
+
+    if not needle:
+        return []
+
+    source = Path(path or AUDIT_FILE)
+
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+
+    found = []
+
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        text = json.dumps(entry, ensure_ascii=False).casefold()
+
+        if needle in text:
+            found.append(entry)
+
+        if len(found) >= max(1, limit):
+            break
+
+    return found
 
 
 def target_of(payload: dict) -> str:
