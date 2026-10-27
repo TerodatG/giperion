@@ -35,6 +35,7 @@ repos:
           tests/test_structure.py
           tests/test_eval_set.py
           tests/test_eval_intent_model.py
+          tests/test_linear_intent_parity.py
           model/tests
         language: system
         pass_filenames: false

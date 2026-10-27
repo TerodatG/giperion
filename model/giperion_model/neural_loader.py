@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/neural_loader.py                       v001
+# GiperionModel/giperion_model/neural_loader.py                       v002
 # Загрузка чекпоинтов нейросетевого движка и ответов намерений.
-# Последнее изменение: выделено из neural_engine.
+# Последнее изменение: необязательный линейный роутер.
 
 import json
 import logging
@@ -12,6 +12,7 @@ from giperion_model.config import (
     MODELS_DIR,
     resolve_device,
 )
+from giperion_model.language.linear_intent import LinearIntentRouter
 from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
@@ -132,6 +133,9 @@ def load_components() -> dict | None:
 
         classifier.eval()
 
+        # --- Линейный роутер (необязателен) ---
+        router = LinearIntentRouter.load()
+
         # --- Генератор ответов (необязателен) ---
         generator = None
         generator_checkpoint = {}
@@ -180,6 +184,7 @@ def load_components() -> dict | None:
 
         return {
             "classifier": classifier,
+            "router": router,
             "generator": generator,
             "word_tokenizer": word_tokenizer,
             "char_tokenizer": char_tokenizer,

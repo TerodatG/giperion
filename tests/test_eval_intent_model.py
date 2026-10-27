@@ -4,6 +4,7 @@
 
 import pytest
 
+from giperion_model.language.linear_intent import LINEAR_MODEL_FILE
 from tools.eval_intent_model import (
     CLASSIFIER_FILE,
     class_metrics,
@@ -76,3 +77,13 @@ def test_current_model_passes_quality_gate() -> None:
     """Текущая модель не должна проседать ниже порогов."""
 
     assert main(["--fail"]) == 0
+
+
+@pytest.mark.skipif(
+    not LINEAR_MODEL_FILE.is_file(),
+    reason="нет обученного линейного роутера",
+)
+def test_linear_router_passes_quality_gate() -> None:
+    """Линейный роутер не должен проседать ниже порогов."""
+
+    assert main(["--router", "--fail"]) == 0

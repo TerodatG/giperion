@@ -1,6 +1,6 @@
-# Giperion/tools/eval_intent_model.py                               v002
+# Giperion/tools/eval_intent_model.py                               v003
 # Оценка классификатора намерений на отложенном наборе фраз.
-# Последнее изменение: macro-F1, покрытие и порог для CI.
+# Последнее изменение: macro-F1, покрытие и оценка линейного роутера.
 
 import argparse
 import json
@@ -10,6 +10,10 @@ import torch
 
 from config import DATA_DIR, LOGS_DIR, MODELS_DIR
 from giperion_model.language.intent_handler import load_intents
+from giperion_model.language.linear_intent import (
+    LINEAR_MODEL_FILE,
+    LinearIntentRouter,
+)
 from giperion_model.neural_engine import CONFIDENCE_THRESHOLD
 from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
@@ -174,6 +178,32 @@ def predict_all(
     return rows
 
 
+def predict_with_router(
+    router: LinearIntentRouter,
+    examples: list[dict],
+) -> list[dict]:
+    """Классифицирует набор линейным роутером."""
+
+    rows = []
+
+    for example in examples:
+        result = router.predict(example["text"])
+        predicted, confidence = (
+            result if result is not None else ("", 0.0)
+        )
+
+        rows.append(
+            {
+                "text": example["text"],
+                "label": example["label"],
+                "predicted": predicted,
+                "confidence": confidence,
+            }
+        )
+
+    return rows
+
+
 def class_metrics(
     truths: list[str],
     predictions: list[str],
@@ -265,6 +295,7 @@ def selective_metrics(
 def build_report(
     rows: list[dict],
     notes: list[str],
+    model_name: str,
 ) -> tuple[str, dict[str, float]]:
     """Собирает текст отчёта и сводные метрики."""
 
@@ -306,7 +337,7 @@ def build_report(
 
     lines = [
         "=== Оценка классификатора Giperion ===",
-        f"Модель: {CLASSIFIER_FILE.name}",
+        f"Модель: {model_name}",
         f"Устройство: {DEVICE}",
         f"Фраз в проверке: {len(rows)}",
         f"Классов: {len(per_class)}",
@@ -372,6 +403,11 @@ def parse_args(
         )
     )
     parser.add_argument(
+        "--router",
+        action="store_true",
+        help="оценивать линейный роутер вместо CNN",
+    )
+    parser.add_argument(
         "--fail",
         action="store_true",
         help="вернуть код 1, если метрики ниже порогов",
@@ -397,22 +433,29 @@ def parse_args(
     return parser.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Проверяет модель, пишет отчёт и применяет пороги."""
+def evaluate_model(
+    args: argparse.Namespace,
+) -> tuple[list[dict], list[str], str | None]:
+    """Готовит предсказания выбранной модели."""
 
-    args = parse_args(argv)
+    if args.router:
+        router = LinearIntentRouter.load()
+
+        if router is None:
+            return [], [], None
+
+        examples, notes = load_examples(set(router.labels))
+
+        return (
+            predict_with_router(router, examples),
+            notes,
+            LINEAR_MODEL_FILE.name,
+        )
 
     model, labels, max_len = build_model()
-
     word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
     char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
-
     examples, notes = load_examples(set(labels))
-
-    if not examples:
-        print("Отложенный набор пуст — нечего проверять.")
-
-        return 1 if args.fail else 0
 
     rows = predict_all(
         model,
@@ -422,7 +465,30 @@ def main(argv: list[str] | None = None) -> int:
         word_tokenizer,
         char_tokenizer,
     )
-    report, metrics = build_report(rows, notes)
+
+    return rows, notes, CLASSIFIER_FILE.name
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Проверяет модель, пишет отчёт и применяет пороги."""
+
+    args = parse_args(argv)
+    rows, notes, model_name = evaluate_model(args)
+
+    if model_name is None:
+        print(
+            "Линейный роутер не найден — сначала обучите его: "
+            "python -m tools.train_linear_intent"
+        )
+
+        return 1 if args.fail else 0
+
+    if not rows:
+        print("Отложенный набор пуст — нечего проверять.")
+
+        return 1 if args.fail else 0
+
+    report, metrics = build_report(rows, notes, model_name)
 
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_FILE.write_text(report, encoding="utf-8")

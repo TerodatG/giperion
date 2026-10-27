@@ -1,12 +1,13 @@
-# GiperionModel/giperion_model/neural_engine.py                       v003
+# GiperionModel/giperion_model/neural_engine.py                       v004
 # Нейросетевой движок: намерение классификатора и сгенерированный ответ.
-# Последнее изменение: загрузка чекпоинтов вынесена в neural_loader.
+# Последнее изменение: линейный роутер отвечает раньше CNN.
 
 import random
 import threading
 
 import torch
 
+from giperion_model.language.linear_intent import LinearIntentRouter
 from giperion_model.training.char_tokenizer import CharTokenizer
 from giperion_model.training.model_charcnn import HybridTextClassifier
 from giperion_model.training.model_seq2seq import Seq2Seq
@@ -42,8 +43,10 @@ class NeuralEngine:
         max_word_len: int,
         max_src_len: int,
         max_tgt_len: int,
+        router: LinearIntentRouter | None = None,
     ) -> None:
         self.classifier = classifier
+        self.router = router
         self.generator = generator
         self.word_tokenizer = word_tokenizer
         self.char_tokenizer = char_tokenizer
@@ -56,6 +59,12 @@ class NeuralEngine:
 
     def classify(self, text: str) -> tuple[str, float]:
         """Возвращает тег намерения и уверенность (0..1)."""
+
+        if self.router is not None:
+            result = self.router.predict(text)
+
+            if result is not None:
+                return result
 
         ids = self.word_tokenizer.encode(
             text,
