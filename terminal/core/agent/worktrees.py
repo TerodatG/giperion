@@ -172,6 +172,10 @@ def _merge_error(
 ) -> None:
     """Откатывает неудачное слияние и поднимает ошибку."""
 
+    conflicts = _run(
+        base,
+        ["diff", "--name-only", "--diff-filter=U"],
+    ).stdout.splitlines()
     _run(base, ["merge", "--abort"])
     detail = (result.stderr or result.stdout).strip()[:500]
 
@@ -181,11 +185,16 @@ def _merge_error(
     hint = ""
 
     if "CONFLICT" in (result.stdout or "") or "CONFLICT" in detail:
+        files = ", ".join(item.strip() for item in conflicts[:8])
+
         hint = (
             " Ветки разошлись по одним и тем же строкам: слияние "
             "отменено, файлы не тронуты. Открой задачу заново на "
             "свежей базе или перенеси правки вручную."
         )
+
+        if files:
+            hint += " Конфликты: " + files + "."
 
     raise WorktreeError(f"Слияние не удалось: {detail}{hint}")
 

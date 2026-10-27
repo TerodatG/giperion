@@ -170,6 +170,7 @@ def test_merge_conflict_explains_what_to_do(repo) -> None:
 
     assert "Слияние не удалось" in message
     assert "разошлись" in message
+    assert "a.txt" in message
 
     # Слияние отменено: основная ветка осталась со своими правками.
     assert (repo / "a.txt").read_text(encoding="utf-8") == "из основной\n"
