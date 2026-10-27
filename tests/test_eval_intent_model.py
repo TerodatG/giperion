@@ -10,6 +10,7 @@ from tools.eval_intent_model import (
     class_metrics,
     macro_f1,
     main,
+    parse_args,
     selective_metrics,
 )
 
@@ -67,6 +68,15 @@ def test_selective_metrics_without_answers() -> None:
         [0.1],
         0.45,
     ) == (0.0, 0.0)
+
+
+def test_router_uses_stricter_thresholds() -> None:
+    """У роутера порог выше, чем у запасного CNN."""
+
+    assert parse_args([]).min_top1 == 0.60
+    assert parse_args(["--router"]).min_top1 == 0.75
+    assert parse_args([]).min_macro_f1 == 0.55
+    assert parse_args(["--router"]).min_macro_f1 == 0.70
 
 
 @pytest.mark.skipif(

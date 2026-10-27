@@ -1,6 +1,6 @@
-# Giperion/tools/eval_intent_model.py                               v003
+# Giperion/tools/eval_intent_model.py                               v004
 # Оценка классификатора намерений на отложенном наборе фраз.
-# Последнее изменение: macro-F1, покрытие и оценка линейного роутера.
+# Последнее изменение: отдельные пороги для линейного роутера.
 
 import argparse
 import json
@@ -29,6 +29,8 @@ REPORT_FILE = LOGS_DIR / "eval_report.txt"
 
 DEFAULT_MIN_TOP1 = 0.60
 DEFAULT_MIN_MACRO_F1 = 0.55
+ROUTER_MIN_TOP1 = 0.75
+ROUTER_MIN_MACRO_F1 = 0.70
 
 DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
@@ -420,17 +422,31 @@ def parse_args(
     parser.add_argument(
         "--min-top1",
         type=float,
-        default=DEFAULT_MIN_TOP1,
+        default=None,
         help="минимальная точность top-1",
     )
     parser.add_argument(
         "--min-macro-f1",
         type=float,
-        default=DEFAULT_MIN_MACRO_F1,
+        default=None,
         help="минимальный macro-F1",
     )
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    if args.min_top1 is None:
+        args.min_top1 = (
+            ROUTER_MIN_TOP1 if args.router else DEFAULT_MIN_TOP1
+        )
+
+    if args.min_macro_f1 is None:
+        args.min_macro_f1 = (
+            ROUTER_MIN_MACRO_F1
+            if args.router
+            else DEFAULT_MIN_MACRO_F1
+        )
+
+    return args
 
 
 def evaluate_model(
