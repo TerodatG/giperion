@@ -140,13 +140,35 @@ python -m playwright install chromium
   а cookies/localStorage переносятся через
   `data/agent_browser/profile.json`.
 - Вкладки поддерживаются действиями `new_tab`, `switch_tab` и
-  `close_tab`; запись сценария в UI пока не сделана.
+  `close_tab`.
 - Скачанный PDF по возможности разбирается `pypdf` и его текст
   добавляется в ответ; без `pypdf` остаётся только путь к файлу.
-- Запись сценария в UI пока не сделана; действия передаются списком.
 - `page.route` проверяет HTTP(S)-запросы; WebSocket-соединения
   фильтруются `route_web_socket`, если версия Playwright это
   поддерживает; иначе остаётся сетевая проверка домена.
 - Сеть и сторонние сайты могут быть недоступны; таймаут вернёт ошибку.
+
+## Сценарий из JSON
+
+```json
+{
+  "url": "https://example.com/login",
+  "wait": "#form",
+  "actions": [
+    {"type": "fill", "selector": "#user", "text": "user"},
+    {"type": "fill", "selector": "#pass", "text": "secret"},
+    {"type": "click", "selector": "#submit"},
+    {"type": "wait_url", "url": "/account"},
+    {"type": "download", "selector": "a.report"}
+  ]
+}
+```
+
+```powershell
+python -m tools.browser_scenario login.json --save result.json
+```
+
+Сценарий повторяется целиком; результат можно сохранить и сравнить.
+Пароли в JSON не редактируются автоматически — храните файл вне git.
 - Браузерные файлы не входят в git и не ставятся автоматически —
   установка отдельная и тяжёлая.

@@ -34,6 +34,7 @@ from terminal.ui.agent.worktree_bar import WorktreeBar
 from terminal.ui.agent_job import AgentJob
 from terminal.ui.agent_tasks_dialog import show_agent_tasks_dialog
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.onboarding import maybe_show_onboarding
 from terminal.ui.plan_dialog import show_plan_dialog
 from terminal.ui.provider_dialog import show_provider_dialog
 from terminal.ui.trace_dialog import format_trace, show_trace_dialog
@@ -64,6 +65,10 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         self._timer = QTimer(self)
         self._timer.setInterval(POLL_MS)
         self._timer.timeout.connect(self._poll)
+        QTimer.singleShot(
+            200,
+            lambda: maybe_show_onboarding(self._parent),
+        )
 
         if resume is not None:
             self._apply_resume(resume)
