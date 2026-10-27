@@ -1,0 +1,14 @@
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": ["привет", "здравствуй"],
+      "responses": ["Здравствуй!"]
+    },
+    {
+      "tag": "project",
+      "patterns": ["как идёт проект"],
+      "responses": ["Мы развиваем Giperion"]
+    }
+  ]
+}
