@@ -5,7 +5,6 @@
 from datetime import datetime
 
 from giperion_model.identity_matrix import IDENTITY_MATRIX
-
 from terminal.core.agent import mcp, registry
 from terminal.core.agent.runs import read_all_runs
 

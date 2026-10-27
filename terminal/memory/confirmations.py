@@ -8,7 +8,6 @@ from giperion_model.language.knowledge_service import (
     remove_phrase,
 )
 from giperion_model.language.learning_service import create_category
-
 from shared.action_log import add_action
 from terminal.core.pending_state import (
     clear_pending_action,

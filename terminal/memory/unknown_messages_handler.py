@@ -3,7 +3,6 @@
 # Последнее изменение: файл перемещён в пакет memory и обновлены импорты.
 
 from giperion_model.language.intent_handler import find_intent_response
-
 from terminal.memory.memory import (
     get_unknown_messages,
     remove_unknown_messages,

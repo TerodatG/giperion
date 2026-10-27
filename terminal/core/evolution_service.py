@@ -6,7 +6,6 @@ import math
 
 from giperion_model.identity_matrix import IDENTITY_MATRIX
 from giperion_model.language.learning_service import get_available_categories
-
 from terminal.memory.memory import (
     get_messages_count,
     get_unknown_messages,

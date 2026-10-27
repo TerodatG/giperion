@@ -5,11 +5,11 @@
 import json
 
 import pytest
+
 from giperion_model.language import (
     intent_handler,
     learning_service,
 )
-
 from shared import action_log
 from terminal.core.chatbot import get_response
 from terminal.memory import system_handler

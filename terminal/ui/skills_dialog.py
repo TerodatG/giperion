@@ -2,7 +2,6 @@
 # Окно «Умения»: навыки агента и возможности активной модели ИИ.
 # Последнее изменение: крупные подписи закладок.
 
-from giperion_model.identity_matrix import IDENTITY_MATRIX
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QLabel,
@@ -12,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from giperion_model.identity_matrix import IDENTITY_MATRIX
 from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
 )

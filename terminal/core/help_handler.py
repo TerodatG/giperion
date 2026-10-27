@@ -4,7 +4,6 @@
 # окно «Справка» в интерфейсе.
 
 from giperion_model.identity_matrix import IDENTITY_MATRIX
-
 from terminal.core.phrases import HELP_COMMANDS
 
 
