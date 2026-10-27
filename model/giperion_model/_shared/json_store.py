@@ -1,4 +1,4 @@
-# Giperion/app/storage/json_store.py                              v003
+# GiperionModel/giperion_model/_shared/json_store.py                  v003
 # Единое чтение и атомарная запись JSON-файлов проекта.
 # Последнее изменение: блокировки на путь и update_json для гонок.
 

@@ -1,4 +1,4 @@
-# Giperion/training/train_seq2seq.py                                 v002
+# GiperionModel/giperion_model/training/train_seq2seq.py              v002
 # Обучение генеративной модели ответов Giperion.
 # Последнее изменение: примеры печатаются с лучшими сохранёнными весами.
 
@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from giperion_model.config import MODELS_DIR
+from giperion_model.config import MODELS_DIR, resolve_device
 from giperion_model.storage import save_torch
 from giperion_model.training.build_dataset import PAIRS_FILE
 from giperion_model.training.model_classifier import parameter_count
@@ -29,9 +29,7 @@ TRAIN_SHARE = 0.9
 EVAL_LIMIT = 300
 SEED = 42
 
-DEVICE = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
+DEVICE = resolve_device()
 
 
 class PairDataset(Dataset):

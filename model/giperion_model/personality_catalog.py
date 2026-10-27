@@ -1,4 +1,4 @@
-# Giperion/app/core/personality_catalog.py                        v002
+# GiperionModel/giperion_model/personality_catalog.py                 v002
 # Каталог личностных матриц: будущие модели поведения Гипериона.
 # Последнее изменение: чтение и запись через общий json_store.
 
@@ -94,7 +94,10 @@ def get_personality(
 ) -> dict | None:
     """Возвращает матрицу по идентификатору или None."""
 
-    for matrix in matrices or load_personality_matrices():
+    if matrices is None:
+        matrices = load_personality_matrices()
+
+    for matrix in matrices:
         if matrix["id"] == matrix_id:
             return matrix
 

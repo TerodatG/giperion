@@ -1,4 +1,4 @@
-# Giperion/app/language/learning_service.py                       v003
+# GiperionModel/giperion_model/language/learning_service.py           v003
 # Добавление новых фраз и категорий в обучающие данные Giperion.
 # Последнее изменение: запись intents.json через общий атомарный слой.
 

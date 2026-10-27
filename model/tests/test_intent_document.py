@@ -1,4 +1,4 @@
-# Giperion/tests/test_intent_document.py                          v001
+# GiperionModel/tests/test_intent_document.py                         v001
 # Проверки чтения намерений из формата данных проекта Giperion.
 # Последнее изменение: добавлены тесты объекта с _meta и ключом intents.
 

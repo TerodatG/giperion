@@ -1,4 +1,4 @@
-# Giperion/app/core/identity_matrix.py                            v004
+# GiperionModel/giperion_model/identity_matrix.py                     v004
 # Личностная матрица и постоянные правила ИИ-ядра Giperion.
 # Последнее изменение: нейтральное самоописание и зрелость ядра 0–1.
 

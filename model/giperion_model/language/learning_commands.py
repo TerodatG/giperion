@@ -1,4 +1,4 @@
-# Giperion/app/language/learning_commands.py                      v001
+# GiperionModel/giperion_model/language/learning_commands.py          v001
 # Разбор и выполнение команд обучения и управления категориями.
 # Последнее изменение: выделено из learning_handler.
 

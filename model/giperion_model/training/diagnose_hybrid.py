@@ -1,10 +1,11 @@
-# Giperion/training/diagnose_hybrid.py                              v001
+# GiperionModel/giperion_model/training/diagnose_hybrid.py            v001
 # Диагностика гибридной модели: знакомые и новые слова отдельно.
 
 import json
 
 import torch
 
+from giperion_model.config import MODELS_DIR
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from giperion_model.training.char_tokenizer import CharTokenizer
 from giperion_model.training.model_charcnn import HybridTextClassifier
@@ -19,7 +20,7 @@ from giperion_model.training.train_classifier import (
     split_examples,
 )
 
-CHECKPOINT_FILE = "models/hybrid.pt"
+CHECKPOINT_FILE = MODELS_DIR / "hybrid.pt"
 
 
 def load_model() -> tuple[HybridTextClassifier, list[str]]:
@@ -124,6 +125,11 @@ def main() -> None:
     correct = stats["familiar"][0] + stats["novel"][0]
 
     print("=== Диагностика гибридной модели ===")
+
+    if not total:
+        print("Нет проверочных примеров — диагностика невозможна.")
+        return
+
     print(f"Всего: {total}, точность: {correct / total:.3f}")
     print()
 

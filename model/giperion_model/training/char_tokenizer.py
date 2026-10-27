@@ -1,4 +1,4 @@
-# Giperion/training/char_tokenizer.py                               v001
+# GiperionModel/giperion_model/training/char_tokenizer.py             v001
 # Символьный токенизатор: фраза → последовательность id символов.
 # Последнее изменение: первый вариант — словарь символов корпуса.
 

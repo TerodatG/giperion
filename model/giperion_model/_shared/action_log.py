@@ -1,4 +1,4 @@
-# Giperion/app/core/action_log.py                                 v002
+# GiperionModel/giperion_model/_shared/action_log.py                  v002
 # Журнал действий Giperion с датой, временем и номером записи.
 # Последнее изменение: запись под блокировкой, чтобы не терять номера.
 

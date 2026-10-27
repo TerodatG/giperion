@@ -1,4 +1,4 @@
-# Giperion/app/language/knowledge_service.py                      v001
+# GiperionModel/giperion_model/language/knowledge_service.py          v001
 # Просмотр и изменение уже выученных категорий Giperion.
 # Последнее изменение: добавлены просмотр, изменение ответа и удаление знаний.
 

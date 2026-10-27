@@ -1,4 +1,4 @@
-# Giperion/app/language/text_tools.py                             v001
+# GiperionModel/giperion_model/_shared/text_tools.py                  v001
 # Нормализация и подготовка пользовательского текста Giperion.
 # Последнее изменение: файл перемещён в пакет language без изменения логики.
 

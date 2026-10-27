@@ -23,6 +23,30 @@ DEVICE = os.environ.get("GIPERION_DEVICE", "auto").strip().lower() or "auto"
 
 BOT_NAME = "Giperion"
 
+
+def resolve_device():
+    """Возвращает torch.device по GIPERION_DEVICE.
+
+    torch импортируется здесь, чтобы конфиг оставался лёгким для
+    сценариев, которым нейросеть не нужна.
+    """
+
+    import torch
+
+    if DEVICE == "cpu":
+        return torch.device("cpu")
+
+    if DEVICE.startswith("cuda"):
+        if not torch.cuda.is_available():
+            return torch.device("cpu")
+
+        return torch.device(DEVICE)
+
+    return torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )
+
+
 USER_PROFILE_FILE = DATA_DIR / "user_profile.json"
 CONVERSATIONS_FILE = DATA_DIR / "conversations.json"
 UNKNOWN_MESSAGES_FILE = DATA_DIR / "unknown_messages.json"

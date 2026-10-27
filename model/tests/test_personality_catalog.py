@@ -1,4 +1,4 @@
-# Giperion/tests/test_personality_catalog.py                       v001
+# GiperionModel/tests/test_personality_catalog.py                     v001
 # Проверки каталога личностных матриц и сохранённого выбора.
 
 import json

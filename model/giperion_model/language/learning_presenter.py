@@ -1,4 +1,4 @@
-# Giperion/app/language/learning_presenter.py                     v001
+# GiperionModel/giperion_model/language/learning_presenter.py         v001
 # Тексты и таблица категорий для команд обучения Гипериона.
 # Последнее изменение: выделено из learning_handler.
 
@@ -124,6 +124,9 @@ def get_categories_response(
     categories: list[str],
 ) -> str:
     """Формирует список категорий в трёх выровненных колонках."""
+
+    if not categories:
+        return "В intents.json пока нет категорий."
 
     category_rows = []
 

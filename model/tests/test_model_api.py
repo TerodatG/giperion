@@ -1,7 +1,7 @@
-# Giperion/tests/test_model_api.py                                  v001
+# GiperionModel/tests/test_model_api.py                               v002
 # Точка входа модели: намерение, нейросеть и честное «не знаю».
 
-from giperion_model import api
+from giperion_model import api, neural_engine
 
 
 def test_intent_answer_has_full_confidence(monkeypatch) -> None:
@@ -25,7 +25,7 @@ def test_neural_answer_keeps_confidence(monkeypatch) -> None:
     """Нейросетевой ответ приходит с уверенностью модели."""
 
     monkeypatch.setattr(
-        api.neural_engine,
+        neural_engine,
         "get_neural_reply",
         lambda text: ("Сгенерированный ответ", 0.72),
     )
@@ -47,7 +47,7 @@ def test_answer_prefers_intent(monkeypatch) -> None:
         lambda text: "Точный ответ",
     )
     monkeypatch.setattr(
-        api.neural_engine,
+        neural_engine,
         "get_neural_reply",
         lambda text: ("Нейросетевой", 0.9),
     )
@@ -68,7 +68,7 @@ def test_answer_returns_none_when_model_silent(monkeypatch) -> None:
         lambda text: None,
     )
     monkeypatch.setattr(
-        api.neural_engine,
+        neural_engine,
         "get_neural_reply",
         lambda text: None,
     )

@@ -1,4 +1,4 @@
-# Giperion/app/language/intent_handler.py                         v002
+# GiperionModel/giperion_model/language/intent_handler.py             v002
 # Поиск ответов по намерениям и похожим фразам Giperion.
 # Последнее изменение: добавлено чтение категорий из объекта с ключом intents.
 

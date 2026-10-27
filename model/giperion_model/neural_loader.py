@@ -1,4 +1,4 @@
-# Giperion/app/core/neural_loader.py                               v001
+# GiperionModel/giperion_model/neural_loader.py                       v001
 # Загрузка чекпоинтов нейросетевого движка и ответов намерений.
 # Последнее изменение: выделено из neural_engine.
 
@@ -7,7 +7,11 @@ import logging
 
 import torch
 
-from giperion_model.config import DATA_DIR, DEVICE, MODELS_DIR
+from giperion_model.config import (
+    DATA_DIR,
+    MODELS_DIR,
+    resolve_device,
+)
 from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
@@ -26,19 +30,15 @@ LOGGER = logging.getLogger(__name__)
 def _device() -> torch.device:
     """Устройство из GIPERION_DEVICE: auto, cpu или cuda."""
 
-    if DEVICE == "cpu":
-        return torch.device("cpu")
-
-    if DEVICE == "cuda":
-        return torch.device("cuda")
-
-    return torch.device(
-        "cuda" if torch.cuda.is_available() else "cpu"
-    )
+    return resolve_device()
 
 
 def load_responses() -> dict[str, list[str]]:
-    """Собирает ответы намерений: тег → список ответов."""
+    """Собирает ответы намерений: тег → список ответов.
+
+    Поддерживает оба формата intents.json: объект с ключом intents
+    и простой список намерений.
+    """
 
     with INTENTS_FILE.open(
         "r",
@@ -46,13 +46,52 @@ def load_responses() -> dict[str, list[str]]:
     ) as file:
         document = json.load(file)
 
-    intents = document.get("intents", [])
+    if isinstance(document, list):
+        intents = document
+    elif isinstance(document, dict):
+        intents = document.get("intents", [])
+    else:
+        raise ValueError(
+            "Неподдерживаемый формат intents.json."
+        )
 
-    return {
-        intent["tag"]: intent.get("responses", [])
-        for intent in intents
-        if isinstance(intent.get("tag"), str)
-    }
+    if not isinstance(intents, list):
+        raise ValueError(
+            "В intents.json нет списка intents."
+        )
+
+    responses_by_tag: dict[str, list[str]] = {}
+
+    for intent in intents:
+        if not isinstance(intent, dict):
+            continue
+
+        tag = intent.get("tag")
+
+        if not isinstance(tag, str) or not tag.strip():
+            continue
+
+        raw_responses = intent.get("responses")
+
+        if not isinstance(raw_responses, list):
+            continue
+
+        responses = [
+            response.strip()
+            for response in raw_responses
+            if isinstance(response, str) and response.strip()
+        ]
+
+        if responses:
+            responses_by_tag[tag] = responses
+
+    return responses_by_tag
+
+
+def get_last_error() -> str:
+    """Причина последней неудачной загрузки нейросети."""
+
+    return LAST_ERROR
 
 
 def load_components() -> dict | None:
@@ -93,29 +132,49 @@ def load_components() -> dict | None:
 
         classifier.eval()
 
-        # --- Генератор ответов ---
-        generator_checkpoint = torch.load(
-            SEQ2SEQ_FILE,
-            map_location=device,
-            weights_only=True,
-        )
+        # --- Генератор ответов (необязателен) ---
+        generator = None
+        generator_checkpoint = {}
 
-        generator = Seq2Seq(
-            vocab_size=word_tokenizer.vocab_size,
-            pad_id=word_tokenizer.pad_id,
-            sos_id=word_tokenizer.sos_id,
-            eos_id=word_tokenizer.eos_id,
-            embed_dim=generator_checkpoint["embed_dim"],
-            hidden_size=generator_checkpoint[
-                "hidden_size"
-            ],
-        ).to(device)
+        try:
+            generator_checkpoint = torch.load(
+                SEQ2SEQ_FILE,
+                map_location=device,
+                weights_only=True,
+            )
 
-        generator.load_state_dict(
-            generator_checkpoint["model_state"]
-        )
+            generator = Seq2Seq(
+                vocab_size=word_tokenizer.vocab_size,
+                pad_id=word_tokenizer.pad_id,
+                sos_id=word_tokenizer.sos_id,
+                eos_id=word_tokenizer.eos_id,
+                embed_dim=generator_checkpoint["embed_dim"],
+                hidden_size=generator_checkpoint[
+                    "hidden_size"
+                ],
+            ).to(device)
 
-        generator.eval()
+            generator.load_state_dict(
+                generator_checkpoint["model_state"]
+            )
+
+            generator.eval()
+        except Exception as error:  # noqa: BLE001 — без seq2seq
+            generator = None
+            generator_checkpoint = {}
+            LOGGER.warning(
+                "Генератор ответов не загружен: %s",
+                error,
+            )
+
+        try:
+            responses_by_tag = load_responses()
+        except Exception as error:  # noqa: BLE001 — без ответов
+            responses_by_tag = {}
+            LOGGER.warning(
+                "Ответы намерений не загружены: %s",
+                error,
+            )
 
         LAST_ERROR = ""
 
@@ -125,11 +184,17 @@ def load_components() -> dict | None:
             "word_tokenizer": word_tokenizer,
             "char_tokenizer": char_tokenizer,
             "labels": classifier_checkpoint["labels"],
-            "responses_by_tag": load_responses(),
+            "responses_by_tag": responses_by_tag,
             "device": device,
             "max_word_len": classifier_checkpoint["max_len"],
-            "max_src_len": generator_checkpoint["max_src_len"],
-            "max_tgt_len": generator_checkpoint["max_tgt_len"],
+            "max_src_len": generator_checkpoint.get(
+                "max_src_len",
+                0,
+            ),
+            "max_tgt_len": generator_checkpoint.get(
+                "max_tgt_len",
+                0,
+            ),
         }
     except Exception as error:
         # Нейросеть — усиление, а не обязательное условие:

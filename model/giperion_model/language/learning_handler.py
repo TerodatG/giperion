@@ -1,4 +1,4 @@
-# Giperion/app/language/learning_handler.py                     v008
+# GiperionModel/giperion_model/language/learning_handler.py           v008
 # Совместимый фасад команд обучения и текстов категорий.
 # Последнее изменение: реализация разделена на learning_commands и learning_presenter.
 

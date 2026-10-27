@@ -7,6 +7,8 @@ import os
 import shutil
 from pathlib import Path
 
+from giperion_model._shared.json_store import path_guard
+
 
 def _backup(path: Path) -> None:
     """Сохраняет предыдущую версию как .bak."""
@@ -40,13 +42,15 @@ def save_torch(path: Path, payload: dict) -> None:
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp = target.with_name(target.name + ".tmp")
-    torch.save(payload, temp)
 
-    try:
-        _replace(temp, target)
-    finally:
-        temp.unlink(missing_ok=True)
+    with path_guard(target):
+        temp = target.with_name(target.name + ".tmp")
+        torch.save(payload, temp)
+
+        try:
+            _replace(temp, target)
+        finally:
+            temp.unlink(missing_ok=True)
 
 
 def save_json(path: Path, payload) -> None:
@@ -54,16 +58,18 @@ def save_json(path: Path, payload) -> None:
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp = target.with_name(target.name + ".tmp")
-    temp.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
 
-    try:
-        _replace(temp, target)
-    finally:
-        temp.unlink(missing_ok=True)
+    with path_guard(target):
+        temp = target.with_name(target.name + ".tmp")
+        temp.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        try:
+            _replace(temp, target)
+        finally:
+            temp.unlink(missing_ok=True)
 
 
 def save_text(path: Path, text: str) -> None:
@@ -71,10 +77,12 @@ def save_text(path: Path, text: str) -> None:
 
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp = target.with_name(target.name + ".tmp")
-    temp.write_text(text, encoding="utf-8")
 
-    try:
-        _replace(temp, target)
-    finally:
-        temp.unlink(missing_ok=True)
+    with path_guard(target):
+        temp = target.with_name(target.name + ".tmp")
+        temp.write_text(text, encoding="utf-8")
+
+        try:
+            _replace(temp, target)
+        finally:
+            temp.unlink(missing_ok=True)

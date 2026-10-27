@@ -1,4 +1,4 @@
-# Giperion/training/model_seq2seq.py                                v001
+# GiperionModel/giperion_model/training/model_seq2seq.py              v001
 # Генеративная модель ответов Giperion: энкодер, внимание, декодер.
 # Последнее изменение: первый вариант — своё внимание Бахданау на GRU.
 
@@ -218,6 +218,11 @@ class Seq2Seq(nn.Module):
         """
 
         batch_size, target_length = target.shape
+
+        if target_length < 2:
+            raise ValueError(
+                "target должен содержать <sos> и хотя бы один токен."
+            )
 
         encoder_outputs, hidden = self.encode(
             source,

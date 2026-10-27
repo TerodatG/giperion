@@ -1,4 +1,4 @@
-# Giperion/training/model_charcnn.py                                v001
+# GiperionModel/giperion_model/training/model_charcnn.py              v001
 # Гибридный классификатор: словесная и символьная ветки.
 # Последнее изменение: первый вариант — word-CNN + char-CNN вместе.
 

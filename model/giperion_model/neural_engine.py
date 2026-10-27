@@ -1,8 +1,9 @@
-# Giperion/app/core/neural_engine.py                               v003
+# GiperionModel/giperion_model/neural_engine.py                       v003
 # Нейросетевой движок: намерение классификатора и сгенерированный ответ.
 # Последнее изменение: загрузка чекпоинтов вынесена в neural_loader.
 
 import random
+import threading
 
 import torch
 
@@ -32,7 +33,7 @@ class NeuralEngine:
     def __init__(
         self,
         classifier: HybridTextClassifier,
-        generator: Seq2Seq,
+        generator: Seq2Seq | None,
         word_tokenizer: WordTokenizer,
         char_tokenizer: CharTokenizer,
         labels: list[str],
@@ -101,7 +102,10 @@ class NeuralEngine:
     def generate(self, text: str) -> str | None:
         """Придумывает ответ seq2seq; None, если вывод не годится."""
 
-        if not str(text or "").strip():
+        if self.generator is None or not str(text or "").strip():
+            return None
+
+        if self.max_src_len <= 0 or self.max_tgt_len <= 0:
             return None
 
         ids = self.word_tokenizer.encode(
@@ -156,6 +160,9 @@ class NeuralEngine:
     ) -> tuple[str, float] | None:
         """Ответ нейросети вместе с уверенностью или None."""
 
+        if not str(message or "").strip():
+            return None
+
         label, confidence = self.classify(message)
 
         if confidence < CONFIDENCE_THRESHOLD:
@@ -166,7 +173,7 @@ class NeuralEngine:
         if not responses:
             return None
 
-        if confidence >= GENERATION_THRESHOLD:
+        if self.generator is not None and confidence >= GENERATION_THRESHOLD:
             generated = self.generate(message)
 
             if generated:
@@ -197,6 +204,7 @@ def _build_engine() -> NeuralEngine | None:
 
 _engine: NeuralEngine | None = None
 _engine_checked = False
+_engine_lock = threading.Lock()
 
 
 def reload_engine() -> None:
@@ -204,8 +212,9 @@ def reload_engine() -> None:
 
     global _engine, _engine_checked
 
-    _engine = None
-    _engine_checked = False
+    with _engine_lock:
+        _engine = None
+        _engine_checked = False
 
 
 def get_neural_reply(
@@ -216,8 +225,10 @@ def get_neural_reply(
     global _engine, _engine_checked
 
     if not _engine_checked:
-        _engine = _build_engine()
-        _engine_checked = True
+        with _engine_lock:
+            if not _engine_checked:
+                _engine = _build_engine()
+                _engine_checked = True
 
     if _engine is None:
         return None

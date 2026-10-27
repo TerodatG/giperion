@@ -1,4 +1,4 @@
-# Giperion/training/build_dataset.py                                  v003
+# GiperionModel/giperion_model/training/build_dataset.py              v003
 # Сбор обучающего датасета из намерений и истории диалогов.
 # Последнее изменение: общий слой чтения и записи JSON.
 

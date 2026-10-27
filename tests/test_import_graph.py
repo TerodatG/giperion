@@ -1,6 +1,6 @@
-# Giperion/tests/test_import_graph.py                                v001
+# Giperion/tests/test_import_graph.py                                v002
 # Граф импортов: не даём появиться новым циклам между модулями.
-# Последнее изменение: циклов нет — агент, модель и UI развязаны.
+# Последнее изменение: модель model/giperion_model включена в граф.
 
 import ast
 from collections import defaultdict
@@ -8,7 +8,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-SOURCE_ROOTS = ("giperion", "terminal", "shared", "tools")
+SOURCE_ROOTS = ("model/giperion_model", "terminal", "shared", "tools")
+
+# Пакет модели ставится как giperion_model, поэтому путь
+# model/giperion_model/api.py соответствует модулю giperion_model.api.
+MODEL_PACKAGE = "model/giperion_model"
 
 # Циклы, которые уже есть и разбираются отдельным этапом.
 # Сейчас их нет: агент, модель и UI-диалоги развязаны.
@@ -16,7 +20,7 @@ KNOWN_CYCLES: set[frozenset[str]] = set()
 
 
 def module_name(path: Path) -> str:
-    """Имя модуля из пути: terminal/core/agent/loop.py → terminal.core..."""
+    """Имя модуля из пути: model/giperion_model/api.py -> giperion_model.api."""
 
     relative = path.relative_to(ROOT).as_posix()
 
@@ -24,6 +28,11 @@ def module_name(path: Path) -> str:
         relative = relative[: -len("/__init__.py")]
     elif relative.endswith(".py"):
         relative = relative[:-3]
+
+    if relative == MODEL_PACKAGE or relative.startswith(
+        MODEL_PACKAGE + "/"
+    ):
+        relative = "giperion_model" + relative[len(MODEL_PACKAGE) :]
 
     return relative.replace("/", ".")
 

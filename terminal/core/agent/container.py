@@ -45,7 +45,7 @@ SKIP_COPY = shutil.ignore_patterns(
     "pydoc_data",
 )
 
-READ_DIRS = ("terminal", "shared", "giperion", "docs", "tests", "tools")
+READ_DIRS = ("terminal", "shared", "model", "docs", "tests", "tools")
 SKIP_DIRS = {".git", ".agent_worktrees", "models", "data"}
 
 

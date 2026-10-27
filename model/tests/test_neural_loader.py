@@ -1,21 +1,51 @@
-# Giperion/tests/test_neural_loader.py                             v001
-# Проверки загрузчика нейросети и сброса кэша моделей.
+# GiperionModel/tests/test_neural_loader.py                            v002
+# Загрузчик нейросети: ответы, кеш и защита от гонки.
 
-from giperion_model import neural_engine
-from giperion_model.neural_loader import load_responses
+import json
+import threading
+import time
+
+from giperion_model import neural_engine, neural_loader
 
 
 def test_intent_responses_are_loaded() -> None:
     """Загрузчик собирает ответы по тегам намерений."""
 
-    responses = load_responses()
+    responses = neural_loader.load_responses()
 
     assert "greeting" in responses
     assert responses["greeting"]
 
 
+def test_intent_responses_accept_list_document(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """Список intents.json поддерживается так же, как объект."""
+
+    path = tmp_path / "intents.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "tag": "greeting",
+                    "patterns": ["привет"],
+                    "responses": ["здравствуй"],
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(neural_loader, "INTENTS_FILE", path)
+
+    assert neural_loader.load_responses() == {
+        "greeting": ["здравствуй"]
+    }
+
+
 def test_reload_engine_resets_cache(monkeypatch) -> None:
-    """Сброс кэша заставляет загрузить модели заново."""
+    """После сброса следующее обращение загружает модели заново."""
 
     monkeypatch.setattr(neural_engine, "_engine", object())
     monkeypatch.setattr(neural_engine, "_engine_checked", True)
@@ -24,3 +54,42 @@ def test_reload_engine_resets_cache(monkeypatch) -> None:
 
     assert neural_engine._engine is None
     assert neural_engine._engine_checked is False
+
+
+def test_engine_is_built_once_under_concurrency(monkeypatch) -> None:
+    """Параллельные запросы не должны строить движок много раз."""
+
+    builds: list[int] = []
+
+    class FakeEngine:
+        def reply_with_confidence(self, message):
+            return None
+
+    def fake_build():
+        builds.append(1)
+        time.sleep(0.03)
+
+        return FakeEngine()
+
+    monkeypatch.setattr(neural_engine, "_engine", None)
+    monkeypatch.setattr(neural_engine, "_engine_checked", False)
+    monkeypatch.setattr(neural_engine, "_build_engine", fake_build)
+
+    barrier = threading.Barrier(8)
+
+    def worker() -> None:
+        barrier.wait()
+        neural_engine.get_neural_reply("тест")
+
+    threads = [
+        threading.Thread(target=worker)
+        for _ in range(8)
+    ]
+
+    for thread in threads:
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    assert len(builds) == 1

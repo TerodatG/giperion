@@ -1,5 +1,5 @@
-# GiperionModel/tests/test_config.py                                   v001
-# Пути модели: пустые переменные окружения не должны вести в cwd.
+# GiperionModel/tests/test_config.py                                   v002
+# Тесты модели: пути из окружения и выбор устройства.
 
 from pathlib import Path
 
@@ -7,7 +7,7 @@ from giperion_model import config
 
 
 def test_empty_env_falls_back(monkeypatch, tmp_path) -> None:
-    """Пустой env-путь заменяется значением по умолчанию."""
+    """Пустой env-путь подменяется значением по умолчанию."""
 
     monkeypatch.setenv("GIPERION_TEST_PATH", "")
 
@@ -28,7 +28,7 @@ def test_env_path_wins(monkeypatch, tmp_path) -> None:
 
 
 def test_module_paths_are_absolute() -> None:
-    """Основные каталоги модели всегда абсолютные."""
+    """Основные пути модели всегда абсолютные."""
 
     for value in (
         config.BASE_DIR,
@@ -38,3 +38,19 @@ def test_module_paths_are_absolute() -> None:
     ):
         assert isinstance(value, Path)
         assert value.is_absolute()
+
+
+def test_resolve_device_respects_cpu(monkeypatch) -> None:
+    """GIPERION_DEVICE=cpu не должен включать CUDA."""
+
+    monkeypatch.setattr(config, "DEVICE", "cpu")
+
+    assert config.resolve_device().type == "cpu"
+
+
+def test_diagnose_hybrid_uses_models_dir() -> None:
+    """Диагностика ищет hybrid.pt в настроенной папке моделей."""
+
+    from giperion_model.training.diagnose_hybrid import CHECKPOINT_FILE
+
+    assert CHECKPOINT_FILE == config.MODELS_DIR / "hybrid.pt"

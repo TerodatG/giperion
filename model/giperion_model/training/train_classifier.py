@@ -1,4 +1,4 @@
-# Giperion/training/train_classifier.py                              v002
+# GiperionModel/giperion_model/training/train_classifier.py           v002
 # Обучение классификатора намерений на GPU.
 # Последнее изменение: разделение по классам, аугментация, регуляризация.
 
@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
-from giperion_model.config import MODELS_DIR
+from giperion_model.config import MODELS_DIR, resolve_device
 from giperion_model.storage import save_json, save_torch
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from giperion_model.training.model_classifier import (
@@ -31,9 +31,7 @@ MAX_LEN = 32
 TRAIN_SHARE = 0.9
 SEED = 42
 
-DEVICE = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
+DEVICE = resolve_device()
 
 
 class IntentDataset(Dataset):

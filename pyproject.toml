@@ -47,4 +47,4 @@ ignore = ["E501"]
 "tools/*.py" = ["E402"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["giperion", "terminal", "shared", "tools", "config", "gui"]
+known-first-party = ["giperion_model", "terminal", "shared", "tools", "config", "gui"]

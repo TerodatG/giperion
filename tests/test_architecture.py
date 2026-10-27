@@ -1,8 +1,10 @@
-# Giperion/tests/test_architecture.py                               v002
+# Giperion/tests/test_architecture.py                               v003
 # Граница между отдельным проектом модели (giperion_model) и агентом.
-# Последнее изменение: модель вынесена в model/, граница расширена.
+# Последнее изменение: запрещены UI-импорты, добавлена runtime-проверка.
 
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -12,9 +14,16 @@ MODEL_ROOTS = ("model/giperion_model",)
 
 MODEL_FILES: tuple[str, ...] = ()
 
-# Агент и общий слой приложения модели недоступны: у неё свой config
+# Агент, UI и общий слой приложения модели недоступны: у неё свой config
 # и _shared. Иначе граница снова размоется.
-FORBIDDEN_PREFIXES = ("terminal", "shared", "config")
+FORBIDDEN_PREFIXES = (
+    "terminal",
+    "shared",
+    "config",
+    "gui",
+    "main",
+    "PySide6",
+)
 
 
 def model_files() -> list[Path]:
@@ -93,6 +102,42 @@ def test_model_does_not_import_agent() -> None:
     assert not violations, (
         "Модель импортирует агента (границу нарушать нельзя):\n"
         + "\n".join(violations)
+    )
+
+
+def test_model_api_import_stays_independent() -> None:
+    """Импорт точки входа модели не тянет терминал, UI и корневой shared."""
+
+    probe = (
+        "import json, sys\n"
+        "import giperion_model.api\n"
+        "roots = {'terminal', 'shared', 'config', 'main', 'gui', "
+        "'PySide6'}\n"
+        "found = sorted(\n"
+        "    name\n"
+        "    for name in sys.modules\n"
+        "    if name in roots\n"
+        "    or name.startswith(('terminal.', 'shared.', 'PySide6.'))\n"
+        ")\n"
+        "print(json.dumps(found))\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    found = result.stdout.strip().splitlines()[-1]
+
+    assert found == "[]", (
+        "Импорт giperion_model.api подтянул чужие модули: " + found
     )
 
 

@@ -1,4 +1,4 @@
-# Giperion/training/diagnose_classifier.py                          v001
+# GiperionModel/giperion_model/training/diagnose_classifier.py        v001
 # Диагностика классификатора: где и почему он ошибается на проверке.
 
 import json
@@ -138,6 +138,11 @@ def main() -> None:
 
     print("=== Диагностика классификатора ===")
     print(f"Проверочных примеров: {total}")
+
+    if not total:
+        print("Точность: нет данных.")
+        return
+
     print(f"Точность: {correct / total:.3f}")
     print()
 

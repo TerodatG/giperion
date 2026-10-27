@@ -1,4 +1,4 @@
-# Giperion/training/model_classifier.py                             v002
+# GiperionModel/giperion_model/training/model_classifier.py           v002
 # Своя модель-классификатор намерений Giperion.
 # Последнее изменение: max-pooling теперь не слышит паддинг (masked pooling).
 
@@ -76,7 +76,7 @@ class TextClassifier(nn.Module):
         self.embedding = nn.Embedding(
             vocab_size,
             embed_dim,
-            padding_idx=0,
+            padding_idx=pad_id,
         )
 
         # Окна разной ширины ловят разные по длине паттерны.

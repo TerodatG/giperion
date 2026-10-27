@@ -1,4 +1,4 @@
-# Giperion/training/train_charcnn.py                               v003
+# GiperionModel/giperion_model/training/train_charcnn.py              v003
 # Обучение гибридного классификатора: слова + символы.
 # Последнее изменение: эксперимент с проверочной выборкой пишется в hybrid_val.pt.
 

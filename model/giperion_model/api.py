@@ -1,10 +1,9 @@
-# Giperion/giperion/api.py                                           v001
+# GiperionModel/giperion_model/api.py                                 v001
 # Единственная точка входа модели: текст на входе, ответ на выходе.
 # Последнее изменение: первый вариант — намерение и нейросетевой ответ.
 
 from dataclasses import dataclass
 
-from giperion_model import neural_engine
 from giperion_model.language.intent_handler import find_intent_response
 
 
@@ -34,6 +33,8 @@ def match_intent(text: str) -> ModelReply | None:
 
 def generate(text: str) -> ModelReply | None:
     """Нейросетевой ответ, если модель уверена."""
+
+    from giperion_model import neural_engine
 
     result = neural_engine.get_neural_reply(text)
 

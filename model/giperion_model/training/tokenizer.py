@@ -1,4 +1,4 @@
-# Giperion/training/tokenizer.py                                    v002
+# GiperionModel/giperion_model/training/tokenizer.py                  v002
 # Свой словесный токенизатор Giperion: словарь, кодирование, декодирование.
 # Последнее изменение: тире (— –) больше не приклеивается к слову при декодировании.
 
