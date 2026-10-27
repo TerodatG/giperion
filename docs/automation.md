@@ -41,6 +41,17 @@ python -m tools.agent_daemon --interval 300
 python -m tools.agent_daemon --once
 ```
 
+Пауза — создать `data/agent_daemon.pause` (или указать другой путь
+через `--pause-file`); пока файл существует, due-задачи не
+запускаются. Уведомление о цикле можно отправить в вебхук:
+
+```powershell
+$env:GIPERION_WEBHOOK_URL = "https://example.com/hook"
+```
+
+После запуска демон делает JSON POST с текстом и кодом; секреты
+вырезаются. Без переменной вебхук не отправляется.
+
 ## Дашборд
 
 ```powershell

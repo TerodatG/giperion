@@ -11,23 +11,22 @@ from pathlib import Path
 
 from config import BASE_DIR, DATA_DIR
 from terminal.core.agent import sandbox
+from terminal.core.agent.mcp_base import (
+    PROTOCOL_VERSION,
+    McpError,
+    McpToolClient,
+)
 from terminal.core.agent.mcp_policy import (
     McpServer,
     _safe_name,
     _tool_allowed,
-    check_domains,
     domain_allowed,  # noqa: F401 — реэкспорт для тестов
 )
 from terminal.core.agent.protocol import ToolResult, ToolSpec
 
 CONFIG_FILE = DATA_DIR / "agent_mcp.json"
 TIMEOUT = 20
-PROTOCOL_VERSION = "2024-11-05"
 MAX_TOOLS = 60
-
-
-class McpError(RuntimeError):
-    """Ошибка MCP-сервера или протокола."""
 
 
 def load_servers(document: dict | None = None) -> list[McpServer]:
@@ -38,7 +37,7 @@ def load_servers(document: dict | None = None) -> list[McpServer]:
     return mcp_policy.load_servers(document, CONFIG_FILE)
 
 
-class McpClient:
+class McpClient(McpToolClient):
     """Один сеанс связи с сервером: запуск, JSON-RPC, закрытие."""
 
     def __init__(self, server: McpServer, timeout: int = TIMEOUT) -> None:
@@ -220,92 +219,6 @@ class McpClient:
 
             return result if isinstance(result, dict) else {}
 
-    def list_tools(self) -> list[dict]:
-        """Список инструментов сервера."""
-
-        result = self.request("tools/list", {})
-        tools = result.get("tools")
-
-        if not isinstance(tools, list):
-            return []
-
-        return [tool for tool in tools if isinstance(tool, dict)]
-
-    def list_resources(self) -> list[dict]:
-        """Список ресурсов сервера (если он их поддерживает)."""
-
-        try:
-            result = self.request("resources/list", {})
-        except McpError:
-            return []
-
-        resources = result.get("resources")
-
-        if not isinstance(resources, list):
-            return []
-
-        return [
-            item for item in resources if isinstance(item, dict)
-        ]
-
-    def read_resource(self, uri: str) -> str:
-        """Текст ресурса по URI."""
-
-        result = self.request("resources/read", {"uri": str(uri)})
-        contents = result.get("contents")
-
-        if not isinstance(contents, list):
-            return ""
-
-        parts = []
-
-        for item in contents:
-            if not isinstance(item, dict):
-                continue
-
-            text = item.get("text")
-
-            if isinstance(text, str) and text.strip():
-                parts.append(text)
-
-        return "\n".join(parts)
-
-    def call_tool(self, name: str, arguments: dict) -> ToolResult:
-        """Вызов инструмента и разбор content-блока."""
-
-        error = check_domains(self.server, dict(arguments or {}))
-
-        if error:
-            return ToolResult(False, error)
-
-        result = self.request(
-            "tools/call",
-            {"name": name, "arguments": dict(arguments or {})},
-        )
-
-        parts = []
-        content = result.get("content")
-
-        if isinstance(content, list):
-            for item in content:
-                if not isinstance(item, dict):
-                    continue
-
-                if item.get("type") == "text":
-                    parts.append(str(item.get("text") or ""))
-
-                elif item.get("type") == "resource":
-                    resource = item.get("resource") or {}
-                    parts.append(str(resource.get("text") or ""))
-
-        text = "\n".join(part for part in parts if part).strip()
-        failed = bool(result.get("isError"))
-
-        return ToolResult(
-            not failed,
-            text or ("MCP: пустой ответ" if not failed else "MCP: ошибка"),
-        )
-
     def close(self) -> None:
         """Останавливает сервер."""
 
@@ -421,7 +334,13 @@ def _session(server: McpServer) -> McpClient:
         if client is not None:
             client.close()
 
-        client = McpClient(server)
+        if server.transport in ("http", "sse"):
+            from terminal.core.agent.mcp_http import McpHttpClient
+
+            client = McpHttpClient(server)
+        else:
+            client = McpClient(server)
+
         client.start()
         _SESSIONS[server.name] = client
 

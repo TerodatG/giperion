@@ -31,6 +31,8 @@ ACTION_TYPES = {
     "select",
     "scroll",
     "wait",
+    "wait_text",
+    "wait_url",
     "goto",
     "back",
     "download",
@@ -119,6 +121,43 @@ def _badge(data: dict, clean: str) -> str:
     return header
 
 
+def _extra_values(action: dict, item: dict, kind: str) -> bool:
+    """Дополнительные поля действия; False — пропустить."""
+
+    if kind == "fill":
+        action["text"] = str(item.get("text") or "")[:2000]
+    elif kind == "press":
+        action["key"] = str(item.get("key") or "Enter")[:30]
+    elif kind == "select":
+        action["value"] = str(item.get("value") or "")[:200]
+    elif kind == "scroll":
+        action["pixels"] = max(
+            -10_000,
+            min(10_000, int(item.get("pixels") or 800)),
+        )
+    elif kind == "wait":
+        action["ms"] = max(
+            0,
+            min(10_000, int(item.get("ms") or 500)),
+        )
+    elif kind == "wait_text":
+        text = str(item.get("text") or "").strip()[:200]
+
+        if not text:
+            return False
+
+        action["text"] = text
+    elif kind == "wait_url":
+        target = str(item.get("url") or "").strip()[:2048]
+
+        if not target:
+            return False
+
+        action["url"] = target
+
+    return True
+
+
 def _action_values(
     item: dict,
     kind: str,
@@ -142,22 +181,8 @@ def _action_values(
 
         action["url"] = target
 
-    if kind == "fill":
-        action["text"] = str(item.get("text") or "")[:2000]
-    elif kind == "press":
-        action["key"] = str(item.get("key") or "Enter")[:30]
-    elif kind == "select":
-        action["value"] = str(item.get("value") or "")[:200]
-    elif kind == "scroll":
-        action["pixels"] = max(
-            -10_000,
-            min(10_000, int(item.get("pixels") or 800)),
-        )
-    elif kind == "wait":
-        action["ms"] = max(
-            0,
-            min(10_000, int(item.get("ms") or 500)),
-        )
+    if not _extra_values(action, item, kind):
+        return None
 
     return action
 

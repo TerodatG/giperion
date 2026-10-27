@@ -443,3 +443,129 @@ def test_resources_and_probe(tmp_path) -> None:
     assert status["resources"] == 1
 
     mcp.close_sessions()
+
+
+def test_http_transport_with_token(monkeypatch) -> None:
+    """HTTP MCP выполняет initialize, tools и call с Bearer-токеном."""
+
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from terminal.core.agent.mcp_http import McpHttpClient
+
+    seen: dict[str, str] = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args) -> None:
+            pass
+
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
+            message = json.loads(self.rfile.read(length) or b"{}")
+            seen["auth"] = str(self.headers.get("Authorization") or "")
+            method = str(message.get("method") or "")
+            request_id = message.get("id")
+
+            if method == "notifications/initialized":
+                self.send_response(202)
+                self.end_headers()
+
+                return
+
+            if method == "tools/call":
+                text = message["params"]["arguments"]["text"]
+                result = {
+                    "content": [{"type": "text", "text": "эхо: " + text}]
+                }
+            elif method == "tools/list":
+                result = {
+                    "tools": [
+                        {
+                            "name": "echo",
+                            "description": "Эхо",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {"text": {"type": "string"}},
+                                "required": ["text"],
+                            },
+                            "annotations": {"readOnlyHint": True},
+                        }
+                    ]
+                }
+            else:
+                result = {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "serverInfo": {"name": "http-stub", "version": "1"},
+                }
+
+            body = json.dumps(
+                {"jsonrpc": "2.0", "id": request_id, "result": result},
+                ensure_ascii=False,
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setenv("MCP_TEST_TOKEN", "secret-token")
+
+    try:
+        config = mcp.McpServer(
+            "remote",
+            transport="http",
+            url=f"http://127.0.0.1:{server.server_port}/mcp",
+            token_env="MCP_TEST_TOKEN",
+        )
+        client = McpHttpClient(config)
+        client.start()
+
+        tools = client.list_tools()
+        result = client.call_tool("echo", {"text": "привет"})
+
+        assert [tool["name"] for tool in tools] == ["echo"]
+        assert result.ok
+        assert result.text == "эхо: привет"
+        assert seen["auth"] == "Bearer secret-token"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_http_config_requires_url() -> None:
+    """Для http-транспорта нужен url, для stdio — command."""
+
+    servers = mcp.load_servers(
+        {
+            "servers": [
+                {"name": "remote", "transport": "http"},
+                {"name": "empty"},
+                {
+                    "name": "ok",
+                    "transport": "http",
+                    "url": "https://example.com/mcp",
+                },
+            ]
+        }
+    )
+
+    assert [server.name for server in servers] == ["ok"]
+    assert servers[0].transport == "http"
+
+
+def test_sse_parser_takes_last_event() -> None:
+    """SSE-ответ разбирается по data-строкам."""
+
+    from terminal.core.agent.mcp_http import _parse
+
+    raw = (
+        b'data: {"jsonrpc":"2.0","id":1,"result":{"a":1}}\n\n'
+        b'data: {"jsonrpc":"2.0","id":1,"result":{"a":2}}\n\n'
+    )
+
+    assert _parse(raw, "text/event-stream")["result"] == {"a": 2}

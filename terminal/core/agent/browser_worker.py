@@ -120,6 +120,31 @@ def _act_wait(page, action: dict, timeout: int) -> None:
     )
 
 
+def _act_wait_text(page, action: dict, timeout: int) -> None:
+    """Ждёт появления текста на странице."""
+
+    text = str(action.get("text") or "").strip()
+
+    if not text:
+        raise ValueError("Для wait_text нужен text.")
+
+    page.get_by_text(text, exact=False).first.wait_for(
+        state="visible",
+        timeout=timeout,
+    )
+
+
+def _act_wait_url(page, action: dict, timeout: int) -> None:
+    """Ждёт, пока URL начнёт содержать подстроку."""
+
+    target = str(action.get("url") or "").strip()
+
+    if not target:
+        raise ValueError("Для wait_url нужен url.")
+
+    page.wait_for_url(f"**{target}**", timeout=timeout)
+
+
 ACTIONS = {
     "goto": _act_goto,
     "back": _act_back,
@@ -130,6 +155,8 @@ ACTIONS = {
     "select": _act_select,
     "scroll": _act_scroll,
     "wait": _act_wait,
+    "wait_text": _act_wait_text,
+    "wait_url": _act_wait_url,
 }
 
 

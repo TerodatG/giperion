@@ -251,8 +251,8 @@ TOOL_SPECS = (
                 "actions": {
                     "type": "array",
                     "description": (
-                        "до 10 действий по порядку: "
-                        "click/fill/press/scroll/wait"
+                        "до 12 действий по порядку: click/fill/press/"
+                        "scroll/wait/wait_text/wait_url/goto/back/download"
                     ),
                     "items": {
                         "type": "object",
@@ -267,6 +267,8 @@ TOOL_SPECS = (
                                     "select",
                                     "scroll",
                                     "wait",
+                                    "wait_text",
+                                    "wait_url",
                                     "goto",
                                     "back",
                                     "download",

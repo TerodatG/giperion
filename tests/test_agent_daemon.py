@@ -36,3 +36,28 @@ def test_tick_runs_due(monkeypatch) -> None:
 
     assert agent_daemon.tick(2) is True
     assert calls == [2]
+
+
+def test_tick_respects_pause_file(tmp_path, monkeypatch) -> None:
+    """Файл-стоп останавливает запуск due-задач."""
+
+    pause = tmp_path / "pause"
+    pause.write_text("", encoding="utf-8")
+    calls: list[int] = []
+    monkeypatch.setattr(
+        agent_daemon.schedule,
+        "due",
+        lambda: [{"id": "a"}],
+    )
+    monkeypatch.setattr(
+        agent_daemon,
+        "run_due",
+        lambda limit=2: calls.append(limit) or 0,
+    )
+
+    assert agent_daemon.tick(2, pause) is False
+    assert calls == []
+
+    pause.unlink()
+
+    assert agent_daemon.tick(2, pause) is True

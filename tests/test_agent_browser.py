@@ -623,3 +623,21 @@ def test_download_paths_are_shown(tmp_path) -> None:
     assert result.ok
     assert "файлы:" in result.text
     assert "a.pdf" in result.text
+
+
+def test_wait_actions_are_sanitized() -> None:
+    """Ожидания по тексту и URL требуют полезной нагрузки."""
+
+    actions = browser_js._sanitize_actions(
+        [
+            {"type": "wait_text", "text": "Готово"},
+            {"type": "wait_text"},
+            {"type": "wait_url", "url": "/success"},
+            {"type": "wait_url"},
+        ]
+    )
+
+    assert actions == [
+        {"type": "wait_text", "text": "Готово"},
+        {"type": "wait_url", "url": "/success"},
+    ]

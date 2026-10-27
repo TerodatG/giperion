@@ -6,9 +6,19 @@ import argparse
 import subprocess
 import sys
 import time
+from pathlib import Path
 
-from config import BASE_DIR
+from config import BASE_DIR, DATA_DIR
 from terminal.core import schedule
+from terminal.core.agent import notify
+
+PAUSE_FILE = DATA_DIR / "agent_daemon.pause"
+
+
+def paused(path=None) -> bool:
+    """Демон на паузе, если существует файл-стоп."""
+
+    return bool(path and path.exists())
 
 
 def run_due(limit: int = 2) -> int:
@@ -36,13 +46,19 @@ def run_due(limit: int = 2) -> int:
         return 1
 
 
-def tick(limit: int = 2) -> bool:
-    """Один цикл: были ли задачи и запустились ли они."""
+def tick(limit: int = 2, pause_file=PAUSE_FILE) -> bool:
+    """Один цикл: были ли задачи, не на паузе и запустились ли они."""
+
+    if paused(pause_file):
+        return False
 
     if not schedule.due():
         return False
 
-    run_due(limit)
+    code = run_due(limit)
+    notify.send(
+        f"Giperion: демон выполнил due-задачи, код {code}."
+    )
 
     return True
 
@@ -56,11 +72,17 @@ def main() -> int:
     )
     parser.add_argument("--interval", type=int, default=300)
     parser.add_argument("--limit", type=int, default=2)
+    parser.add_argument(
+        "--pause-file",
+        default=str(PAUSE_FILE),
+        help="файл-стоп: пока существует, задачи не запускаются",
+    )
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
+    pause_path = Path(args.pause_file)
 
     if args.once:
-        tick(args.limit)
+        tick(args.limit, pause_path)
 
         return 0
 
@@ -68,10 +90,11 @@ def main() -> int:
         f"Демон расписания: интервал {args.interval} с, "
         f"до {args.limit} задач за цикл."
     )
+    print("Пауза:", pause_path, "(создайте файл, чтобы остановить).")
 
     try:
         while True:
-            tick(args.limit)
+            tick(args.limit, pause_path)
             time.sleep(max(10, int(args.interval)))
     except KeyboardInterrupt:
         print("Демон остановлен.")

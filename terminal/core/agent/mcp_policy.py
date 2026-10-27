@@ -19,7 +19,7 @@ class McpServer:
     """Описание сервера из data/agent_mcp.json."""
 
     name: str
-    command: str
+    command: str = ""
     args: tuple[str, ...] = ()
     env: dict[str, str] = field(default_factory=dict)
     enabled: bool = True
@@ -27,6 +27,11 @@ class McpServer:
     tools: tuple[str, ...] = ()
     # Пустые домены — URLs не ограничиваются.
     domains: tuple[str, ...] = ()
+    # stdio (по умолчанию), http или sse.
+    transport: str = "stdio"
+    url: str = ""
+    # Имя env-переменной с OAuth/Bearer-токеном.
+    token_env: str = ""
 
 
 def _string_list(value) -> tuple[str, ...]:
@@ -156,6 +161,52 @@ def _safe_name(value: str) -> str:
     return text[:40] or "server"
 
 
+def _parse_server(item: dict) -> McpServer | None:
+    """Собирает один сервер; None — запись битая."""
+
+    name = _safe_name(item.get("name") or "")
+
+    if not name:
+        return None
+
+    command = str(item.get("command") or "").strip()
+    transport = str(item.get("transport") or "stdio").strip().lower()
+
+    if transport not in ("stdio", "http", "sse"):
+        transport = "stdio"
+
+    url = str(item.get("url") or "").strip()
+
+    if (transport == "stdio" and not command) or (
+        transport != "stdio" and not url
+    ):
+        return None
+
+    args = item.get("args")
+    env = item.get("env")
+    clean_env: dict[str, str] = {}
+
+    if isinstance(env, dict):
+        for key, value in env.items():
+            if isinstance(key, str) and isinstance(value, str):
+                clean_env[key] = _expand(value)
+
+    return McpServer(
+        name=name,
+        command=command,
+        args=tuple(str(arg) for arg in args)
+        if isinstance(args, list)
+        else (),
+        env=clean_env,
+        enabled=item.get("enabled") is not False,
+        tools=_string_list(item.get("tools")),
+        domains=_string_list(item.get("domains")),
+        transport=transport,
+        url=url,
+        token_env=str(item.get("token_env") or "").strip(),
+    )
+
+
 def load_servers(
     document: dict | None = None,
     config_file: Path | None = None,
@@ -179,40 +230,12 @@ def load_servers(
         if not isinstance(item, dict):
             continue
 
-        name = _safe_name(item.get("name") or "")
+        server = _parse_server(item)
 
-        if not name or name in seen:
+        if server is None or server.name in seen:
             continue
 
-        command = str(item.get("command") or "").strip()
-
-        if not command:
-            continue
-
-        args = item.get("args")
-
-        if not isinstance(args, list):
-            args = []
-
-        env = item.get("env")
-        clean_env: dict[str, str] = {}
-
-        if isinstance(env, dict):
-            for key, value in env.items():
-                if isinstance(key, str) and isinstance(value, str):
-                    clean_env[key] = _expand(value)
-
-        seen.add(name)
-        servers.append(
-            McpServer(
-                name=name,
-                command=command,
-                args=tuple(str(arg) for arg in args),
-                env=clean_env,
-                enabled=item.get("enabled") is not False,
-                tools=_string_list(item.get("tools")),
-                domains=_string_list(item.get("domains")),
-            )
-        )
+        seen.add(server.name)
+        servers.append(server)
 
     return servers
