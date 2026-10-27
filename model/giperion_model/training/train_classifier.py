@@ -10,6 +10,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from giperion_model.config import MODELS_DIR
+from giperion_model.storage import save_json, save_torch
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from giperion_model.training.model_classifier import (
     TextClassifier,
@@ -204,21 +205,18 @@ def save_checkpoint(
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    torch.save(
+    save_torch(
+        CHECKPOINT_FILE,
         {
+            "format_version": 1,
             "model_state": model.state_dict(),
             "labels": labels,
             "max_len": MAX_LEN,
             "vocab_size": model.embedding.num_embeddings,
         },
-        CHECKPOINT_FILE,
     )
 
-    with LABELS_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(labels, file, ensure_ascii=False, indent=2)
+    save_json(LABELS_FILE, labels)
 
 
 def train() -> None:

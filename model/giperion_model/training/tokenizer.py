@@ -148,7 +148,7 @@ class WordTokenizer:
         for index in ids:
             token = self.inverse.get(int(index), UNK_TOKEN)
 
-            if token in (PAD_TOKEN, SOS_TOKEN, EOS_TOKEN):
+            if token in (PAD_TOKEN, SOS_TOKEN, EOS_TOKEN, UNK_TOKEN):
                 continue
 
             tokens.append(token)
@@ -165,13 +165,9 @@ class WordTokenizer:
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with path.open("w", encoding="utf-8") as file:
-            json.dump(
-                {"vocab": self.vocab},
-                file,
-                ensure_ascii=False,
-                indent=2,
-            )
+        from giperion_model.storage import save_json
+
+        save_json(path, {"vocab": self.vocab})
 
     @classmethod
     def load(

@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - "terminal/**"
-      - "giperion/**"
+      - "model/**"
       - "shared/**"
       - "tools/**"
       - "tests/**"
@@ -47,4 +47,4 @@ jobs:
         run: python -m tools.eval_retrieval --limit 5 --fail
 
       - name: Компиляция
-        run: python -m compileall -q terminal giperion shared tests tools
+        run: python -m compileall -q terminal model shared tests tools

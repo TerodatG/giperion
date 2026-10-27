@@ -28,7 +28,7 @@ def load_model() -> tuple[HybridTextClassifier, list[str]]:
     checkpoint = torch.load(
         CHECKPOINT_FILE,
         map_location=DEVICE,
-        weights_only=False,
+        weights_only=True,
     )
 
     word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)

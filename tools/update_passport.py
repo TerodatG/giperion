@@ -45,7 +45,7 @@ def count_params(path: Path) -> int | None:
     checkpoint = torch.load(
         path,
         map_location="cpu",
-        weights_only=False,
+        weights_only=True,
     )
 
     state = (

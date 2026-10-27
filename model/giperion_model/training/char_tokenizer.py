@@ -95,13 +95,9 @@ class CharTokenizer:
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with path.open("w", encoding="utf-8") as file:
-            json.dump(
-                {"symbols": self.symbols},
-                file,
-                ensure_ascii=False,
-                indent=2,
-            )
+        from giperion_model.storage import save_json
+
+        save_json(path, {"symbols": self.symbols})
 
 
 def build_corpus_texts() -> list[str]:

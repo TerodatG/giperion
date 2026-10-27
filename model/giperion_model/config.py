@@ -5,21 +5,21 @@
 import os
 from pathlib import Path
 
-BASE_DIR = Path(
-    os.environ.get("GIPERION_HOME", Path.cwd())
-).resolve()
-DATA_DIR = Path(
-    os.environ.get("GIPERION_DATA_DIR", BASE_DIR / "data")
-).resolve()
-MODELS_DIR = Path(
-    os.environ.get("GIPERION_MODELS_DIR", BASE_DIR / "models")
-).resolve()
-ARCHIVE_DIR = Path(
-    os.environ.get("GIPERION_ARCHIVE_DIR", BASE_DIR / "archive")
-).resolve()
-LOGS_DIR = Path(
-    os.environ.get("GIPERION_LOGS_DIR", BASE_DIR / "logs")
-).resolve()
+
+def _path(name: str, default: Path) -> Path:
+    """Путь из env; пустая переменная не должна превращаться в cwd."""
+
+    value = os.environ.get(name, "").strip()
+
+    return Path(value or default).expanduser().resolve()
+
+
+BASE_DIR = _path("GIPERION_HOME", Path.cwd())
+DATA_DIR = _path("GIPERION_DATA_DIR", BASE_DIR / "data")
+MODELS_DIR = _path("GIPERION_MODELS_DIR", BASE_DIR / "models")
+ARCHIVE_DIR = _path("GIPERION_ARCHIVE_DIR", BASE_DIR / "archive")
+LOGS_DIR = _path("GIPERION_LOGS_DIR", BASE_DIR / "logs")
+DEVICE = os.environ.get("GIPERION_DEVICE", "auto").strip().lower() or "auto"
 
 BOT_NAME = "Giperion"
 

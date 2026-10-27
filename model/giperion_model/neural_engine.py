@@ -101,9 +101,15 @@ class NeuralEngine:
     def generate(self, text: str) -> str | None:
         """Придумывает ответ seq2seq; None, если вывод не годится."""
 
+        if not str(text or "").strip():
+            return None
+
         ids = self.word_tokenizer.encode(
             text,
         )[: self.max_src_len]
+
+        if not ids:
+            return None
 
         ids = ids + [self.word_tokenizer.pad_id] * (
             self.max_src_len - len(ids)

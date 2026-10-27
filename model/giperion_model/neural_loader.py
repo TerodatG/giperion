@@ -3,10 +3,11 @@
 # Последнее изменение: выделено из neural_engine.
 
 import json
+import logging
 
 import torch
 
-from giperion_model.config import DATA_DIR, MODELS_DIR
+from giperion_model.config import DATA_DIR, DEVICE, MODELS_DIR
 from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
     CharTokenizer,
@@ -18,6 +19,22 @@ from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
 SEQ2SEQ_FILE = MODELS_DIR / "seq2seq.pt"
 INTENTS_FILE = DATA_DIR / "intents.json"
+LAST_ERROR = ""
+LOGGER = logging.getLogger(__name__)
+
+
+def _device() -> torch.device:
+    """Устройство из GIPERION_DEVICE: auto, cpu или cuda."""
+
+    if DEVICE == "cpu":
+        return torch.device("cpu")
+
+    if DEVICE == "cuda":
+        return torch.device("cuda")
+
+    return torch.device(
+        "cuda" if torch.cuda.is_available() else "cpu"
+    )
 
 
 def load_responses() -> dict[str, list[str]]:
@@ -41,12 +58,10 @@ def load_responses() -> dict[str, list[str]]:
 def load_components() -> dict | None:
     """Собирает компоненты движка; при ошибке — None."""
 
+    global LAST_ERROR
+
     try:
-        device = torch.device(
-            "cuda"
-            if torch.cuda.is_available()
-            else "cpu"
-        )
+        device = _device()
 
         word_tokenizer = WordTokenizer.load(
             TOKENIZER_FILE
@@ -60,7 +75,7 @@ def load_components() -> dict | None:
         classifier_checkpoint = torch.load(
             CLASSIFIER_FILE,
             map_location=device,
-            weights_only=False,
+            weights_only=True,
         )
 
         classifier = HybridTextClassifier(
@@ -82,7 +97,7 @@ def load_components() -> dict | None:
         generator_checkpoint = torch.load(
             SEQ2SEQ_FILE,
             map_location=device,
-            weights_only=False,
+            weights_only=True,
         )
 
         generator = Seq2Seq(
@@ -102,6 +117,8 @@ def load_components() -> dict | None:
 
         generator.eval()
 
+        LAST_ERROR = ""
+
         return {
             "classifier": classifier,
             "generator": generator,
@@ -117,6 +134,7 @@ def load_components() -> dict | None:
     except Exception as error:
         # Нейросеть — усиление, а не обязательное условие:
         # без моделей бот продолжает работать на правилах.
-        print(f"[Нейросеть отключена: {error}]")
+        LAST_ERROR = str(error)
+        LOGGER.warning("Нейросеть отключена: %s", error)
 
         return None

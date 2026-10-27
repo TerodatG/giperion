@@ -21,7 +21,7 @@
 
 ## Контракт модели
 
-Единственная дверь в модель — `model/giperion_model/api.py`:
+Публичная дверь в модель — `model/giperion_model/api.py`:
 
 ```python
 from giperion_model.api import answer
@@ -33,8 +33,14 @@ if reply is None:
 ```
 
 `ModelReply` содержит `text`, `source` (`intent` или `neural`) и
-`confidence`. Всё остальное — внутреннее устройство модели: правила
-`intents.json`, классификатор, seq2seq, пороги уверенности.
+`confidence`.
+
+Приложение исторически использует и внутренние модули модели:
+`identity_matrix`, `language.intent_handler`, `language.learning_*`,
+`language.knowledge_service`, `neural_engine`, `personality_catalog` и
+`training.*`. Это зафиксированный контракт; менять имена и сигнатуры
+нужно одновременно в обоих проектах. Постепенный план — увести
+приложение на фасад `api.py`, но это отдельная работа.
 
 Агент вызывает модель на этапах `intent` и `neural` в
 `terminal/core/chat_pipeline.py`. Всё, что не является пониманием и

@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 from giperion_model.config import MODELS_DIR
+from giperion_model.storage import save_torch
 from giperion_model.training.build_dataset import PAIRS_FILE
 from giperion_model.training.model_classifier import parameter_count
 from giperion_model.training.model_seq2seq import Seq2Seq
@@ -221,15 +222,16 @@ def save_checkpoint(
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    torch.save(
+    save_torch(
+        CHECKPOINT_FILE,
         {
+            "format_version": 1,
             "model_state": model.state_dict(),
             "embed_dim": model.encoder_embedding.embedding_dim,
             "hidden_size": model.decoder_gru.hidden_size,
             "max_src_len": MAX_SRC_LEN,
             "max_tgt_len": MAX_TGT_LEN,
         },
-        CHECKPOINT_FILE,
     )
 
 
@@ -391,7 +393,7 @@ def train() -> None:
     best_checkpoint = torch.load(
         CHECKPOINT_FILE,
         map_location=DEVICE,
-        weights_only=False,
+        weights_only=True,
     )
     model.load_state_dict(best_checkpoint["model_state"])
 

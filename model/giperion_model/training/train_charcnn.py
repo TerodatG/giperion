@@ -4,12 +4,14 @@
 
 import json
 import sys
+from pathlib import Path
 
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 from giperion_model.config import MODELS_DIR
+from giperion_model.storage import save_torch
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from giperion_model.training.char_tokenizer import (
     CHAR_TOKENIZER_FILE,
@@ -102,13 +104,14 @@ def save_checkpoint(
 
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    torch.save(
+    save_torch(
+        Path(path),
         {
+            "format_version": 1,
             "model_state": model.state_dict(),
             "labels": labels,
             "max_len": MAX_LEN,
         },
-        path,
     )
 
 
@@ -364,7 +367,7 @@ def _reveal_errors(data: dict) -> None:
     best_checkpoint = torch.load(
         checkpoint,
         map_location=DEVICE,
-        weights_only=False,
+        weights_only=True,
     )
 
     data["model"].load_state_dict(best_checkpoint["model_state"])
