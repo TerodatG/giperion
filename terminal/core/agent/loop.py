@@ -320,39 +320,77 @@ def _close_browser() -> None:
         pass
 
 
+def _audit(event: str, payload: dict) -> None:
+    """Пишет событие аудита, не ломая запуск задачи."""
+
+    try:
+        from terminal.core.agent import audit
+
+        audit.record(event, payload)
+    except (OSError, TypeError, ValueError):
+        pass
+
+
 def run_agent(*args, **kwargs) -> AgentResult:
     """Обёртка: критик, затем закрытие браузерной сессии потока."""
 
+    task = kwargs.get("task")
+
+    if task is None and args:
+        task = args[0]
+
+    brain = kwargs.get("brain")
+
+    if brain is None and len(args) > 1:
+        brain = args[1]
+
+    root = kwargs.get("root")
+
+    if root is None and len(args) > 2:
+        root = args[2]
+
+    top = not _depth_of(args, kwargs)
+
+    if top:
+        _audit(
+            "run.start",
+            {
+                "task": str(task or "")[:300],
+                "root": str(root or ""),
+            },
+        )
+
     try:
         result = _run_agent_impl(*args, **kwargs)
-    except BaseException:
-        if not _depth_of(args, kwargs):
+    except BaseException as error:
+        if top:
+            _audit(
+                "run.error",
+                {
+                    "type": type(error).__name__,
+                    "message": str(error)[:300],
+                },
+            )
             _close_browser()
 
         raise
 
-    if not _depth_of(args, kwargs):
-        task = kwargs.get("task")
-
-        if task is None and args:
-            task = args[0]
-
-        brain = kwargs.get("brain")
-
-        if brain is None and len(args) > 1:
-            brain = args[1]
-
-        root = kwargs.get("root")
-
-        if root is None and len(args) > 2:
-            root = args[2]
-
-        if task and brain is not None and root is not None:
+    if top:
+        if brain is not None and task and root is not None:
             try:
                 _maybe_review(str(task), brain, Path(root), result)
             except Exception:  # noqa: BLE001 — критик не ломает ответ
                 pass
 
+        _audit(
+            "run.finish",
+            {
+                "ok": not result.cancelled and not result.error,
+                "error": result.error[:300],
+                "cancelled": bool(result.cancelled),
+                "steps": len(result.steps),
+            },
+        )
         _close_browser()
 
     return result

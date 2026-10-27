@@ -60,6 +60,32 @@ def exceeded(limits: BudgetLimits, tokens: int, cost: float) -> str:
     return ""
 
 
+def warning(
+    limits: BudgetLimits,
+    tokens: int,
+    cost: float,
+    threshold: float = 0.8,
+) -> str:
+    """Предупреждение при подходе к лимиту (по умолчанию 80 %)."""
+
+    if not limits.enabled:
+        return ""
+
+    if limits.tokens > 0 and tokens >= limits.tokens * threshold:
+        return (
+            f"Потрачено {tokens} из {limits.tokens} токенов "
+            f"({tokens / limits.tokens:.0%})."
+        )
+
+    if limits.cost > 0 and cost >= limits.cost * threshold:
+        return (
+            f"Потрачено ${cost:.4f} из ${limits.cost:.2f} "
+            f"({cost / limits.cost:.0%})."
+        )
+
+    return ""
+
+
 def describe(limits: BudgetLimits) -> str:
     """Короткое описание бюджета для окна и журнала."""
 

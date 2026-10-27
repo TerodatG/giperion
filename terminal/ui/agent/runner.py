@@ -174,6 +174,7 @@ class AgentRunnerMixin:
 
         self.run_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+        self.pause_button.setEnabled(True)
         self.worktree_bar.show_actions(False)
 
         branch_note = (
@@ -245,6 +246,7 @@ class AgentRunnerMixin:
         self._shown = len(steps)
         self.run_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+        self.pause_button.setEnabled(True)
         self.status_label.setText("Продолжаю сохранённую задачу…")
         self._timer.start()
 
@@ -258,7 +260,25 @@ class AgentRunnerMixin:
 
         self.job.cancel()
         self.stop_button.setEnabled(False)
+        self.pause_button.setEnabled(False)
         self.status_label.setText("Останавливаю после текущего шага…")
+
+    def _toggle_pause(self) -> None:
+        """Ставит задачу на паузу или снимает её."""
+
+        if self.job is None or self.job.done:
+            return
+
+        if self.job.paused():
+            self.job.resume()
+            self.pause_button.setText("Пауза")
+            self.status_label.setText("Продолжаю…")
+        else:
+            self.job.pause()
+            self.pause_button.setText("Продолжить")
+            self.status_label.setText(
+                "Пауза после текущего шага…"
+            )
 
     def _merge_branch(self) -> None:
         """Сливает ветку задачи в текущую ветку проекта."""
@@ -379,6 +399,8 @@ class AgentRunnerMixin:
         self.approval.hide_panel()
         self.run_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self.pause_button.setEnabled(False)
+        self.pause_button.setText("Пауза")
 
         show_worktree_actions = bool(self.worktree_path)
         self.worktree_bar.show_actions(show_worktree_actions)

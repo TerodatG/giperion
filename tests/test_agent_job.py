@@ -28,6 +28,40 @@ def _wait_for(predicate, timeout: float = 3.0) -> None:
     raise AssertionError("Не дождались состояния")
 
 
+def test_job_pause_and_resume(tmp_path) -> None:
+    """Пауза останавливает цикл, продолжение и отмена его отпускают."""
+
+    import threading
+
+    job = AgentJob("пауза", ScriptedBrain([]), tmp_path)
+    job.pause()
+
+    assert job.paused()
+
+    result = []
+
+    def wait_stop() -> None:
+        result.append(job._should_stop())
+
+    thread = threading.Thread(target=wait_stop)
+    thread.start()
+    time.sleep(0.15)
+
+    assert thread.is_alive()
+
+    job.resume()
+    thread.join(timeout=2.0)
+
+    assert result == [False]
+    assert not job.paused()
+
+    job.pause()
+    job.cancel()
+    job.resume()
+
+    assert job._should_stop() is True
+
+
 def test_job_waits_for_approval(tmp_path) -> None:
     """Поток агента ждёт кнопку и не пишет файл без согласия."""
 

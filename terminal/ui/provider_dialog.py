@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
 )
 
+from config import BASE_DIR
 from terminal.core.agent.providers import (
     OpenAICompatibleProvider,
     ProviderError,
@@ -420,11 +421,11 @@ class ProviderDialog(SkinDialog):
 
         self.memory_button = QPushButton("Память…", self)
         self.memory_button.setToolTip(
-            "Заметки между задачами: data/agent_memory.md, "
+            "Заметки проекта: data/agent_memory/<проект>.md, "
             "их хвост попадает в системный промпт."
         )
         self.memory_button.clicked.connect(
-            lambda: show_memory_dialog(self)
+            lambda: show_memory_dialog(self, root=BASE_DIR)
         )
         form.addRow("Память", self.memory_button)
 

@@ -61,6 +61,8 @@ class _RunState:
         self.should_stop = should_stop
         self.position = 0
         self.context_peak = 0
+        self.root: Path | None = None
+        self.budget_warned = False
         self.chat: list[dict] = []
         self.read_ok = False
         self.plan: list[dict] = []
@@ -165,6 +167,9 @@ def _prepare_run(
     ground_first: bool,
 ) -> bool:
     """Делает стартовое чтение и открывает переписку; True — chat-режим."""
+
+    state.root = Path(root).resolve()
+    brain.root = state.root
 
     if ground_first and not state.history:
         for call in grounding_calls(task, root):

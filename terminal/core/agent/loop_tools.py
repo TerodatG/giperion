@@ -28,6 +28,28 @@ MAX_TOOL_CALLS = 60
 MAX_NETWORK_CALLS = 12
 MAX_WRITE_CALLS = 25
 NETWORK_TOOLS = {"fetch_url", "browser_read", "browser_act"}
+
+
+def _audit(event: str, payload: dict) -> None:
+    """Пишет событие аудита, не ломая задачу при сбое журнала."""
+
+    try:
+        from terminal.core.agent import audit
+
+        audit.record(event, payload)
+    except (OSError, TypeError, ValueError):
+        pass
+
+
+def _target(call: ToolCall) -> str:
+    """Короткая цель вызова для аудита."""
+
+    try:
+        from terminal.core.agent import audit
+
+        return audit.target_of(dict(call.args or {}))
+    except (TypeError, ValueError):
+        return ""
 WRITE_TOOLS = {
     "write_file",
     "apply_patch",
@@ -341,7 +363,7 @@ def _request_approval(
     try:
         from terminal.core.agent import audit
 
-        audit.record(
+        _audit(
             "approval",
             {
                 "tool": call.tool,
@@ -415,6 +437,13 @@ def _approve_and_execute(
                 "запрещено. Предложи ответ без изменений.",
             ),
         )
+        _audit(
+            "denied",
+            {
+                "tool": call.tool,
+                "reason": "policy=read",
+            },
+        )
 
         return None
 
@@ -462,6 +491,16 @@ def _approve_and_execute(
             return None
 
     result = registry.execute(root, call)
+    _audit(
+        "tool",
+        {
+            "tool": call.tool,
+            "risk": risk,
+            "ok": bool(result.ok),
+            "chars": len(result.text),
+            "target": _target(call),
+        },
+    )
 
     if result.ok and spec is not None and spec.risk == "read":
         state.read_ok = True

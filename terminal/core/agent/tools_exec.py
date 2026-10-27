@@ -12,10 +12,16 @@ from terminal.core.agent.protocol import ToolResult
 from terminal.core.agent.tools_policy import TEST_TIMEOUT, _root
 
 
-def run_tests(root: Path) -> ToolResult:
+def run_tests(root: Path, dry_run: bool = False) -> ToolResult:
     """Запускает pytest в папке проекта и отдаёт хвост вывода."""
 
     base = _root(root)
+
+    if dry_run:
+        return ToolResult(
+            True,
+            f"Будет выполнено в {base.name}: python -m pytest -q",
+        )
 
     try:
         result = subprocess.run(
@@ -51,13 +57,23 @@ def run_tests(root: Path) -> ToolResult:
     )
 
 
-def run_command(root: Path, command: str) -> ToolResult:
+def run_command(
+    root: Path,
+    command: str,
+    dry_run: bool = False,
+) -> ToolResult:
     """Выполняет команду из белого списка без shell."""
 
     try:
         tokens = validate_command(command)
     except CommandError as error:
         return ToolResult(False, str(error))
+
+    if dry_run:
+        return ToolResult(
+            True,
+            "Будет выполнено: " + " ".join(tokens),
+        )
 
     base = _root(root)
 

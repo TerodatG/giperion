@@ -132,3 +132,58 @@ def test_export_filters_dates(tmp_path, monkeypatch) -> None:
     audit.export(target, since="2999-01-01")
 
     assert target.read_text(encoding="utf-8") == ""
+
+
+def test_payload_secrets_are_redacted() -> None:
+    """Секрет в полезной нагрузке не попадает в журнал."""
+
+    entry = audit.record(
+        "tool",
+        {"api_key": "sk-1234567890abcdef", "text": "обычный"},
+    )
+
+    dumped = json.dumps(entry, ensure_ascii=False)
+
+    assert "sk-1234567890abcdef" not in dumped
+    assert "[скрыто]" in dumped
+    assert entry["payload"]["text"] == "обычный"
+
+
+def test_prune_archives_and_rebuilds_chain(tmp_path) -> None:
+    """Старые записи уходят в архив, активная цепочка остаётся целой."""
+
+    path = audit.AUDIT_FILE
+    old = []
+    prev = audit.GENESIS
+
+    for index in range(2):
+        entry = {
+            "ts": "2020-01-0" + str(index + 1) + "T10:00:00",
+            "event": "old",
+            "payload": {},
+            "prev": prev,
+        }
+        entry["hash"] = audit._digest(entry)
+        old.append(json.dumps(entry, ensure_ascii=False))
+        prev = entry["hash"]
+
+    path.write_text("\n".join(old) + "\n", encoding="utf-8")
+    audit.record("new", {"x": 1})
+
+    assert audit.prune(days=1) == 2
+
+    ok, message = audit.verify()
+
+    assert ok
+    assert "записей: 2" in message
+
+    archives = list(tmp_path.glob("audit-*.jsonl"))
+
+    assert len(archives) == 1
+    assert "2020-01-01" in archives[0].read_text(encoding="utf-8")
+
+    entries = audit.tail(5)
+
+    assert entries[0]["event"] == "audit.rotate"
+    assert entries[0]["payload"]["archived"] == 2
+    assert entries[-1]["event"] == "new"

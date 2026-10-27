@@ -3,6 +3,7 @@
 # Последнее изменение: вынесено из loop.
 
 
+from terminal.core.agent.budget import warning as budget_warning
 from terminal.core.agent.context import (
     DecisionError,
     build_native_prompt,
@@ -190,6 +191,7 @@ def _decide_prompt(
         state.history,
         max_chars=max_prompt_chars,
         final_note=final_note,
+        root=state.root,
     )
     state.context_peak = max(state.context_peak, len(prompt))
 
@@ -299,6 +301,23 @@ def _decide(
             context_chars=state.context_peak,
         )
 
+    near = (
+        budget_warning(budget, tokens, cost)
+        if budget is not None
+        else ""
+    )
+
+    if near and not state.budget_warned:
+        state.budget_warned = True
+        state.emit(
+            AgentStep(
+                index,
+                "budget",
+                "Бюджет почти исчерпан",
+                near + " Следующий шаг может остановить задачу.",
+            )
+        )
+
     return decision, assistant_raw
 
 
@@ -378,6 +397,7 @@ def _finish(
                 "ответ по тому, что уже известно, и честно перечисли, "
                 "чего не хватило."
             ),
+            root=state.root,
         )
 
         try:

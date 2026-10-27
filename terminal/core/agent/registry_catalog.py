@@ -85,8 +85,12 @@ TOOL_SPECS = (
     ),
     ToolSpec(
         name="run_tests",
-        description="Запустить pytest в папке проекта и показать итог.",
-        args={},
+        description=(
+            "Запустить pytest в папке проекта и показать итог. "
+            "dry_run=true — только показать команду."
+        ),
+        args={"dry_run": "true — не запускать, только показать"},
+        types={"dry_run": "boolean"},
         risk="exec",
     ),
     ToolSpec(
@@ -135,9 +139,14 @@ TOOL_SPECS = (
         name="run_command",
         description=(
             "Разрешённая команда: git status/diff/log/show, "
-            "python -m pytest, python -m compileall."
+            "python -m pytest, python -m compileall. "
+            "dry_run=true — только показать команду."
         ),
-        args={"command": "команда одной строкой"},
+        args={
+            "command": "команда одной строкой",
+            "dry_run": "true — не запускать, только показать",
+        },
+        types={"dry_run": "boolean"},
         risk="exec",
         required=("command",),
     ),

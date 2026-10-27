@@ -113,6 +113,26 @@ def _int_arg(call: ToolCall, name: str, default: int = 0) -> int:
         return default
 
 
+def _bool_arg(call: ToolCall, name: str, default: bool = False) -> bool:
+    """Логический аргумент: bool или строка yes/true/1."""
+
+    value = call.args.get(name, default)
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        return value.strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+            "да",
+        )
+
+    return default
+
+
 def _list_arg(call: ToolCall, name: str) -> list[str]:
     """Список путей: массив или одна строка для совместимости."""
 

@@ -8,7 +8,7 @@ import json
 import os
 import secrets
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import DATA_DIR
@@ -57,6 +57,24 @@ def _digest(entry: dict) -> str:
     ).hexdigest()
 
 
+def _clean(value):
+    """Рекурсивно вырезает секреты из полезной нагрузки."""
+
+    if isinstance(value, str):
+        return redact(value).text
+
+    if isinstance(value, dict):
+        return {
+            str(key): _clean(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, (list, tuple)):
+        return [_clean(item) for item in value]
+
+    return value
+
+
 def record(
     event: str,
     payload: dict | None = None,
@@ -66,12 +84,13 @@ def record(
 
     target = Path(path or AUDIT_FILE)
     target.parent.mkdir(parents=True, exist_ok=True)
+    clean = _clean(payload or {})
 
     with _LOCK:
         entry = {
             "ts": datetime.now().isoformat(timespec="seconds"),
             "event": str(event),
-            "payload": payload or {},
+            "payload": clean,
             "prev": _last_hash(target),
         }
         entry["hash"] = _digest(entry)
@@ -142,6 +161,83 @@ def tail(limit: int = 5, path: Path | None = None) -> list[dict]:
             result.append(value)
 
     return result
+
+
+def prune(
+    days: int = 90,
+    path: Path | None = None,
+    archive_dir: Path | None = None,
+) -> int:
+    """Переносит старые записи в архив и пересобирает активную цепочку."""
+
+    target = Path(path or AUDIT_FILE)
+
+    try:
+        lines = target.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return 0
+
+    cutoff = (
+        datetime.now() - timedelta(days=max(1, int(days)))
+    ).isoformat(timespec="seconds")
+    old: list[str] = []
+    keep: list[str] = []
+
+    for line in lines:
+        text = line.strip()
+
+        if not text:
+            continue
+
+        try:
+            entry = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+
+        if str(entry.get("ts") or "") < cutoff:
+            old.append(text)
+        else:
+            keep.append(text)
+
+    if not old:
+        return 0
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    archive = Path(
+        archive_dir or target.parent
+    ) / (
+        f"{target.stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        ".jsonl"
+    )
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    archive.write_text("\n".join(old) + "\n", encoding="utf-8")
+    anchor = {
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "event": "audit.rotate",
+        "payload": {
+            "archive": archive.name,
+            "archived": len(old),
+        },
+        "prev": GENESIS,
+    }
+    anchor["hash"] = _digest(anchor)
+    rebuilt = [anchor]
+
+    for line in keep:
+        entry = json.loads(line)
+        entry["prev"] = rebuilt[-1]["hash"]
+        entry["hash"] = _digest(entry)
+        rebuilt.append(entry)
+
+    content = "\n".join(
+        json.dumps(entry, ensure_ascii=False)
+        for entry in rebuilt
+    )
+    temp = target.with_name(target.name + ".tmp")
+    temp.write_text(content + "\n", encoding="utf-8")
+    temp.replace(target)
+
+    return len(old)
 
 
 def _key(key_file: Path | None = None, create: bool = True) -> bytes:

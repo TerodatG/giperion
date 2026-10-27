@@ -48,6 +48,7 @@ class AgentControls(QWidget):
 
     run_requested = Signal()
     stop_requested = Signal()
+    pause_requested = Signal()
     new_task_requested = Signal()
     tasks_requested = Signal()
     watch_requested = Signal()
@@ -259,6 +260,14 @@ class AgentControls(QWidget):
         )
         self.plan_button.clicked.connect(self.plan_requested.emit)
 
+        self.pause_button = QPushButton("Пауза", self)
+        self.pause_button.setObjectName("workshopAction")
+        self.pause_button.setEnabled(False)
+        self.pause_button.setToolTip(
+            "Пауза после текущего шага; повторное нажатие продолжает."
+        )
+        self.pause_button.clicked.connect(self.pause_requested.emit)
+
         self.resume_last_button = QPushButton(
             "Продолжить незавершённую",
             self,
@@ -280,6 +289,7 @@ class AgentControls(QWidget):
         row.setSpacing(8)
         row.addWidget(self.run_button)
         row.addWidget(self.stop_button)
+        row.addWidget(self.pause_button)
         row.addWidget(self.new_task_button)
         row.addWidget(self.tasks_button)
         row.addWidget(self.resume_last_button)

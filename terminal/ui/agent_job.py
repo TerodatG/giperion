@@ -89,6 +89,8 @@ class AgentJob:
         self.allowed: set[str] = set()
         self._remember = False
         self._stop = threading.Event()
+        self._pause = threading.Event()
+        self._pause.set()
         self._approval = threading.Event()
         self._approved = False
         self._approval_text: str | None = None
@@ -167,7 +169,32 @@ class AgentJob:
         """Просит цикл остановиться после текущего шага."""
 
         self._stop.set()
+        self._pause.set()
         self._approval.set()
+
+    def pause(self) -> None:
+        """Ставит задачу на паузу после текущего шага."""
+
+        self._pause.clear()
+
+    def resume(self) -> None:
+        """Снимает паузу."""
+
+        self._pause.set()
+
+    def paused(self) -> bool:
+        """Стоит ли задача на паузе."""
+
+        return not self._pause.is_set()
+
+    def _should_stop(self) -> bool:
+        """Ждёт снятия паузы; True — задачу отменили."""
+
+        while not self._pause.wait(0.1):
+            if self._stop.is_set():
+                return True
+
+        return self._stop.is_set()
 
     def request_approval(
         self,
@@ -255,7 +282,7 @@ class AgentJob:
                 self._root,
                 max_steps=self._max_steps,
                 on_step=self._on_step,
-                should_stop=self._stop.is_set,
+                should_stop=self._should_stop,
                 approve=self.request_approval,
                 policy=self._policy,
                 initial_history=self._initial_history,

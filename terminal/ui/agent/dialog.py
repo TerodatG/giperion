@@ -100,6 +100,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
 
         self.controls.run_requested.connect(self._start)
         self.controls.stop_requested.connect(self._stop)
+        self.controls.pause_requested.connect(self._toggle_pause)
         self.controls.new_task_requested.connect(self._open_new_task)
         self.controls.tasks_requested.connect(self._open_tasks)
         self.controls.watch_requested.connect(self._open_watch)
@@ -153,6 +154,10 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
     @property
     def stop_button(self):
         return self.controls.stop_button
+
+    @property
+    def pause_button(self):
+        return self.controls.pause_button
 
     @property
     def provider_button(self):

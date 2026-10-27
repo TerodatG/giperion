@@ -423,6 +423,9 @@ python -m tools.eval_agent --retry 1           # повторить упавшу
 python -m tools.eval_agent --history           # история прогонов
 python -m tools.eval_agent --only readme-lines --model <id> --provider opencode
 python -m tools.audit_log --check              # цепочка аудита
+python -m tools.audit_log --search "write_file" # поиск по журналу
+python -m tools.audit_log --export audit.jsonl  # подписанный экспорт
+python -m tools.audit_log --prune 90            # архив старше 90 дней
 ```
 
 Каждая задача выполняется в отдельном `git worktree`, поэтому файлы
@@ -449,8 +452,13 @@ python -m tools.audit_log --check              # цепочка аудита
 повторных проходов. Для стабильности по-прежнему лучше `--repeat`.
 
 Журнал действий агента — `data/agent_audit.jsonl` (вне git): каждая
-запись ссылается хешем на предыдущую, `python -m tools.audit_log
---check` показывает подмену или разрыв, `--tail N` — последние события.
+запись ссылается хешем на предыдущую. Пишутся старт и итог задачи,
+подтверждения и отказы, каждый выполненный инструмент; секреты в
+полезной нагрузке вырезаются. `--check` показывает подмену или разрыв,
+`--tail N` — последние события, `--search` ищет по журналу, `--export`
+делает подписанный HMAC-файл, `--verify-export` проверяет подпись, а
+`--prune N` переносит старые записи в архив и пересобирает активную
+цепочку. Срок хранения, события и матрица прав — `docs/audit.md`.
 
 ## Структура
 

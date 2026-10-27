@@ -253,3 +253,38 @@ def test_run_tests_reports_output(project, monkeypatch) -> None:
     assert result.ok
     assert "255 passed" in result.text
     assert "код 0" in result.text
+
+
+def test_execution_dry_run_does_not_start(project, monkeypatch) -> None:
+    """dry_run показывает команду и не запускает процесс."""
+
+    def fail(*args, **kwargs):
+        raise AssertionError("процесс не должен запускаться")
+
+    monkeypatch.setattr(tools.subprocess, "run", fail)
+
+    tests = tools.run_tests(project, dry_run=True)
+    command = tools.run_command(
+        project,
+        "git status",
+        dry_run=True,
+    )
+
+    assert tests.ok
+    assert "pytest" in tests.text
+    assert command.ok
+    assert "status" in command.text
+
+
+def test_bool_arg_parses_strings() -> None:
+    """Строковые true/да понимаются как True."""
+
+    from terminal.core.agent.protocol import ToolCall
+    from terminal.core.agent.registry_specs import _bool_arg
+
+    assert _bool_arg(ToolCall("run_tests", {"dry_run": True}), "dry_run")
+    assert _bool_arg(ToolCall("run_tests", {"dry_run": "да"}), "dry_run")
+    assert not _bool_arg(
+        ToolCall("run_tests", {"dry_run": "нет"}),
+        "dry_run",
+    )

@@ -43,12 +43,26 @@ def main() -> int:
     parser.add_argument("--since", default="")
     parser.add_argument("--until", default="")
     parser.add_argument(
+        "--prune",
+        type=int,
+        default=0,
+        help="перенести записи старше N дней в архив",
+    )
+    parser.add_argument(
         "--verify-export",
         default="",
         help="проверить подпись экспортированного файла",
     )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
+
+    if args.prune:
+        moved = audit.prune(args.prune)
+        print(f"Архивировано записей: {moved}")
+        ok, message = audit.verify()
+        print(("OK · " if ok else "ОШИБКА · ") + message)
+
+        return 0 if ok else 1
 
     if args.verify_export:
         ok, message = audit.verify_export(

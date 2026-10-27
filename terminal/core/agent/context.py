@@ -3,6 +3,7 @@
 # Последнее изменение: первый вариант — строгий JSON без function calling.
 
 import json
+from pathlib import Path
 
 from terminal.core.agent.memory import prompt_block
 from terminal.core.agent.prompts import (
@@ -245,13 +246,14 @@ def build_prompt(
     history: list[tuple[ToolCall, ToolResult]],
     max_chars: int = MAX_PROMPT,
     final_note: str = "",
+    root: Path | None = None,
 ) -> str:
     """Промпт для моделей, отвечающих JSON-решением."""
 
     prompt = _assemble(
         task,
         history,
-        SYSTEM_PROMPT + prompt_block(),
+        SYSTEM_PROMPT + prompt_block(root),
         "Доступные инструменты:\n" + tools_prompt(),
         "Следующий шаг — один JSON-объект:",
         max_chars,
@@ -266,6 +268,7 @@ def build_native_prompt(
     history: list[tuple[ToolCall, ToolResult]],
     max_chars: int = MAX_PROMPT,
     final_note: str = "",
+    root: Path | None = None,
 ) -> str:
     """Промпт для моделей с настоящими tool calls: без JSON и без схем."""
 

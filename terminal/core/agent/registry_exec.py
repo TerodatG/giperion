@@ -11,6 +11,7 @@ from terminal.core.agent.plugin_runner import run_plugin_process
 from terminal.core.agent.protocol import ToolCall, ToolResult
 from terminal.core.agent.registry_plugins import _plugin_handler
 from terminal.core.agent.registry_specs import (
+    _bool_arg,
     _int_arg,
     _list_arg,
     _string_arg,
@@ -412,19 +413,26 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
         from terminal.core.agent import memory
 
         try:
-            line = memory.add_note(_string_arg(call, "text"))
+            line = memory.add_note(
+                _string_arg(call, "text"),
+                root=root,
+            )
         except ValueError as error:
             return ToolResult(False, str(error))
 
         return ToolResult(True, "Запомнено: " + line)
 
     if call.tool == "run_tests":
-        return tools.run_tests(root)
+        return tools.run_tests(
+            root,
+            dry_run=_bool_arg(call, "dry_run"),
+        )
 
     if call.tool == "run_command":
         return tools.run_command(
             root,
             _string_arg(call, "command"),
+            dry_run=_bool_arg(call, "dry_run"),
         )
 
     if call.tool == "fetch_url":

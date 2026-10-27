@@ -9,6 +9,7 @@ from terminal.core.agent.budget import (
     cost_of,
     describe,
     exceeded,
+    warning,
 )
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.protocol import AgentDecision, ToolCall
@@ -57,6 +58,18 @@ def test_describe_is_short() -> None:
     assert describe(BudgetLimits(tokens=5000, cost=1.5)) == (
         "5000 токенов · $1.50"
     )
+
+
+def test_warning_at_eighty_percent() -> None:
+    """Предупреждение появляется до остановки."""
+
+    limits = BudgetLimits(tokens=1000, cost=1.0)
+
+    assert warning(limits, 100, 0.0) == ""
+    assert "1000" in warning(limits, 800, 0.0)
+    assert "80%" in warning(limits, 800, 0.0)
+    assert "$" in warning(limits, 0, 0.9)
+    assert warning(BudgetLimits(), 10**9, 10**6) == ""
 
 
 def test_native_brain_counts_cost() -> None:

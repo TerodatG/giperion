@@ -6,15 +6,124 @@ import argparse
 import json
 import secrets
 import sys
+import threading
+import time
+from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from config import BASE_DIR, DATA_DIR
 from terminal.core.agent.loop import run_agent
+from terminal.core.agent.redact import redact
 from tools.eval_runner import build_brain
 
 TOKEN_FILE = DATA_DIR / "agent_api_token"
+CALL_LOG_FILE = DATA_DIR / "agent_api_calls.jsonl"
 MAX_BODY = 1_000_000
 DEFAULT_PORT = 8765
+RATE_LIMIT = 30
+RATE_WINDOW = 60.0
+_RATE_LOCK = threading.Lock()
+_RATE: dict[str, list[float]] = {}
+_LOG_LOCK = threading.Lock()
+
+
+def allow_request(key: str, now: float | None = None) -> bool:
+    """Простое окно запросов: не больше RATE_LIMIT в минуту."""
+
+    moment = time.monotonic() if now is None else now
+    floor = moment - RATE_WINDOW
+
+    with _RATE_LOCK:
+        stamps = [
+            stamp for stamp in _RATE.get(key, []) if stamp >= floor
+        ]
+
+        if len(stamps) >= RATE_LIMIT:
+            _RATE[key] = stamps
+
+            return False
+
+        stamps.append(moment)
+        _RATE[key] = stamps
+
+    return True
+
+
+def project_root(value: str) -> Path | None:
+    """Проект API: только подкаталог рабочей папки приложения."""
+
+    text = str(value or "").strip()
+
+    if not text:
+        return Path(BASE_DIR).resolve()
+
+    candidate = Path(text)
+
+    if not candidate.is_absolute():
+        candidate = Path(BASE_DIR) / candidate
+
+    try:
+        resolved = candidate.resolve()
+        resolved.relative_to(Path(BASE_DIR).resolve())
+    except (OSError, ValueError):
+        return None
+
+    if not resolved.is_dir():
+        return None
+
+    return resolved
+
+
+def log_call(
+    task: str,
+    result: dict,
+    elapsed: float,
+    root: Path,
+    client: str = "",
+) -> None:
+    """Журнал вызовов API без токена и с редакцией секретов."""
+
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "client": client[:64],
+        "project": root.name,
+        "task": redact(task[:300]).text,
+        "ok": bool(result.get("ok")),
+        "steps": int(result.get("steps") or 0),
+        "elapsed_ms": int(elapsed * 1000),
+    }
+
+    try:
+        CALL_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+        with _LOG_LOCK:
+            with CALL_LOG_FILE.open("a", encoding="utf-8") as file:
+                file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def _trace(steps: list) -> list[dict]:
+    """Короткий трейс шагов для внешнего клиента."""
+
+    trace = []
+
+    for step in steps:
+        try:
+            item = asdict(step)
+        except TypeError:
+            item = {
+                "index": getattr(step, "index", 0),
+                "kind": getattr(step, "kind", ""),
+                "title": getattr(step, "title", ""),
+                "detail": getattr(step, "detail", ""),
+            }
+
+        item["detail"] = str(item.get("detail") or "")[:1_000]
+        trace.append(item)
+
+    return trace
 
 
 def token() -> str:
@@ -39,6 +148,13 @@ def token() -> str:
     created = secrets.token_hex(24)
     TOKEN_FILE.write_text(created, encoding="utf-8")
 
+    try:
+        import os
+
+        os.chmod(TOKEN_FILE, 0o600)
+    except OSError:
+        pass
+
     return created
 
 
@@ -57,7 +173,7 @@ def authorized(header: str) -> bool:
     )
 
 
-def handle_task(payload: dict) -> dict:
+def handle_task(payload: dict, client: str = "") -> dict:
     """Выполняет задачу только на чтение."""
 
     task = str(payload.get("task") or "").strip()
@@ -73,30 +189,49 @@ def handle_task(payload: dict) -> dict:
             "error": "API разрешает только policy=read.",
         }
 
+    root = project_root(str(payload.get("project") or ""))
+
+    if root is None:
+        return {
+            "ok": False,
+            "error": "Проект вне рабочей папки или не найден.",
+        }
+
     try:
         steps = min(40, max(1, int(payload.get("max_steps") or 5)))
     except (TypeError, ValueError):
         steps = 5
 
+    started = time.monotonic()
     brain, model_name = build_brain("", "")
     result = run_agent(
         task,
         brain,
-        BASE_DIR,
+        root,
         max_steps=steps,
         policy="read",
         approve=None,
         ground_first=True,
     )
-
-    return {
+    answer = {
         "ok": not result.cancelled and not result.error,
         "model": model_name,
+        "project": root.name,
         "answer": result.answer,
         "error": result.error,
         "cancelled": result.cancelled,
         "steps": len(result.steps),
+        "trace": _trace(result.steps),
     }
+    log_call(
+        task,
+        answer,
+        time.monotonic() - started,
+        root,
+        client,
+    )
+
+    return answer
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -137,6 +272,16 @@ class Handler(BaseHTTPRequestHandler):
 
             return
 
+        client = str(self.client_address[0])
+
+        if not allow_request(client):
+            self._json(
+                429,
+                {"ok": False, "error": "too many requests"},
+            )
+
+            return
+
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -159,7 +304,7 @@ class Handler(BaseHTTPRequestHandler):
 
             return
 
-        self._json(200, handle_task(payload))
+        self._json(200, handle_task(payload, client))
 
 
 def main() -> int:

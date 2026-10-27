@@ -18,7 +18,7 @@ from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 class MemoryDialog(SkinDialog):
     """Редактор заметок, которые попадают в системный промпт."""
 
-    def __init__(self, parent) -> None:
+    def __init__(self, parent, root=None) -> None:
         super().__init__(
             parent,
             "Память проекта",
@@ -26,15 +26,19 @@ class MemoryDialog(SkinDialog):
             min_height=420,
         )
 
+        self.root = root
         self._build()
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
+        target = memory.project_file(self.root)
 
         hint = QLabel(
-            "Заметки из data/agent_memory.md. Последние 4 000 символов "
-            "попадают в системный промпт следующих задач. Инструмент "
-            "remember дописывает их сам.",
+            f"Заметки проекта «{memory.project_name(self.root)}» "
+            f"из {target.name}. Последние 4 000 символов попадают в "
+            "системный промпт следующих задач. Инструмент remember "
+            "дописывает их сам; теги, TTL и поиск доступны через API "
+            "памяти.",
             self,
         )
         hint.setWordWrap(True)
@@ -42,7 +46,12 @@ class MemoryDialog(SkinDialog):
         layout.addWidget(hint)
 
         self.editor = QPlainTextEdit(self)
-        self.editor.setPlainText(memory.load_notes(limit=memory.MAX_CHARS))
+        self.editor.setPlainText(
+            memory.load_notes(
+                limit=memory.MAX_CHARS,
+                root=self.root,
+            )
+        )
         layout.addWidget(self.editor, 1)
 
         self.status = QLabel("", self)
@@ -70,8 +79,9 @@ class MemoryDialog(SkinDialog):
         if len(text) > memory.MAX_CHARS:
             text = text[-memory.MAX_CHARS:]
 
-        memory.MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        memory.MEMORY_FILE.write_text(
+        target = memory.project_file(self.root)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
             text + ("\n" if text else ""),
             encoding="utf-8",
         )
@@ -91,13 +101,13 @@ class MemoryDialog(SkinDialog):
         if answer != QMessageBox.StandardButton.Yes:
             return
 
-        memory.clear()
+        memory.clear(self.root)
         self.editor.setPlainText("")
         self.status.setText("Память очищена.")
 
 
-def show_memory_dialog(parent) -> None:
+def show_memory_dialog(parent, root=None) -> None:
     """Открывает редактор памяти немодальным окном."""
 
-    dialog = MemoryDialog(parent)
+    dialog = MemoryDialog(parent, root=root)
     show_tool_window(parent, dialog, "agent-memory")

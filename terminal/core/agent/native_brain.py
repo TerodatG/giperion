@@ -112,6 +112,7 @@ class NativeBrain:
         """Первые сообщения переписки: система, задача и стартовые данные."""
 
         content = str(task or "").strip()
+        root = getattr(self, "root", None)
 
         if blocks:
             content += (
@@ -122,7 +123,7 @@ class NativeBrain:
         return [
             {
                 "role": "system",
-                "content": NATIVE_SYSTEM_PROMPT + prompt_block(),
+                "content": NATIVE_SYSTEM_PROMPT + prompt_block(root),
             },
             {"role": "user", "content": content},
         ]
