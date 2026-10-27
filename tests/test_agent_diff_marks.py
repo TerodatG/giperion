@@ -3,8 +3,10 @@
 
 from terminal.core.agent.diff_marks import (
     LineSpan,
+    apply_hunks,
     changed_lines,
     diff_marks,
+    hunks,
 )
 
 
@@ -87,3 +89,27 @@ def test_extra_lines_are_marked_whole() -> None:
 
     assert marks.new_lines == frozenset({2})
     assert marks.new_spans == ()
+
+
+def test_hunks_split_replace_and_insert() -> None:
+    """Замена и вставка становятся отдельными участками."""
+
+    parts = hunks("a\nb\nc\n", "a\nB\nc\nd\n")
+
+    assert len(parts) == 2
+    assert parts[0].old_lines == ("b",)
+    assert parts[0].new_lines == ("B",)
+    assert parts[1].old_lines == ()
+    assert parts[1].new_lines == ("d",)
+
+
+def test_apply_only_selected_hunks() -> None:
+    """Можно применить замену, но не вставку."""
+
+    old = "a\nb\nc\n"
+    new = "a\nB\nc\nd\n"
+
+    assert apply_hunks(old, new, {0}) == "a\nB\nc\n"
+    assert apply_hunks(old, new, {1}) == "a\nb\nc\nd\n"
+    assert apply_hunks(old, new, set()) == old
+    assert apply_hunks(old, new) == new

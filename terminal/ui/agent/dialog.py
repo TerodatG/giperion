@@ -9,9 +9,11 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QDialogButtonBox,
+    QInputDialog,
     QLabel,
 )
 
+from config import BASE_DIR
 from terminal.core.agent.settings import (
     set_context_auto,
     set_context_limit_chars,
@@ -20,6 +22,7 @@ from terminal.core.agent.settings import (
 )
 from terminal.core.agent.tasks import (
     deserialize_steps,
+    serialize_history,
 )
 from terminal.ui.agent.approval import ApprovalPanel
 from terminal.ui.agent.constants import POLL_MS
@@ -106,6 +109,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         self.controls.watch_requested.connect(self._open_watch)
         self.controls.trace_requested.connect(self._open_trace)
         self.controls.plan_requested.connect(self._open_plan)
+        self.controls.retry_requested.connect(self._retry_from_step)
         self.controls.save_defaults_requested.connect(self._save_defaults)
         self.controls.resume_last_requested.connect(self._resume_last)
         self.controls.undo_requested.connect(self._undo_changes)
@@ -256,6 +260,65 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
             title,
             format_trace(job.steps, job.answer, job.error),
             key="agent-trace",
+        )
+
+    def _retry_from_step(self) -> None:
+        """Открывает новую задачу с историей до выбранного шага."""
+
+        job = self.job
+
+        if job is None or not job.steps:
+            self.status_label.setText("Повторять пока нечего.")
+            return
+
+        last = len(job.steps) - 1
+        index, ok = QInputDialog.getInt(
+            self,
+            "Повторить с шага",
+            (
+                "Номер шага (контекст откатится, файлы — нет; "
+                "проверь дифф):"
+            ),
+            last,
+            0,
+            last,
+        )
+
+        if not ok:
+            return
+
+        instruction, ok = QInputDialog.getText(
+            self,
+            "Что сделать иначе",
+            "Указание для повтора:",
+        )
+
+        if not ok or not instruction.strip():
+            return
+
+        task = str(job._state.get("task") or self.task_input.toPlainText())
+        new_task = (
+            f"{task}\n\nПовтори с шага {index} иначе: "
+            f"{instruction.strip()}"
+        )
+        resume = {
+            "id": "",
+            "task": new_task,
+            "policy": str(job._state.get("policy") or "confirm"),
+            "root": str(job._state.get("root") or BASE_DIR),
+            "history": serialize_history(job.history_before(index)),
+            "steps": [],
+            "worktree_branch": str(
+                job._state.get("worktree_branch") or ""
+            ),
+        }
+        show_agent_dialog(
+            self._parent,
+            f"agent-retry-{time.time_ns()}",
+            resume=resume,
+        )
+        self.status_label.setText(
+            f"Открыт повтор с шага {index}; запусти его кнопкой «Задача»."
         )
 
     def _open_plan(self) -> None:

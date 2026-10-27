@@ -60,6 +60,7 @@ class ApprovalRequest:
     new_text: str | None = None
     old_text: str | None = None
     key: str = ""
+    audit_hash: str = ""
 
 
 @dataclass(frozen=True)

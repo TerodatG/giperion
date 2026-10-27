@@ -237,15 +237,19 @@ def test_write_file_denies_secrets(project) -> None:
 def test_run_tests_reports_output(project, monkeypatch) -> None:
     """Запуск тестов возвращает код и хвост вывода."""
 
-    class Result:
-        returncode = 0
-        stdout = "255 passed in 8s"
-        stderr = ""
+    from types import SimpleNamespace
+
+    from terminal.core.agent import tools_exec
 
     monkeypatch.setattr(
-        tools.subprocess,
-        "run",
-        lambda *args, **kwargs: Result(),
+        tools_exec.exec_sandbox,
+        "run_python",
+        lambda *args, **kwargs: SimpleNamespace(
+            code=0,
+            output="255 passed in 8s",
+            timed_out=False,
+            isolated=False,
+        ),
     )
 
     result = tools.run_tests(project)

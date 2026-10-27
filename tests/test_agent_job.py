@@ -62,6 +62,45 @@ def test_job_pause_and_resume(tmp_path) -> None:
     assert job._should_stop() is True
 
 
+def test_history_before_step(tmp_path) -> None:
+    """Повтор с шага берёт историю только по выбранный шаг."""
+
+    import json
+
+    from terminal.core.agent.protocol import AgentStep, ToolCall, ToolResult
+    from terminal.core.agent.tasks import serialize_history
+
+    brain = ScriptedBrain(
+        [json.dumps({"action": "answer", "text": "ок"}, ensure_ascii=False)]
+    )
+    job = AgentJob("история", brain, tmp_path, persist=False)
+
+    _wait_for(lambda: job.done)
+
+    calls = [
+        (ToolCall("read_file", {"path": "a.txt"}), ToolResult(True, "a")),
+        (ToolCall("read_file", {"path": "b.txt"}), ToolResult(True, "b")),
+        (ToolCall("read_file", {"path": "c.txt"}), ToolResult(True, "c")),
+    ]
+    job._state["history"] = serialize_history(calls)
+    job.steps = [
+        AgentStep(0, "tool", "a", ""),
+        AgentStep(0, "plan", "план", ""),
+        AgentStep(1, "tool", "b", ""),
+        AgentStep(2, "tool", "c", ""),
+    ]
+
+    assert [call.args["path"] for call, _ in job.history_before(2)] == [
+        "a.txt"
+    ]
+    assert [call.args["path"] for call, _ in job.history_before(9)] == [
+        "a.txt",
+        "b.txt",
+        "c.txt",
+    ]
+    assert job.history_before(0) == []
+
+
 def test_job_waits_for_approval(tmp_path) -> None:
     """Поток агента ждёт кнопку и не пишет файл без согласия."""
 

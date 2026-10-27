@@ -259,3 +259,52 @@ def test_save_defaults_writes_settings(qapp, monkeypatch) -> None:
     assert captured["model"]
 
     dialog.close()
+
+
+def test_hunk_selection_applies_only_checked(qapp, monkeypatch) -> None:
+    """Выбор участков меняет итоговый текст перед одобрением."""
+
+    from terminal.ui.agent import approval as approval_module
+    from terminal.ui.agent.approval import ApprovalPanel
+
+    panel = ApprovalPanel(None)
+    request = ApprovalRequest(
+        kind="apply_patch",
+        title="Изменить файл",
+        detail="diff",
+        path="a.txt",
+        old_text="a\nb\nc\n",
+        new_text="a\nB\nc\nd\n",
+        key="file:a.txt",
+    )
+
+    monkeypatch.setattr(
+        approval_module,
+        "show_hunk_dialog",
+        lambda *args, **kwargs: {0},
+    )
+
+    panel.show_request(request)
+
+    assert not panel.hunks_button.isHidden()
+
+    panel._pick_hunks()
+
+    assert panel.edit_area.toPlainText() == "a\nB\nc\n"
+    panel.close()
+
+
+def test_hunk_dialog_starts_with_all_selected(qapp) -> None:
+    """По умолчанию отмечены все участки."""
+
+    from terminal.ui.agent.hunk_dialog import HunkDialog
+
+    dialog = HunkDialog(None, "a\nb\nc\n", "a\nB\nc\nd\n")
+
+    assert len(dialog.boxes) == 2
+    assert dialog.selected() == {0, 1}
+
+    dialog.boxes[1][1].setChecked(False)
+
+    assert dialog.selected() == {0}
+    dialog.close()

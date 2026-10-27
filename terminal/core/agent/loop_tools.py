@@ -30,15 +30,15 @@ MAX_WRITE_CALLS = 25
 NETWORK_TOOLS = {"fetch_url", "browser_read", "browser_act"}
 
 
-def _audit(event: str, payload: dict) -> None:
+def _audit(event: str, payload: dict) -> dict | None:
     """Пишет событие аудита, не ломая задачу при сбое журнала."""
 
     try:
         from terminal.core.agent import audit
 
-        audit.record(event, payload)
+        return audit.record(event, payload)
     except (OSError, TypeError, ValueError):
-        pass
+        return None
 
 
 def _target(call: ToolCall) -> str:
@@ -310,6 +310,15 @@ def _request_approval(
     payload_path, payload_old, payload_text = (
         registry.approval_payload(root, call)
     )
+    pre = _audit(
+        "approval.request",
+        {
+            "tool": call.tool,
+            "key": key,
+            "target": _target(call),
+        },
+    )
+    request_hash = str((pre or {}).get("hash") or "")
 
     request = ApprovalRequest(
         kind=call.tool,
@@ -319,6 +328,7 @@ def _request_approval(
         new_text=payload_text,
         old_text=payload_old,
         key=key,
+        audit_hash=request_hash,
     )
 
     answer = approve(request) if approve else None
@@ -371,6 +381,7 @@ def _request_approval(
                 "remember": bool(keep and key),
                 "key": key,
                 "target": audit.target_of(dict(call.args or {})),
+                "request_hash": request_hash,
             },
         )
     except (OSError, TypeError, ValueError):

@@ -2,11 +2,11 @@
 # Тесты и разрешённые команды без shell.
 # Последнее изменение: вынесено из tools.
 
-import subprocess
 import sys
 from pathlib import Path
 
 from shared.action_log import add_action
+from terminal.core.agent import exec_sandbox
 from terminal.core.agent.commands import CommandError, validate_command
 from terminal.core.agent.protocol import ToolResult
 from terminal.core.agent.tools_policy import TEST_TIMEOUT, _root
@@ -23,37 +23,35 @@ def run_tests(root: Path, dry_run: bool = False) -> ToolResult:
             f"Будет выполнено в {base.name}: python -m pytest -q",
         )
 
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q"],
-            cwd=base,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=TEST_TIMEOUT,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return ToolResult(
-            False,
-            f"Тесты не успели за {TEST_TIMEOUT} секунд.",
-        )
-    except OSError as error:
-        return ToolResult(False, f"Не удалось запустить тесты: {error}")
+    result = exec_sandbox.run_python(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ],
+        base,
+        TEST_TIMEOUT,
+    )
 
-    output = (result.stdout + result.stderr).strip()
-    tail = output[-4000:] if output else "вывод пуст"
-    ok = result.returncode == 0
+    if result.timed_out:
+        return ToolResult(False, result.output)
+
+    output = result.output or "вывод пуст"
+    tail = output[-4000:]
+    ok = result.code == 0
+    mode = " · AppContainer" if result.isolated else ""
 
     add_action(
         "Агент: pytest, код "
-        f"{result.returncode}"
+        f"{result.code}{mode}"
     )
 
     return ToolResult(
         ok,
-        f"pytest: код {result.returncode}\n{tail}",
+        f"pytest: код {result.code}{mode}\n{tail}",
     )
 
 
@@ -62,7 +60,7 @@ def run_command(
     command: str,
     dry_run: bool = False,
 ) -> ToolResult:
-    """Выполняет команду из белого списка без shell."""
+    """Выполняет команду из белого списка в ограниченном окружении."""
 
     try:
         tokens = validate_command(command)
@@ -77,34 +75,24 @@ def run_command(
 
     base = _root(root)
 
-    try:
-        result = subprocess.run(
-            tokens,
-            cwd=base,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=TEST_TIMEOUT,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return ToolResult(
-            False,
-            f"Команда не успела за {TEST_TIMEOUT} секунд.",
-        )
-    except OSError as error:
-        return ToolResult(False, f"Не удалось выполнить: {error}")
+    if exec_sandbox.is_python(tokens):
+        result = exec_sandbox.run_python(tokens, base, TEST_TIMEOUT)
+    else:
+        result = exec_sandbox.run(tokens, base, TEST_TIMEOUT)
 
-    output = (result.stdout + result.stderr).strip()
-    tail = output[-4000:] if output else "вывод пуст"
+    if result.timed_out:
+        return ToolResult(False, result.output)
+
+    output = result.output or "вывод пуст"
+    tail = output[-4000:]
+    mode = " · AppContainer" if result.isolated else ""
 
     add_action(
-        "Агент: команда " + " ".join(tokens[:3])
+        "Агент: команда " + " ".join(tokens[:3]) + mode
     )
 
     return ToolResult(
-        result.returncode == 0,
-        f"код {result.returncode}\n{tail}",
+        result.code == 0,
+        f"код {result.code}{mode}\n{tail}",
     )
 

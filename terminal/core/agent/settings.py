@@ -307,6 +307,27 @@ def set_plugin_sandbox(mode: str) -> None:
     _update_fields({"plugin_sandbox": mode})
 
 
+COMMAND_SANDBOX_MODES = ("process", "auto", "appcontainer")
+
+
+def command_sandbox() -> str:
+    """Режим изоляции run_command: процесс, auto или AppContainer."""
+
+    document = read_json_object(SETTINGS_FILE)
+    value = document.get("command_sandbox")
+
+    return value if value in COMMAND_SANDBOX_MODES else "auto"
+
+
+def set_command_sandbox(mode: str) -> None:
+    """Сохраняет режим изоляции команд."""
+
+    if mode not in COMMAND_SANDBOX_MODES:
+        raise ValueError(f"Неизвестный режим команд: {mode}")
+
+    _update_fields({"command_sandbox": mode})
+
+
 POLICIES = ("read", "confirm", "trust")
 
 def approval_policy() -> str:

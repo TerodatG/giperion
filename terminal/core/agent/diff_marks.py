@@ -148,3 +148,73 @@ def changed_lines(
     }
 
     return old_changed, new_changed
+
+
+@dataclass(frozen=True)
+class Hunk:
+    """Один изменённый участок файла для частичного применения."""
+
+    index: int
+    old_start: int
+    old_lines: tuple[str, ...]
+    new_lines: tuple[str, ...]
+
+
+def hunks(old_text: str, new_text: str) -> list[Hunk]:
+    """Список изменённых участков; пустые участки не входят."""
+
+    old_lines = str(old_text or "").splitlines()
+    new_lines = str(new_text or "").splitlines()
+    matcher = SequenceMatcher(None, old_lines, new_lines)
+    result: list[Hunk] = []
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+
+        result.append(
+            Hunk(
+                index=len(result),
+                old_start=i1 + 1,
+                old_lines=tuple(old_lines[i1:i2]),
+                new_lines=tuple(new_lines[j1:j2]),
+            )
+        )
+
+    return result
+
+
+def apply_hunks(
+    old_text: str,
+    new_text: str,
+    selected: set[int] | None = None,
+) -> str:
+    """Собирает текст, применяя только выбранные участки.
+
+    selected=None — применить всё. Переводы строк сохраняются как в
+    исходных текстах.
+    """
+
+    old_raw = str(old_text or "").splitlines(keepends=True)
+    new_raw = str(new_text or "").splitlines(keepends=True)
+    matcher = SequenceMatcher(
+        None,
+        [line.rstrip("\r\n") for line in old_raw],
+        [line.rstrip("\r\n") for line in new_raw],
+    )
+    result: list[str] = []
+    index = 0
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            result.extend(old_raw[i1:i2])
+            continue
+
+        if selected is None or index in selected:
+            result.extend(new_raw[j1:j2])
+        else:
+            result.extend(old_raw[i1:i2])
+
+        index += 1
+
+    return "".join(result)

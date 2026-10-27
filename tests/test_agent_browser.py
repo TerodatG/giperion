@@ -641,3 +641,49 @@ def test_wait_actions_are_sanitized() -> None:
         {"type": "wait_text", "text": "Готово"},
         {"type": "wait_url", "url": "/success"},
     ]
+
+
+def test_profile_is_loaded_and_saved(tmp_path, monkeypatch) -> None:
+    """Cookies подхватываются из профиля и сохраняются обратно."""
+
+    from terminal.core.agent import browser_profile, browser_worker
+
+    profile = tmp_path / "profile.json"
+    profile.write_text('{"cookies": []}', encoding="utf-8")
+    monkeypatch.setattr(browser_profile, "PROFILE_FILE", profile)
+    seen = {}
+
+    class Page:
+        def set_default_timeout(self, value):
+            pass
+
+    class Context:
+        def route(self, pattern, handler):
+            pass
+
+        def new_page(self):
+            return Page()
+
+        def storage_state(self, path):
+            seen["saved"] = path
+
+    class Browser:
+        def new_context(self, **kwargs):
+            seen.update(kwargs)
+
+            return Context()
+
+    class Chromium:
+        def launch(self, **kwargs):
+            return Browser()
+
+    class Runtime:
+        chromium = Chromium()
+
+    browser_worker._new_page(Runtime())
+
+    assert seen["storage_state"] == str(profile)
+
+    browser_profile.save_profile(Context())
+
+    assert seen["saved"] == str(profile)

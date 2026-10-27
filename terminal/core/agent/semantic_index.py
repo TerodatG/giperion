@@ -11,7 +11,7 @@ from pathlib import Path
 from shared.storage.json_store import read_json_object, write_json
 from terminal.core.agent import tools
 
-MAX_CHUNKS = 4000
+MAX_CHUNKS = 6000
 MAX_FILES = 4000
 MAX_CHUNK_CHARS = 2400
 MAX_CHUNK_LINES = 80
@@ -323,6 +323,7 @@ def _build(
         "files": files,
         "chunks": chunks,
         "signature": signature(chunks),
+        "limit": MAX_CHUNKS,
     }
 
     try:
@@ -398,6 +399,7 @@ def load(
         and str(document.get("root")) == str(base)
         and isinstance(document.get("chunks"), list)
         and isinstance(document.get("files"), dict)
+        and int(document.get("limit") or 0) == MAX_CHUNKS
         and not _changed(base, document.get("files") or {}, skip_files)
     )
 

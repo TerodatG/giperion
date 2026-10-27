@@ -8,6 +8,8 @@ import sys
 import urllib.parse
 from pathlib import Path
 
+from terminal.core.agent import browser_profile
+
 MAX_TEXT = 12_000
 MAX_DOWNLOAD = 10 * 1024 * 1024
 SETTLE_MS = 1200
@@ -339,7 +341,13 @@ def _new_page(runtime):
             "--disable-breakpad",
         ],
     )
-    context = browser.new_context(accept_downloads=True)
+    options: dict = {"accept_downloads": True}
+    state_path = browser_profile.load_state()
+
+    if state_path:
+        options["storage_state"] = state_path
+
+    context = browser.new_context(**options)
     context.route("**/*", _guard)
     route_ws = getattr(context, "route_web_socket", None)
 
@@ -450,6 +458,7 @@ def _act_page(page, request: dict, timeout: int) -> dict:
 def _close_state(state: dict) -> None:
     """Закрывает браузер сессии."""
 
+    browser_profile.save_profile(state.get("context"))
     browser = state.get("browser")
 
     if browser is not None:
@@ -460,6 +469,7 @@ def _close_state(state: dict) -> None:
 
     state["browser"] = None
     state["page"] = None
+    state["context"] = None
 
 
 def _serve_command(state: dict, runtime, request: dict) -> dict:
@@ -476,8 +486,9 @@ def _serve_command(state: dict, runtime, request: dict) -> dict:
         return {"pong": True}
 
     if state.get("page") is None:
-        browser, _context, page = _new_page(runtime)
+        browser, context, page = _new_page(runtime)
         state["browser"] = browser
+        state["context"] = context
         state["page"] = page
 
     page = state["page"]
@@ -510,7 +521,7 @@ def serve() -> None:
     from playwright.sync_api import sync_playwright
 
     runtime = sync_playwright().start()
-    state: dict = {"browser": None, "page": None}
+    state: dict = {"browser": None, "page": None, "context": None}
     last = {"at": time.monotonic()}
     stop = threading.Event()
 
@@ -542,6 +553,7 @@ def serve() -> None:
 
             try:
                 data = _serve_command(state, runtime, request)
+                browser_profile.save_profile(state.get("context"))
                 answer = {"id": request_id, "ok": True, **data}
             except Exception as error:  # noqa: BLE001
                 answer = {

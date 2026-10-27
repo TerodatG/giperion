@@ -196,6 +196,24 @@ class AgentJob:
 
         return self._stop.is_set()
 
+    def history_before(self, index: int) -> list:
+        """История до шага включительно; для повтора с другого шага."""
+
+        try:
+            history = task_store.deserialize_history(
+                self._state.get("history")
+            )
+        except (TypeError, ValueError):
+            return []
+
+        count = sum(
+            1
+            for step in self.steps[: max(0, int(index))]
+            if getattr(step, "kind", "") == "tool"
+        )
+
+        return history[: min(count, len(history))]
+
     def request_approval(
         self,
         request: ApprovalRequest,

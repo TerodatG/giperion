@@ -18,11 +18,13 @@ from PySide6.QtWidgets import (
 
 from terminal.core.agent.diff_marks import (
     LineSpan,
+    apply_hunks,
 )
 from terminal.core.agent.diff_marks import (
     diff_marks as build_marks,
 )
 from terminal.ui.agent.constants import REMEMBER_TITLES
+from terminal.ui.agent.hunk_dialog import show_hunk_dialog
 
 
 class ApprovalPanel(QFrame):
@@ -102,12 +104,21 @@ class ApprovalPanel(QFrame):
         self.edit_button.setEnabled(False)
         self.edit_button.clicked.connect(self._toggle_edit)
 
+        self.hunks_button = QPushButton("Участки…", self)
+        self.hunks_button.setObjectName("workshopAction")
+        self.hunks_button.setVisible(False)
+        self.hunks_button.setToolTip(
+            "Применить только выбранные участки диффа."
+        )
+        self.hunks_button.clicked.connect(self._pick_hunks)
+
         self.reject_button = QPushButton("Отклонить", self)
         self.reject_button.setObjectName("workshopAction")
         self.reject_button.clicked.connect(self.reject)
 
         buttons.addWidget(self.approve_button)
         buttons.addWidget(self.edit_button)
+        buttons.addWidget(self.hunks_button)
         buttons.addWidget(self.reject_button)
         buttons.addStretch(1)
 
@@ -127,12 +138,21 @@ class ApprovalPanel(QFrame):
 
         self.request = request
         self.title.setText(request.title.upper())
-        self.detail.setPlainText(request.detail)
+        detail = request.detail
+
+        if getattr(request, "audit_hash", ""):
+            detail += "\n\nаудит: " + str(request.audit_hash)[:16]
+
+        self.detail.setPlainText(detail)
         self.old_view.setPlainText(request.old_text or "")
         self.edit_area.setPlainText(request.new_text or "")
 
         self.reset()
         self.edit_button.setEnabled(request.new_text is not None)
+        self.hunks_button.setVisible(
+            request.new_text is not None
+            and request.old_text is not None
+        )
 
         remember_title = REMEMBER_TITLES.get(request.kind, "")
 
@@ -155,6 +175,7 @@ class ApprovalPanel(QFrame):
         """Возвращает панель к просмотру диффа."""
 
         self._editing = False
+        self.hunks_button.setVisible(False)
         self.edit_button.setText("Править")
         self.edit_split.setVisible(False)
         self.detail.setVisible(True)
@@ -198,6 +219,37 @@ class ApprovalPanel(QFrame):
         self.edit_button.setText(
             "К диффу" if self._editing else "Править"
         )
+
+    def _pick_hunks(self) -> None:
+        """Применяет только выбранные участки диффа."""
+
+        if (
+            self.request is None
+            or self.request.old_text is None
+            or self.request.new_text is None
+        ):
+            return
+
+        selected = show_hunk_dialog(
+            self,
+            self.request.old_text,
+            self.request.new_text,
+        )
+
+        if selected is None:
+            return
+
+        text = apply_hunks(
+            self.request.old_text,
+            self.request.new_text,
+            selected,
+        )
+
+        if not self._editing:
+            self._toggle_edit()
+
+        self.edit_area.setPlainText(text)
+        self._refresh_highlights()
 
     def _schedule_highlights(self) -> None:
         """Пересчитывает подсветку после правки текста."""

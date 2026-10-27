@@ -342,6 +342,9 @@ python -m tools.update_passport
 - внешние инструменты запускают read-only задачи через локальный HTTP
   API: `python -m tools.agent_api` (127.0.0.1, Bearer-токен,
   `POST /task`) — см. `docs/agent_api.md`;
+- `run_command` и `run_tests` идут через чистый env, Job Object и
+  прокси-заглушку; Python-команды при готовом AppContainer выполняются
+  без сети — см. `docs/command_sandbox.md`;
 - общий allowlist доменов для `fetch_url`, браузера и MCP-аргументов
   задаётся полем «Домены» в «Провайдере» (пусто — все публичные адреса);
   он проверяется до запроса, включая редиректы;

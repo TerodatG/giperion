@@ -56,6 +56,7 @@ class AgentControls(QWidget):
     provider_requested = Signal()
     trace_requested = Signal()
     plan_requested = Signal()
+    retry_requested = Signal()
     save_defaults_requested = Signal()
     resume_last_requested = Signal()
 
@@ -260,6 +261,14 @@ class AgentControls(QWidget):
         )
         self.plan_button.clicked.connect(self.plan_requested.emit)
 
+        self.retry_button = QPushButton("С шага…", self)
+        self.retry_button.setObjectName("workshopAction")
+        self.retry_button.setToolTip(
+            "Повторить задачу с выбранного шага и другим указанием. "
+            "Контекст откатится, файлы — нет."
+        )
+        self.retry_button.clicked.connect(self.retry_requested.emit)
+
         self.pause_button = QPushButton("Пауза", self)
         self.pause_button.setObjectName("workshopAction")
         self.pause_button.setEnabled(False)
@@ -296,6 +305,7 @@ class AgentControls(QWidget):
         row.addWidget(self.watch_button)
         row.addWidget(self.trace_button)
         row.addWidget(self.plan_button)
+        row.addWidget(self.retry_button)
         row.addWidget(self.undo_button)
         row.addWidget(self.status_label, 1)
 
