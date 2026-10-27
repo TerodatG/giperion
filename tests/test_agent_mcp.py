@@ -679,3 +679,75 @@ def test_mcp_quota_config() -> None:
 
     assert servers[0].max_chars == 500
     assert servers[0].max_calls == 7
+
+
+def test_oauth_client_credentials(monkeypatch) -> None:
+    """OAuth client credentials даёт Bearer для MCP."""
+
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import parse_qs
+
+    from terminal.core.agent.mcp_http import McpHttpClient
+
+    seen = {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args) -> None:
+            pass
+
+        def do_POST(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(length)
+
+            if self.path == "/token":
+                form = parse_qs(body.decode("utf-8"))
+                seen["grant"] = form.get("grant_type", [""])[0]
+                payload = {
+                    "access_token": "oauth-token",
+                    "expires_in": 300,
+                }
+            else:
+                seen["auth"] = str(
+                    self.headers.get("Authorization") or ""
+                )
+                payload = {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                    },
+                }
+
+            raw = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setenv("OAUTH_ID", "client")
+    monkeypatch.setenv("OAUTH_SECRET", "secret")
+
+    try:
+        config = mcp.McpServer(
+            "oauth",
+            transport="http",
+            url=f"http://127.0.0.1:{server.server_port}/mcp",
+            token_url=f"http://127.0.0.1:{server.server_port}/token",
+            client_id_env="OAUTH_ID",
+            client_secret_env="OAUTH_SECRET",
+        )
+        client = McpHttpClient(config)
+        client.start()
+
+        assert seen["grant"] == "client_credentials"
+        assert seen["auth"] == "Bearer oauth-token"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)

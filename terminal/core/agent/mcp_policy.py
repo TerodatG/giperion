@@ -32,6 +32,11 @@ class McpServer:
     url: str = ""
     # Имя env-переменной с OAuth/Bearer-токеном.
     token_env: str = ""
+    # OAuth client credentials: токен запрашивается по token_url.
+    token_url: str = ""
+    client_id_env: str = ""
+    client_secret_env: str = ""
+    scope: str = ""
     # Квоты: размер текста одного ответа и число вызовов инструментов.
     max_chars: int = 100_000
     max_calls: int = 60
@@ -178,6 +183,43 @@ def _limit(value, default: int) -> int:
     return number if number > 0 else default
 
 
+def _clean_env(value) -> dict[str, str]:
+    """Окружение сервера: только строковые пары с ${VAR}."""
+
+    if not isinstance(value, dict):
+        return {}
+
+    return {
+        key: _expand(item)
+        for key, item in value.items()
+        if isinstance(key, str) and isinstance(item, str)
+    }
+
+
+def _args(value) -> tuple[str, ...]:
+    """Аргументы команды."""
+
+    return (
+        tuple(str(item) for item in value)
+        if isinstance(value, list)
+        else ()
+    )
+
+
+def _auth_fields(item: dict) -> dict:
+    """Поля OAuth/Bearer."""
+
+    return {
+        "token_env": str(item.get("token_env") or "").strip(),
+        "token_url": str(item.get("token_url") or "").strip(),
+        "client_id_env": str(item.get("client_id_env") or "").strip(),
+        "client_secret_env": str(
+            item.get("client_secret_env") or ""
+        ).strip(),
+        "scope": str(item.get("scope") or "").strip(),
+    }
+
+
 def _parse_server(item: dict) -> McpServer | None:
     """Собирает один сервер; None — запись битая."""
 
@@ -199,30 +241,19 @@ def _parse_server(item: dict) -> McpServer | None:
     ):
         return None
 
-    args = item.get("args")
-    env = item.get("env")
-    clean_env: dict[str, str] = {}
-
-    if isinstance(env, dict):
-        for key, value in env.items():
-            if isinstance(key, str) and isinstance(value, str):
-                clean_env[key] = _expand(value)
-
     return McpServer(
         name=name,
         command=command,
-        args=tuple(str(arg) for arg in args)
-        if isinstance(args, list)
-        else (),
-        env=clean_env,
+        args=_args(item.get("args")),
+        env=_clean_env(item.get("env")),
         enabled=item.get("enabled") is not False,
         tools=_string_list(item.get("tools")),
         domains=_string_list(item.get("domains")),
         transport=transport,
         url=url,
-        token_env=str(item.get("token_env") or "").strip(),
         max_chars=_limit(item.get("max_chars"), 100_000),
         max_calls=_limit(item.get("max_calls"), 60),
+        **_auth_fields(item),
     )
 
 

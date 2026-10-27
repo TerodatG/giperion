@@ -183,12 +183,16 @@ python -m tools.plugin_catalog --install word
 ## Публикация ветки и PR
 
 ```
+python -m tools.agent_issue 42 --provider github --repo org/repo
+python -m tools.agent_issue 42 --provider gitlab --project group/repo
 python -m tools.agent_pr agent/parallel-123 --title "Задача" --body "Что сделано" --dry-run
 python -m tools.agent_pr agent/parallel-123 --title "Задача"
 ```
 
-Делает `git push -u origin <branch>` и `gh pr create`, если установлен
-GitHub CLI. Без `gh` печатает команду для ручного создания PR.
+`agent_issue` читает issue через `gh` или GitLab REST (`GITLAB_TOKEN`) и
+печатает готовый текст задачи. `agent_pr` делает `git push -u origin
+<branch>` и `gh pr create`, если установлен GitHub CLI. Без `gh` печатает
+команду для ручного создания PR.
 
 ## Переносимая сборка
 

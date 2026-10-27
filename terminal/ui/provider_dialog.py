@@ -66,9 +66,9 @@ from terminal.ui.dialogs_base import SkinDialog, show_tool_window
 from terminal.ui.knowledge_dialog import add_knowledge_button
 from terminal.ui.mcp_dialog import show_mcp_dialog
 from terminal.ui.memory_dialog import show_memory_dialog
+from terminal.ui.plugins_dialog import add_plugins_button
 
 POLL_MS = 150
-
 
 class ProviderDialog(SkinDialog):
     """Окно настроек провайдера с проверкой подключения."""
@@ -307,6 +307,7 @@ class ProviderDialog(SkinDialog):
             "--prepare. В этом режиме плагины только читают проект."
         )
         form.addRow("Песочница", self.sandbox_combo)
+        self.plugins_button = add_plugins_button(form, self)
 
     def _add_mcp_rows(self, form: QFormLayout) -> None:
         """MCP и редактор конфига."""
