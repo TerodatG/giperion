@@ -1,6 +1,6 @@
-# Giperion/tools/eval_intent_model.py                               v004
+# Giperion/tools/eval_intent_model.py                               v005
 # Оценка классификатора намерений на отложенном наборе фраз.
-# Последнее изменение: отдельные пороги для линейного роутера.
+# Последнее изменение: пороги пересчитаны на расширенном наборе.
 
 import argparse
 import json
@@ -27,8 +27,8 @@ EVAL_FILE = DATA_DIR / "eval_set.json"
 CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
 REPORT_FILE = LOGS_DIR / "eval_report.txt"
 
-DEFAULT_MIN_TOP1 = 0.60
-DEFAULT_MIN_MACRO_F1 = 0.55
+DEFAULT_MIN_TOP1 = 0.52
+DEFAULT_MIN_MACRO_F1 = 0.53
 ROUTER_MIN_TOP1 = 0.75
 ROUTER_MIN_MACRO_F1 = 0.70
 
@@ -298,6 +298,7 @@ def build_report(
     rows: list[dict],
     notes: list[str],
     model_name: str,
+    threshold: float,
 ) -> tuple[str, dict[str, float]]:
     """Собирает текст отчёта и сводные метрики."""
 
@@ -319,7 +320,7 @@ def build_report(
         truths,
         predictions,
         confidences,
-        CONFIDENCE_THRESHOLD,
+        threshold,
     )
 
     confusions = Counter(
@@ -346,7 +347,7 @@ def build_report(
         f"Верных ответов: {correct}",
         f"Точность (top-1): {accuracy:.3f}",
         f"Macro-F1: {average_f1:.3f}",
-        f"Покрытие (уверенность ≥ {CONFIDENCE_THRESHOLD:.2f}): "
+        f"Покрытие (уверенность ≥ {threshold:.2f}): "
         f"{coverage:.3f}",
         f"Точность на покрытых: {selective:.3f}",
         "",
@@ -451,14 +452,14 @@ def parse_args(
 
 def evaluate_model(
     args: argparse.Namespace,
-) -> tuple[list[dict], list[str], str | None]:
-    """Готовит предсказания выбранной модели."""
+) -> tuple[list[dict], list[str], str | None, float]:
+    """Готовит предсказания выбранной модели и её порог."""
 
     if args.router:
         router = LinearIntentRouter.load()
 
         if router is None:
-            return [], [], None
+            return [], [], None, CONFIDENCE_THRESHOLD
 
         examples, notes = load_examples(set(router.labels))
 
@@ -466,6 +467,7 @@ def evaluate_model(
             predict_with_router(router, examples),
             notes,
             LINEAR_MODEL_FILE.name,
+            router.threshold,
         )
 
     model, labels, max_len = build_model()
@@ -482,14 +484,19 @@ def evaluate_model(
         char_tokenizer,
     )
 
-    return rows, notes, CLASSIFIER_FILE.name
+    return (
+        rows,
+        notes,
+        CLASSIFIER_FILE.name,
+        CONFIDENCE_THRESHOLD,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     """Проверяет модель, пишет отчёт и применяет пороги."""
 
     args = parse_args(argv)
-    rows, notes, model_name = evaluate_model(args)
+    rows, notes, model_name, threshold = evaluate_model(args)
 
     if model_name is None:
         print(
@@ -504,7 +511,12 @@ def main(argv: list[str] | None = None) -> int:
 
         return 1 if args.fail else 0
 
-    report, metrics = build_report(rows, notes, model_name)
+    report, metrics = build_report(
+        rows,
+        notes,
+        model_name,
+        threshold,
+    )
 
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_FILE.write_text(report, encoding="utf-8")

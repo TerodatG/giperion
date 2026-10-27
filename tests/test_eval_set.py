@@ -1,6 +1,6 @@
-# Giperion/tests/test_eval_set.py                                    v001
+# Giperion/tests/test_eval_set.py                                    v002
 # Инварианты отложенного набора: чистый, размеченный, без утечек.
-# Последнее изменение: первый вариант — защита от повторов и утечек.
+# Последнее изменение: не меньше десяти фраз на класс.
 
 import json
 from collections import Counter
@@ -100,7 +100,7 @@ def test_eval_set_is_disjoint_from_training() -> None:
 
 
 def test_eval_set_covers_every_intent() -> None:
-    """У каждого намерения есть хотя бы две отложенные фразы."""
+    """У каждого намерения есть хотя бы десять отложенных фраз."""
 
     counts = Counter(
         item["label"] for item in load_phrases()
@@ -119,11 +119,11 @@ def test_eval_set_covers_every_intent() -> None:
     thin = sorted(
         label
         for label, count in counts.items()
-        if count < 2
+        if count < 10
     )
 
     assert not thin, (
-        "Меньше двух фраз на класс: " + ", ".join(thin)
+        "Меньше десяти фраз на класс: " + ", ".join(thin)
     )
 
 

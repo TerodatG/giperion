@@ -66,6 +66,35 @@ class NeuralEngine:
             if result is not None:
                 return result
 
+        return self._classify_cnn(text)
+
+    def _gated_classification(
+        self,
+        message: str,
+    ) -> tuple[str, float] | None:
+        """Отсекает ответы ниже порога выбранной модели."""
+
+        if self.router is not None:
+            result = self.router.predict(message)
+
+            if result is not None:
+                label, confidence = result
+
+                if confidence < self.router.threshold:
+                    return None
+
+                return label, confidence
+
+        label, confidence = self._classify_cnn(message)
+
+        if confidence < CONFIDENCE_THRESHOLD:
+            return None
+
+        return label, confidence
+
+    def _classify_cnn(self, text: str) -> tuple[str, float]:
+        """Классифицирует текст гибридной CNN."""
+
         ids = self.word_tokenizer.encode(
             text,
         )[: self.max_word_len]
@@ -172,11 +201,12 @@ class NeuralEngine:
         if not str(message or "").strip():
             return None
 
-        label, confidence = self.classify(message)
+        gated = self._gated_classification(message)
 
-        if confidence < CONFIDENCE_THRESHOLD:
+        if gated is None:
             return None
 
+        label, confidence = gated
         responses = self.responses_by_tag.get(label)
 
         if not responses:

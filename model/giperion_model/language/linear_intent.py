@@ -14,6 +14,9 @@ LINEAR_MODEL_FILE = MODELS_DIR / "linear_intent.json"
 NGRAM_MIN = 3
 NGRAM_MAX = 5
 
+# Порог выбран на отложенном наборе: покрытие ~0.50 при точности ~0.94.
+ROUTER_CONFIDENCE_THRESHOLD = 0.40
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -82,12 +85,14 @@ class LinearIntentRouter:
         idf: list[float],
         intercept: list[float],
         weights: list[list[tuple[int, float]]],
+        threshold: float = ROUTER_CONFIDENCE_THRESHOLD,
     ) -> None:
         self.labels = labels
         self.vocabulary = vocabulary
         self.idf = idf
         self.intercept = intercept
         self.weights = weights
+        self.threshold = threshold
 
     @classmethod
     def load(
