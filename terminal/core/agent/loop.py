@@ -302,6 +302,33 @@ def _maybe_review(
     )
 
 
+def _apply_plan_update(state, plan_source, index: int) -> None:
+    """Применяет ручную правку плана из окна."""
+
+    if plan_source is None:
+        return
+
+    update = plan_source()
+
+    if not update:
+        return
+
+    state.plan = list(update)[:12]
+    text = render_plan(state.plan)
+    state.remember(
+        ToolCall("update_plan", {"steps": state.plan}),
+        ToolResult(True, "Пользователь изменил план:\n" + text),
+    )
+    state.emit(
+        AgentStep(
+            index,
+            "plan",
+            "План изменён пользователем",
+            text,
+        )
+    )
+
+
 def _depth_of(args: tuple, kwargs: dict) -> int:
     depth = kwargs.get("depth")
 
@@ -418,6 +445,7 @@ def _run_agent_impl(
     allowed: set[str] | None = None,
     budget=None,
     step_timeout: float = 180.0,
+    plan_source: Callable[[], list[dict] | None] | None = None,
 ) -> AgentResult:
     """Выполняет задачу по шагам и возвращает итог и трейс."""
 
@@ -456,6 +484,8 @@ def _run_agent_impl(
                 context_chars=state.context_peak,
                 usage=state.usage,
             )
+
+        _apply_plan_update(state, plan_source, index)
 
         outcome = _decide(
             state,

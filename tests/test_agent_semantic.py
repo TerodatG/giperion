@@ -455,3 +455,16 @@ def test_walk_skips_data_and_worktrees(tmp_path) -> None:
     assert not any(
         path.startswith(".agent_worktrees/") for path in paths
     )
+
+
+def test_result_explains_word_and_vector_share(tmp_path) -> None:
+    """Ответ показывает вклад слов и вектора."""
+
+    root = _project(
+        tmp_path,
+        {"terminal/core/probe.py": "def probe():\n    return 'маркер'\n"},
+    )
+    result = semantic.find_relevant(root, "маркер")
+
+    assert "вклад: слова" in result.text
+    assert "вектор" in result.text

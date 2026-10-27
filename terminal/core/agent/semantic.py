@@ -232,13 +232,13 @@ def _hybrid(
     chunks: list[dict],
     lexical: list[float],
     query: str,
-) -> tuple[dict[int, float], str]:
+) -> tuple[dict[int, float], str, dict[int, dict]]:
     """BM25-кандидаты плюс лучшие по вектору; пусто — эмбеддинги недоступны."""
 
     target = embeddings.client()
 
     if target is None:
-        return {}, ""
+        return {}, "", {}
 
     try:
         query_vector = embeddings.embed(
@@ -247,7 +247,7 @@ def _hybrid(
             timeout=30,
         )[0]
     except Exception as error:  # noqa: BLE001 — остаётся BM25
-        return {}, f"эмбеддинги недоступны: {error}"
+        return {}, f"эмбеддинги недоступны: {error}", {}
 
     candidates = [chunks[index] for index in ranked]
     stored, error = _embed_missing(target, candidates)
@@ -263,10 +263,12 @@ def _hybrid(
     best = max(lexical) or 1.0
     dense = set(ranked[:RERANK_DEPTH])
     scores: dict[int, float] = {}
+    details: dict[int, dict] = {}
 
     for index in merged:
         similarity = normalized.get(index, 0.0)
         norm = lexical[index] / best
+        details[index] = {"lexical": norm, "vector": similarity}
 
         if index in dense:
             scores[index] = (
@@ -286,9 +288,9 @@ def _hybrid(
     )
 
     if error:
-        return scores, f"часть векторов не получена: {error}; {note}"
+        return scores, f"часть векторов не получена: {error}; {note}", details
 
-    return scores, note
+    return scores, note, details
 
 
 def _snippet(chunk: dict) -> str:
@@ -304,6 +306,7 @@ def _format(
     scores: list[float],
     limit: int,
     method: str,
+    details: dict[int, dict] | None = None,
 ) -> str:
     """Ответ инструмента: путь, строка, символ и отрывок."""
 
@@ -328,6 +331,14 @@ def _format(
             f"[{chunk['kind']}] {chunk['name']} "
             f"({scores[index]:.2f})"
         )
+        info = (details or {}).get(index)
+
+        if info:
+            lines.append(
+                f"  вклад: слова {float(info.get('lexical') or 0):.2f}, "
+                f"вектор {float(info.get('vector') or 0):.2f}"
+            )
+
         lines.append(f"  {_snippet(chunk)}")
 
     return "\n".join(lines)
@@ -481,8 +492,15 @@ def find_relevant(
         range(len(chunks)),
         key=lambda item: -lexical[item],
     )[:CANDIDATES]
-    hybrid, note = _hybrid(ranked, chunks, lexical, text)
+    hybrid, note, details = _hybrid(ranked, chunks, lexical, text)
     scores = _scored(chunks, lexical, hybrid)
+
+    if not hybrid:
+        best = max(lexical, default=0.0) or 1.0
+        details = {
+            index: {"lexical": lexical[index] / best, "vector": 0.0}
+            for index in range(len(chunks))
+        }
 
     if hybrid:
         method = note or "слова и эмбеддинги"
@@ -493,5 +511,5 @@ def find_relevant(
 
     return ToolResult(
         True,
-        _format(chunks, scores, limit, method),
+        _format(chunks, scores, limit, method, details),
     )

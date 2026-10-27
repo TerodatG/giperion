@@ -2,10 +2,12 @@
 # Фоновый запуск read-only агента и накопление шагов для окна.
 # Последнее изменение: первый вариант — без записи и команд.
 
+import queue
 import threading
 import time
 from pathlib import Path
 
+from terminal.core.agent import plan as plan_tools
 from terminal.core.agent import tasks as task_store
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.protocol import (
@@ -65,6 +67,8 @@ class AgentJob:
         self.cost = 0.0
         self.usage: list[dict] = []
         self.partial = ""
+        self.plan: list[dict] = []
+        self._plan_updates: queue.Queue = queue.Queue()
         # Файлы, которые агент изменил: нужны для отката прогона.
         self.changed: set[str] = set()
         self.changes: list[dict] = []
@@ -198,6 +202,20 @@ class AgentJob:
 
         return self._stop.is_set()
 
+    def set_plan(self, plan: list[dict]) -> None:
+        """Ставит ручную правку плана в очередь для цикла."""
+
+        self.plan = list(plan)[:12]
+        self._plan_updates.put(list(self.plan))
+
+    def take_plan_update(self) -> list[dict] | None:
+        """Забирает ручную правку плана, если она есть."""
+
+        try:
+            return self._plan_updates.get_nowait()
+        except queue.Empty:
+            return None
+
     def history_before(self, index: int) -> list:
         """История до шага включительно; для повтора с другого шага."""
 
@@ -273,6 +291,9 @@ class AgentJob:
         self.partial = ""
         self.steps.append(step)
 
+        if getattr(step, "kind", "") == "plan":
+            self.plan = plan_tools.parse(step.detail)
+
         if self._persist:
             self._state["steps"] = task_store.serialize_steps(
                 self.steps
@@ -322,6 +343,7 @@ class AgentJob:
                 budget=self._budget,
                 max_prompt_chars=self._max_prompt_chars,
                 step_timeout=self._step_timeout,
+                plan_source=self.take_plan_update,
             )
 
             self.answer = result.answer

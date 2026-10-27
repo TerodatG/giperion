@@ -364,7 +364,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         )
 
     def _open_plan(self) -> None:
-        """Показывает последний план задачи."""
+        """Открывает редактируемый план задачи."""
 
         job = self.job
         plans = [
@@ -373,16 +373,18 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
             if step.kind == "plan"
         ]
 
-        if not plans:
-            show_plan_dialog(
-                self._parent,
-                "План пока не составлен: модель ещё не вызывала "
-                "update_plan.",
-            )
+        if job is not None and job.plan:
+            plan = job.plan
+        elif plans:
+            plan = plans[-1].detail
+        else:
+            plan = ""
 
-            return
-
-        show_plan_dialog(self._parent, plans[-1].detail)
+        show_plan_dialog(
+            self._parent,
+            plan,
+            on_save=job.set_plan if job is not None else None,
+        )
 
     def _save_defaults(self) -> None:
         """Запоминает модель, шаги и контекст как умолчание."""

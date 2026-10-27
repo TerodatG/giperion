@@ -1031,3 +1031,32 @@ def test_batch_approval_skips_later_writes(tmp_path) -> None:
     assert calls == ["write_file"]
     assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "A"
     assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "B"
+
+
+def test_plan_source_is_applied(tmp_path) -> None:
+    """Ручная правка плана попадает в трейс и историю."""
+
+    brain = ScriptedBrain([_answer("готово")])
+    updates = [
+        [
+            {"text": "проверить", "status": "doing"},
+            {"text": "ответить", "status": "pending"},
+        ]
+    ]
+
+    result = run_agent(
+        "ответь",
+        brain,
+        tmp_path,
+        ground_first=False,
+        require_tool_first=False,
+        plan_source=lambda: updates.pop() if updates else None,
+    )
+
+    assert result.answer == "готово"
+    assert any(step.kind == "plan" for step in result.steps)
+    assert any(
+        "проверить" in step.detail
+        for step in result.steps
+        if step.kind == "plan"
+    )
