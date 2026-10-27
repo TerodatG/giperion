@@ -2,8 +2,11 @@
 # Запуск команд агента: чистое окружение, Job Objects, запрет egress.
 # Последнее изменение: первый вариант — процесс и Python в AppContainer.
 
+import os
 import subprocess
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +17,20 @@ MEMORY_MB = 1024
 CPU_SECONDS = 60
 DEAD_PROXY = "http://127.0.0.1:9"
 TEMP_DIR = DATA_DIR / "agent_exec_tmp"
+CACHE_TTL = 60.0
+_CACHE: dict[tuple, tuple[float, tuple, "ExecResult"]] = {}
+_CACHE_LOCK = threading.Lock()
+SKIP_DIRS = {
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "node_modules",
+    "data",
+    "models",
+    ".pytest_cache",
+    ".mypy_cache",
+}
 
 
 @dataclass(frozen=True)
@@ -24,6 +41,7 @@ class ExecResult:
     output: str
     timed_out: bool = False
     isolated: bool = False
+    cached: bool = False
 
 
 def _temp_dir() -> Path:
@@ -94,17 +112,79 @@ def _popen(args: list[str], cwd: Path) -> subprocess.Popen:
     )
 
 
+def _fingerprint(root: Path) -> tuple:
+    """Отпечаток проекта: число файлов и максимальный mtime."""
+
+    count = 0
+    latest = 0
+
+    for base, dirs, files in os.walk(Path(root)):
+        dirs[:] = [
+            name for name in dirs if name not in SKIP_DIRS
+        ]
+
+        for name in files:
+            try:
+                stat = os.stat(os.path.join(base, name))
+            except OSError:
+                continue
+
+            count += 1
+            latest = max(latest, stat.st_mtime_ns)
+
+            if count >= 5000:
+                return count, latest
+
+    return count, latest
+
+
+def _cached(key: tuple, fingerprint: tuple) -> ExecResult | None:
+    with _CACHE_LOCK:
+        item = _CACHE.get(key)
+
+    if item is None:
+        return None
+
+    moment, stamp, result = item
+
+    if time.monotonic() - moment > CACHE_TTL or stamp != fingerprint:
+        return None
+
+    return ExecResult(
+        result.code,
+        result.output,
+        result.timed_out,
+        result.isolated,
+        True,
+    )
+
+
+def _remember(key: tuple, fingerprint: tuple, result: ExecResult) -> None:
+    with _CACHE_LOCK:
+        _CACHE[key] = (time.monotonic(), fingerprint, result)
+
+
 def run(
     args: list[str],
     cwd: Path,
     timeout: int = 300,
     memory_mb: int = MEMORY_MB,
     cpu_seconds: int = CPU_SECONDS,
+    use_cache: bool = True,
 ) -> ExecResult:
     """Запускает процесс с лимитами и чистым окружением."""
 
     if not args:
         return ExecResult(1, "Пустая команда.")
+
+    key = (tuple(args), str(Path(cwd).resolve()))
+    fingerprint = _fingerprint(cwd)
+
+    if use_cache:
+        found = _cached(key, fingerprint)
+
+        if found is not None:
+            return found
 
     try:
         process = _popen(args, cwd)
@@ -133,12 +213,16 @@ def run(
         sandbox.close(job)
 
     output = ((stdout or "") + (stderr or "")).strip()
-
-    return ExecResult(
+    result = ExecResult(
         int(process.returncode),
         output,
         isolated=job is not None,
     )
+
+    if use_cache and result.code == 0:
+        _remember(key, fingerprint, result)
+
+    return result
 
 
 def run_python(

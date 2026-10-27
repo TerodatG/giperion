@@ -42,6 +42,21 @@ def test_run_captures_output(tmp_path) -> None:
     assert not result.timed_out
 
 
+def test_identical_command_is_cached(tmp_path) -> None:
+    """Повтор той же команды при неизменном проекте берётся из кеша."""
+
+    import sys
+
+    args = [sys.executable, "-c", "print('cache-me')"]
+    first = exec_sandbox.run(args, tmp_path, timeout=30)
+    second = exec_sandbox.run(args, tmp_path, timeout=30)
+
+    assert first.code == 0
+    assert not first.cached
+    assert second.cached
+    assert second.output == first.output
+
+
 def test_run_python_process_mode_falls_back(monkeypatch, tmp_path) -> None:
     """В режиме process AppContainer не используется."""
 

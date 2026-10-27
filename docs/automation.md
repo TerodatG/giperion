@@ -66,6 +66,17 @@ python -m tools.agent_queue clear --all
 пишет статус, ответ и ошибку. Это ручной/скриптовый аналог расписания
 без службы Windows.
 
+## Ночной отчёт
+
+```powershell
+python -m tools.agent_nightly --window 50 --threshold 0.5 --fail
+```
+
+Пишет `data/agent_nightly/report-*.md`: успех прогонов, ошибки,
+состояние очереди и последние 10 задач. При падении ниже порога
+отправляет вебхук (если задан) и с `--fail` возвращает код 2. Запуск
+по расписанию — внешним планировщиком или `tools.agent_daemon`.
+
 ## Дашборд
 
 ```powershell
