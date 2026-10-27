@@ -113,6 +113,8 @@ python -m playwright install chromium
 | Ожидание JS | `wait` — CSS-селектор; иначе пауза 1.2 с |
 | Действия | до 12 за вызов: click, fill, press, hover, select, scroll, wait, wait_text, wait_url, goto, back, download, new_tab, switch_tab, close_tab |
 | Сессия | один Chromium на задачу, `url="current"` для открытой страницы |
+| Пул | живой Chromium переиспользуется между задачами, простой 5 мин |
+| Память | `--max-old-space-size=512`, GPU отключён |
 | Текст | до 12 000 символов |
 | Браузер | сессия с профилем `data/agent_browser/profile.json` |
 | Сеть | только публичные http(s)-хосты, robots.txt и пауза 1.5 с |

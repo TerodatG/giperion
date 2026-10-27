@@ -343,7 +343,8 @@ python -m tools.update_passport
   `docs/browser.md`;
 - внешние инструменты запускают read-only задачи через локальный HTTP
   API: `python -m tools.agent_api` (127.0.0.1, Bearer-токен,
-  `POST /task`) — см. `docs/agent_api.md`;
+  `POST /task`) — см. `docs/agent_api.md`; минимальное расширение
+  VS Code лежит в `integrations/vscode`;
 - `run_command` и `run_tests` идут через чистый env, Job Object и
   прокси-заглушку; Python-команды при готовом AppContainer выполняются
   без сети — см. `docs/command_sandbox.md`;

@@ -205,6 +205,20 @@ def set_browser_session_enabled(enabled: bool) -> None:
     _update_fields({"browser_session": bool(enabled)})
 
 
+def browser_pool() -> bool:
+    """Переиспользовать Chromium между задачами (по умолчанию да)."""
+
+    document = read_json_object(SETTINGS_FILE)
+
+    return document.get("browser_pool") is not False
+
+
+def set_browser_pool(enabled: bool) -> None:
+    """Включает или выключает пул браузеров."""
+
+    _update_fields({"browser_pool": bool(enabled)})
+
+
 def egress_domains() -> tuple[str, ...]:
     """Общий allowlist доменов; пусто — разрешены все публичные."""
 

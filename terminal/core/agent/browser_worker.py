@@ -355,6 +355,8 @@ def _new_page(runtime):
             "--disable-dev-shm-usage",
             "--disable-crash-reporter",
             "--disable-breakpad",
+            "--disable-gpu",
+            "--js-flags=--max-old-space-size=512",
         ],
     )
     options: dict = {"accept_downloads": True}

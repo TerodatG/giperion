@@ -198,30 +198,73 @@ class BrowserSession:
 
 _LOCAL = threading.local()
 _SESSIONS: list[BrowserSession] = []
+_POOL: dict[str, BrowserSession] = {}
 _REGISTRY_LOCK = threading.Lock()
 
 
+def _key(root: Path) -> str:
+    return str(Path(root).resolve()).casefold()
+
+
 def current(root: Path = BASE_DIR) -> BrowserSession:
-    """Сессия текущего потока: у параллельных агентов свои браузеры."""
+    """Сессия текущего потока: из пула или новая."""
 
     session = getattr(_LOCAL, "session", None)
 
-    if session is None or not session.alive():
+    if session is not None and session.alive():
+        return session
+
+    key = _key(root)
+
+    with _REGISTRY_LOCK:
+        pooled = _POOL.pop(key, None)
+
+    if pooled is not None and pooled.alive():
+        session = pooled
+    else:
         session = BrowserSession(root)
-        _LOCAL.session = session
 
         with _REGISTRY_LOCK:
             _SESSIONS.append(session)
 
+    _LOCAL.session = session
+
     return session
+
+
+def release_current() -> None:
+    """Возвращает живую сессию в пул для следующей задачи."""
+
+    session = getattr(_LOCAL, "session", None)
+
+    if session is None:
+        return
+
+    _LOCAL.session = None
+
+    if not session.alive():
+        return
+
+    with _REGISTRY_LOCK:
+        _POOL[_key(session.root)] = session
 
 
 def close_current() -> None:
     session = getattr(_LOCAL, "session", None)
+    key = _key(session.root) if session is not None else ""
 
     if session is not None:
         session.close()
         _LOCAL.session = None
+
+    if not key:
+        return
+
+    with _REGISTRY_LOCK:
+        pooled = _POOL.pop(key, None)
+
+    if pooled is not None:
+        pooled.close()
 
 
 def close_all() -> None:
@@ -229,7 +272,9 @@ def close_all() -> None:
 
     with _REGISTRY_LOCK:
         sessions = list(_SESSIONS)
+        sessions.extend(_POOL.values())
         _SESSIONS.clear()
+        _POOL.clear()
 
     for session in sessions:
         session.close()

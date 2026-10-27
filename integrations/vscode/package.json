@@ -1,0 +1,38 @@
+{
+  "name": "giperion-terminal",
+  "displayName": "Giperion Terminal",
+  "description": "Запуск read-only задач Giperion из VS Code через локальный API",
+  "version": "0.1.0",
+  "publisher": "giperion",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:giperion.runTask"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "giperion.runTask",
+        "title": "Giperion: запустить задачу"
+      }
+    ],
+    "configuration": {
+      "title": "Giperion",
+      "properties": {
+        "giperion.apiUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "description": "Адрес локального API терминала"
+        },
+        "giperion.token": {
+          "type": "string",
+          "default": "",
+          "description": "Bearer-токен (python -m tools.agent_api --print-token)"
+        }
+      }
+    }
+  }
+}

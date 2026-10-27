@@ -343,11 +343,14 @@ def _invoke(
 
 
 def close_session() -> None:
-    """Закрывает браузер текущего потока."""
+    """Возвращает сессию в пул или закрывает её."""
 
     from terminal.core.agent import browser_session
 
-    browser_session.close_current()
+    if settings.browser_pool():
+        browser_session.release_current()
+    else:
+        browser_session.close_current()
 
 
 def _check_links(actions: list[dict]) -> None:

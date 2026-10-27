@@ -52,6 +52,20 @@ $env:GIPERION_WEBHOOK_URL = "https://example.com/hook"
 После запуска демон делает JSON POST с текстом и кодом; секреты
 вырезаются. Без переменной вебхук не отправляется.
 
+## Очередь задач
+
+```powershell
+python -m tools.agent_queue add "проверь git status" --priority 5
+python -m tools.agent_queue list
+python -m tools.agent_queue run --limit 2
+python -m tools.agent_queue clear --all
+```
+
+Очередь лежит в `data/agent_queue.json`; берётся задача с большим
+приоритетом, затем более старая. `run` выполняет read-only задачи и
+пишет статус, ответ и ошибку. Это ручной/скриптовый аналог расписания
+без службы Windows.
+
 ## Дашборд
 
 ```powershell

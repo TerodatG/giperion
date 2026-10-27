@@ -585,6 +585,46 @@ def test_browser_session_setting() -> None:
 
     assert settings.browser_session_enabled() is False
 
+
+def test_browser_pool_reuses_session(tmp_path, monkeypatch) -> None:
+    """Живая сессия возвращается в пул и переиспользуется."""
+
+    from terminal.core.agent import browser_session
+
+    created = []
+    closed = []
+
+    class FakeSession:
+        def __init__(self, root):
+            self.root = root
+            self.process = object()
+            created.append(self)
+
+        def alive(self):
+            return True
+
+        def close(self):
+            closed.append(self)
+
+    monkeypatch.setattr(
+        browser_session,
+        "BrowserSession",
+        FakeSession,
+    )
+    browser_session.close_all()
+
+    first = browser_session.current(tmp_path)
+    browser_session.release_current()
+    second = browser_session.current(tmp_path)
+
+    assert first is second
+    assert len(created) == 1
+
+    browser_session.close_current()
+
+    assert closed == [first]
+    browser_session.close_all()
+
 def test_download_action_is_sanitized() -> None:
     """Скачивание требует селектор."""
 
