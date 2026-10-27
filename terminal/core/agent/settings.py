@@ -348,6 +348,48 @@ def set_approval_policy(policy: str) -> None:
     _update_fields({"approval_policy": policy})
 
 
+PROJECT_POLICIES_FILE = DATA_DIR / "agent_policies.json"
+
+
+def project_policy(root: Path) -> str:
+    """Политика конкретного проекта; иначе глобальная."""
+
+    from shared.storage.json_store import read_json_object
+
+    document = read_json_object(PROJECT_POLICIES_FILE)
+    key = str(Path(root).resolve())
+    value = document.get(key)
+
+    return value if value in POLICIES else approval_policy()
+
+
+def has_project_policy(root: Path) -> bool:
+    """Задана ли политика явно для проекта."""
+
+    from shared.storage.json_store import read_json_object
+
+    document = read_json_object(PROJECT_POLICIES_FILE)
+    key = str(Path(root).resolve())
+
+    return document.get(key) in POLICIES
+
+
+def set_project_policy(root: Path, policy: str) -> None:
+    """Сохраняет политику проекта."""
+
+    if policy not in POLICIES:
+        raise ValueError(f"Неизвестная политика: {policy}")
+
+    key = str(Path(root).resolve())
+
+    def mutate(document: dict) -> dict:
+        document[key] = policy
+
+        return document
+
+    update_json(PROJECT_POLICIES_FILE, mutate, default={})
+
+
 def _number(
     document: dict,
     key: str,

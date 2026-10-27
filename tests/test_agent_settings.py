@@ -262,3 +262,32 @@ def test_context_auto_setting(tmp_path, monkeypatch) -> None:
 
     settings.set_context_auto(True)
     assert settings.context_auto() is True
+
+
+def test_project_policy_overrides_global(tmp_path, monkeypatch) -> None:
+    """Политика проекта хранится отдельно и важнее глобальной."""
+
+    monkeypatch.setattr(
+        settings,
+        "SETTINGS_FILE",
+        tmp_path / "agent_settings.json",
+    )
+    monkeypatch.setattr(
+        settings,
+        "PROJECT_POLICIES_FILE",
+        tmp_path / "agent_policies.json",
+    )
+    root = tmp_path / "project"
+    root.mkdir()
+    settings.set_approval_policy("confirm")
+
+    assert not settings.has_project_policy(root)
+    assert settings.project_policy(root) == "confirm"
+
+    settings.set_project_policy(root, "trust")
+
+    assert settings.has_project_policy(root)
+    assert settings.project_policy(root) == "trust"
+
+    with pytest.raises(ValueError):
+        settings.set_project_policy(root, "unknown")

@@ -20,6 +20,8 @@ from terminal.core.agent.providers import (
 from terminal.core.agent.rollback import rollback_run
 from terminal.core.agent.settings import (
     budget_limits,
+    has_project_policy,
+    project_policy,
     set_approval_policy,
 )
 from terminal.core.agent.summary import format_changes
@@ -68,6 +70,14 @@ class AgentRunnerMixin:
             return None
 
         return None
+
+    def _effective_policy(self) -> str:
+        """Политика проекта, если задана, иначе выбор в окне."""
+
+        if has_project_policy(BASE_DIR):
+            return project_policy(BASE_DIR)
+
+        return self.policy_combo.currentData() or "confirm"
 
     def _start(self) -> None:
         """Запускает новую задачу агента."""
@@ -158,7 +168,7 @@ class AgentRunnerMixin:
         self._shown = 0
         self.approval.hide_panel()
 
-        policy = self.policy_combo.currentData() or "confirm"
+        policy = self._effective_policy()
         set_approval_policy(policy)
         self.job = AgentJob(
             task,
@@ -225,7 +235,7 @@ class AgentRunnerMixin:
             else None
         )
 
-        policy = self.policy_combo.currentData() or "confirm"
+        policy = self._effective_policy()
         set_approval_policy(policy)
 
         self.job = AgentJob(

@@ -152,6 +152,20 @@ python -m tools.plugin_install path/to/plugin --allow-unsigned  # разрабо
 Это защита от подмены файлов, но не удостоверение личности автора: ключ
 можно передать вместе с плагином.
 
+Локальный каталог `data/plugin_catalog.json`:
+
+```json
+{"plugins": [{"name": "word", "path": "plugins/word", "description": "Слова"}]}
+```
+
+```powershell
+python -m tools.plugin_catalog --list
+python -m tools.plugin_catalog --install word
+```
+
+Путь относительно JSON-файла; установка идёт через тот же
+`plugin_install` с проверкой подписи.
+
 ## Публикация ветки и PR
 
 ```
