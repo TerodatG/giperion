@@ -56,3 +56,16 @@ def test_trace_dialog_shows_text(qapp) -> None:
     assert "строка один" in dialog.view.toPlainText()
 
     dialog.close()
+
+
+def test_format_trace_includes_usage() -> None:
+    """Токены по шагам видны в трейсе."""
+
+    text = format_trace(
+        [AgentStep(1, "answer", "Ответ", "готово")],
+        usage=[{"step": 1, "tokens": 120, "cost": 0.002}],
+    )
+
+    assert "ТОКЕНЫ ПО ШАГАМ" in text
+    assert "шаг 1: 120 токенов" in text
+    assert "$0.0020" in text

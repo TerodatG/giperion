@@ -23,7 +23,12 @@ STEP_MARKS = {
 }
 
 
-def format_trace(steps, answer: str = "", error: str = "") -> str:
+def format_trace(
+    steps,
+    answer: str = "",
+    error: str = "",
+    usage: list[dict] | None = None,
+) -> str:
     """Собирает шаги задачи в читаемый текст."""
 
     lines = []
@@ -40,6 +45,17 @@ def format_trace(steps, answer: str = "", error: str = "") -> str:
         if detail:
             for line in detail.splitlines():
                 lines.append("    " + line)
+
+        lines.append("")
+
+    if usage:
+        lines.append("ТОКЕНЫ ПО ШАГАМ:")
+
+        for item in usage:
+            lines.append(
+                f"  шаг {item.get('step')}: {item.get('tokens')} токенов, "
+                f"${float(item.get('cost') or 0):.4f}"
+            )
 
         lines.append("")
 

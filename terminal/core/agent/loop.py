@@ -454,6 +454,7 @@ def _run_agent_impl(
                 steps=state.steps,
                 cancelled=True,
                 context_chars=state.context_peak,
+                usage=state.usage,
             )
 
         outcome = _decide(
@@ -489,6 +490,7 @@ def _run_agent_impl(
                 answer=decision.text,
                 steps=state.steps,
                 context_chars=state.context_peak,
+                usage=state.usage,
             )
 
         calls = _calls_from(decision)

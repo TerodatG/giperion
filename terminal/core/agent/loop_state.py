@@ -63,6 +63,9 @@ class _RunState:
         self.context_peak = 0
         self.root: Path | None = None
         self.budget_warned = False
+        self.usage: list[dict] = []
+        self.last_tokens = 0
+        self.last_cost = 0.0
         self.chat: list[dict] = []
         self.read_ok = False
         self.plan: list[dict] = []

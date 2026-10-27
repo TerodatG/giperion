@@ -92,3 +92,4 @@ class AgentResult:
     error: str = ""
     cancelled: bool = False
     context_chars: int = 0
+    usage: list[dict] = field(default_factory=list)

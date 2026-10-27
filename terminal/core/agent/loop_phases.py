@@ -113,6 +113,7 @@ def _context_error(state: "_RunState", max_chars: int) -> AgentResult:
         steps=state.steps,
         error=f"Контекст превысил бюджет {max_chars} символов.",
         context_chars=state.context_peak,
+        usage=state.usage,
     )
 
 
@@ -139,6 +140,7 @@ def _model_error(
         steps=state.steps,
         error=text,
         context_chars=state.context_peak,
+        usage=state.usage,
     )
 
 
@@ -282,6 +284,20 @@ def _decide(
             return None
 
     tokens, cost, budget_error = budget_state(budget, brain)
+    delta_tokens = max(0, int(tokens) - int(state.last_tokens))
+    delta_cost = max(0.0, float(cost) - float(state.last_cost))
+
+    if delta_tokens or delta_cost:
+        state.usage.append(
+            {
+                "step": index,
+                "tokens": delta_tokens,
+                "cost": round(delta_cost, 6),
+            }
+        )
+
+    state.last_tokens = int(tokens)
+    state.last_cost = float(cost)
 
     if budget_error and decision.action != "answer":
         state.emit(
@@ -299,6 +315,7 @@ def _decide(
             error=f"{budget_error} Потрачено {tokens} токенов "
             f"(${cost:.4f}). Задача остановлена.",
             context_chars=state.context_peak,
+            usage=state.usage,
         )
 
     near = (
@@ -356,6 +373,7 @@ def _finish(
                     f"(${cost:.4f}). Итог не запрошен."
                 ),
                 context_chars=state.context_peak,
+                usage=state.usage,
             )
 
     # Шаги кончились: просим итог без инструментов, чтобы пользователь
@@ -385,6 +403,7 @@ def _finish(
                 steps=state.steps,
                 answer=text,
                 context_chars=state.context_peak,
+                usage=state.usage,
             )
 
     if callable(summarize) and state.history and not chat_mode:
@@ -427,11 +446,13 @@ def _finish(
                 steps=state.steps,
                 answer=text,
                 context_chars=state.context_peak,
+                usage=state.usage,
             )
 
     return AgentResult(
         steps=state.steps,
         error=f"Достигнут лимит шагов: {max_steps}.",
         context_chars=state.context_peak,
+        usage=state.usage,
     )
 

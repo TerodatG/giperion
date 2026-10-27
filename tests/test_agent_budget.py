@@ -175,6 +175,26 @@ def test_budget_allows_final_answer(tmp_path) -> None:
     assert result.error == ""
 
 
+def test_usage_is_recorded_per_step(tmp_path) -> None:
+    """Токены и стоимость пишутся по шагам."""
+
+    brain = SpendingBrain(
+        [AgentDecision(action="answer", text="готово")],
+        per_call=120,
+    )
+
+    result = run_agent(
+        "ответь",
+        brain,
+        tmp_path,
+        ground_first=False,
+        require_tool_first=False,
+    )
+
+    assert result.answer == "готово"
+    assert result.usage == [{"step": 1, "tokens": 120, "cost": 0.0}]
+
+
 def test_budget_without_limits_never_stops(tmp_path) -> None:
     """Нулевые лимиты означают «без ограничений»."""
 

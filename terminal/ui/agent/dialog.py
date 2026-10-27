@@ -263,7 +263,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         show_trace_dialog(
             self._parent,
             title,
-            format_trace(job.steps, job.answer, job.error),
+            format_trace(job.steps, job.answer, job.error, job.usage),
             key="agent-trace",
             on_replay=self._replay_current,
         )

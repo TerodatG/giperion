@@ -63,6 +63,7 @@ class AgentJob:
         self.context_chars = 0
         self.tokens = 0
         self.cost = 0.0
+        self.usage: list[dict] = []
         self.partial = ""
         # Файлы, которые агент изменил: нужны для отката прогона.
         self.changed: set[str] = set()
@@ -327,6 +328,7 @@ class AgentJob:
             self.error = result.error
             self.cancelled = result.cancelled
             self.context_chars = result.context_chars
+            self.usage = list(result.usage)
 
             if not self.steps and result.steps:
                 self.steps = list(result.steps)
@@ -381,6 +383,7 @@ class AgentJob:
                         "steps": task_store.serialize_steps(
                             self.steps
                         ),
+                        "usage": self.usage,
                     }
                 )
                 task_store.save_state(self._state)
