@@ -316,4 +316,3 @@ def get_neural_reply(
         return None
 
     return _engine.reply_with_confidence(message)
-
