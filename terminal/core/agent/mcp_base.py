@@ -112,6 +112,16 @@ class McpToolClient:
         """Вызов инструмента и разбор content-блока."""
 
         server: McpServer = self.server  # type: ignore[attr-defined]
+        calls = int(getattr(self, "_calls", 0) or 0) + 1
+
+        if calls > int(getattr(server, "max_calls", 60) or 60):
+            return ToolResult(
+                False,
+                f"MCP «{server.name}»: превышен лимит вызовов "
+                f"({server.max_calls}).",
+            )
+
+        self._calls = calls
         error = check_domains(server, dict(arguments or {}))
 
         if error:
@@ -138,6 +148,11 @@ class McpToolClient:
                     parts.append(str(resource.get("text") or ""))
 
         text = "\n".join(part for part in parts if part).strip()
+        limit = int(getattr(server, "max_chars", 100_000) or 100_000)
+
+        if len(text) > limit:
+            text = text[:limit] + "\n… ответ MCP обрезан."
+
         failed = bool(result.get("isError"))
 
         return ToolResult(

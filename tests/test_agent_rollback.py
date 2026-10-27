@@ -6,12 +6,15 @@ import time
 from datetime import datetime, timedelta
 
 from terminal.core.agent import git_tools, tools
+from terminal.core.agent.protocol import AgentStep
 from terminal.core.agent.rollback import (
     can_rollback,
     find_backup,
     parse_backup_name,
     plan_rollback,
+    plan_step_backups,
     rollback_run,
+    rollback_step,
 )
 
 
@@ -235,3 +238,29 @@ def test_git_preview_lists_all_files(tmp_path) -> None:
     assert "b.txt" in preview
     assert "гамма" in preview
     assert "дельта" in preview
+
+
+def test_rollback_step_restores_later_backup(tmp_path) -> None:
+    """Откат к шагу возвращает файл из копии, сделанной после него."""
+
+    target = tmp_path / "a.txt"
+    target.write_text("новое", encoding="utf-8")
+    folder = tmp_path / "data" / "agent_backups"
+    folder.mkdir(parents=True)
+    name = "20260101-120000-000000-a.txt"
+    (folder / name).write_text("старое", encoding="utf-8")
+    steps = [
+        AgentStep(0, "tool", "read_file", "чтение"),
+        AgentStep(
+            1,
+            "tool",
+            "write_file",
+            f"копия data/agent_backups/{name}",
+        ),
+    ]
+
+    planned = plan_step_backups(tmp_path, steps, 0)
+
+    assert [item["path"] for item in planned] == ["a.txt"]
+    assert rollback_step(tmp_path, steps, 0) == ["a.txt: восстановлен"]
+    assert target.read_text(encoding="utf-8") == "старое"

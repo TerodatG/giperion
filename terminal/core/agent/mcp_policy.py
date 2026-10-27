@@ -32,6 +32,9 @@ class McpServer:
     url: str = ""
     # Имя env-переменной с OAuth/Bearer-токеном.
     token_env: str = ""
+    # Квоты: размер текста одного ответа и число вызовов инструментов.
+    max_chars: int = 100_000
+    max_calls: int = 60
 
 
 def _string_list(value) -> tuple[str, ...]:
@@ -161,6 +164,20 @@ def _safe_name(value: str) -> str:
     return text[:40] or "server"
 
 
+def _limit(value, default: int) -> int:
+    """Положительный лимит из конфига; мусор заменяется default."""
+
+    if isinstance(value, bool):
+        return default
+
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+
+    return number if number > 0 else default
+
+
 def _parse_server(item: dict) -> McpServer | None:
     """Собирает один сервер; None — запись битая."""
 
@@ -204,6 +221,8 @@ def _parse_server(item: dict) -> McpServer | None:
         transport=transport,
         url=url,
         token_env=str(item.get("token_env") or "").strip(),
+        max_chars=_limit(item.get("max_chars"), 100_000),
+        max_calls=_limit(item.get("max_calls"), 60),
     )
 
 

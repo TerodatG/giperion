@@ -2,6 +2,7 @@
 # Откат прогона агента: возврат файлов из резервных копий.
 # Последнее изменение: первый вариант — по списку файлов и времени.
 
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from terminal.core.agent import tools
 STAMP_FORMAT = "%Y%m%d-%H%M%S-%f"
 STAMP_LENGTH = 22
 TOLERANCE = timedelta(seconds=1)
+BACKUP_TOKEN = re.compile(r"data/agent_backups/([^\s]+)")
 
 
 def backup_folder(root: Path) -> Path:
@@ -164,3 +166,62 @@ def can_rollback(record: dict) -> bool:
     files = record.get("files")
 
     return isinstance(files, list) and bool(files)
+
+
+def plan_step_backups(
+    root: Path,
+    steps: list,
+    index: int,
+) -> list[dict]:
+    """Копии, которые вернут файлы к состоянию до шага index."""
+
+    base = Path(root).resolve()
+    folder = backup_folder(base)
+    chosen: dict[str, tuple[datetime, Path]] = {}
+
+    for step in list(steps)[max(0, int(index)) + 1:]:
+        detail = str(getattr(step, "detail", "") or "")
+
+        for name in BACKUP_TOKEN.findall(detail):
+            parsed = parse_backup_name(name)
+
+            if parsed is None:
+                continue
+
+            moment, relative = parsed
+            path = folder / name
+
+            if not path.is_file():
+                continue
+
+            current = chosen.get(relative)
+
+            if current is None or moment < current[0]:
+                chosen[relative] = (moment, path)
+
+    return [
+        {"path": relative, "backup": path}
+        for relative, (_moment, path) in sorted(chosen.items())
+    ]
+
+
+def rollback_step(root: Path, steps: list, index: int) -> list[str]:
+    """Возвращает файлы, изменённые после шага index."""
+
+    base = Path(root).resolve()
+    lines: list[str] = []
+
+    for item in plan_step_backups(base, steps, index):
+        relative = item["path"]
+        backup = item["backup"]
+
+        try:
+            target = tools.safe_path(base, relative)
+            target.write_bytes(Path(backup).read_bytes())
+        except Exception as error:  # noqa: BLE001 — отчёт по каждому файлу
+            lines.append(f"{relative}: ошибка — {error}")
+            continue
+
+        lines.append(f"{relative}: восстановлен")
+
+    return lines

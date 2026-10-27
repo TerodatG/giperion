@@ -626,3 +626,56 @@ def test_prompts_and_prompt_tool_spec() -> None:
     assert spec.name == "mcp_stub_prompt_review"
     assert spec.risk == "read"
     assert spec.required == ("path",)
+
+
+def test_mcp_quotas() -> None:
+    """Ответ обрезается, а число вызовов ограничено."""
+
+    from terminal.core.agent.mcp_base import McpToolClient
+
+    class Client(McpToolClient):
+        server = mcp.McpServer(
+            "stub",
+            "python",
+            max_chars=20,
+            max_calls=1,
+        )
+
+        def request(self, method, params=None):
+            return {
+                "content": [
+                    {"type": "text", "text": "x" * 100}
+                ]
+            }
+
+    client = Client()
+    first = client.call_tool("echo", {})
+
+    assert first.ok
+    assert "обрезан" in first.text
+    assert len(first.text) < 80
+
+    second = client.call_tool("echo", {})
+
+    assert not second.ok
+    assert "лимит вызовов" in second.text
+
+
+def test_mcp_quota_config() -> None:
+    """Квоты читаются из конфига и проверяются."""
+
+    servers = mcp.load_servers(
+        {
+            "servers": [
+                {
+                    "name": "remote",
+                    "command": "python",
+                    "max_chars": 500,
+                    "max_calls": 7,
+                }
+            ]
+        }
+    )
+
+    assert servers[0].max_chars == 500
+    assert servers[0].max_calls == 7

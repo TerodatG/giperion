@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QInputDialog,
     QLabel,
+    QMessageBox,
 )
 
 from config import BASE_DIR
@@ -296,6 +297,19 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         if not ok or not instruction.strip():
             return
 
+        answer = QMessageBox.question(
+            self,
+            "Откатить файлы?",
+            (
+                "Вернуть файлы к состоянию до этого шага по резервным "
+                "копиям? Команды и git-изменения не откатываются."
+            ),
+        )
+        restored = []
+
+        if answer == QMessageBox.StandardButton.Yes:
+            restored = job.rollback_after_step(index)
+
         task = str(job._state.get("task") or self.task_input.toPlainText())
         new_task = (
             f"{task}\n\nПовтори с шага {index} иначе: "
@@ -319,6 +333,7 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         )
         self.status_label.setText(
             f"Открыт повтор с шага {index}; запусти его кнопкой «Задача»."
+            + (f" Восстановлено файлов: {len(restored)}." if restored else "")
         )
 
     def _open_plan(self) -> None:

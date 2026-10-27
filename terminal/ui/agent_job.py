@@ -214,6 +214,13 @@ class AgentJob:
 
         return history[: min(count, len(history))]
 
+    def rollback_after_step(self, index: int) -> list[str]:
+        """Возвращает файлы, записанные после шага index."""
+
+        from terminal.core.agent.rollback import rollback_step
+
+        return rollback_step(self._root, self.steps, index)
+
     def request_approval(
         self,
         request: ApprovalRequest,
