@@ -63,6 +63,7 @@ from terminal.core.agent.settings import (
     stream_enabled,
 )
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.knowledge_dialog import add_knowledge_button
 from terminal.ui.mcp_dialog import show_mcp_dialog
 from terminal.ui.memory_dialog import show_memory_dialog
 
@@ -428,6 +429,8 @@ class ProviderDialog(SkinDialog):
             lambda: show_memory_dialog(self, root=BASE_DIR)
         )
         form.addRow("Память", self.memory_button)
+
+        self.knowledge_button = add_knowledge_button(form, self)
 
         self.review_check = QCheckBox(
             "Проверять ответ критиком",

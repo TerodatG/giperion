@@ -8,9 +8,17 @@ import sys
 import urllib.parse
 from pathlib import Path
 
-from terminal.core.agent import browser_profile
+from terminal.core.agent import browser_profile, browser_tabs
+from terminal.core.agent.browser_page import (
+    clip as _clip,
+)
+from terminal.core.agent.browser_page import (
+    page_data as _page_data,
+)
+from terminal.core.agent.browser_page import (
+    take_shot as _take_shot,
+)
 
-MAX_TEXT = 12_000
 MAX_DOWNLOAD = 10 * 1024 * 1024
 SETTLE_MS = 1200
 
@@ -38,14 +46,6 @@ def _scheme_ok(url: str) -> bool:
         return False
 
     return scheme in ("http", "https")
-
-
-def _clip(text: str) -> tuple[str, bool]:
-    """Обрезает текст страницы по лимиту."""
-
-    value = str(text or "")
-
-    return value[:MAX_TEXT], len(value) > MAX_TEXT
 
 
 def _guard(route) -> None:
@@ -204,18 +204,31 @@ def _run_actions(
     timeout: int,
     download_dir: str = "",
     downloads: list | None = None,
-) -> None:
-    """Выполняет переходы и действия по очереди."""
+):
+    """Выполняет переходы и действия по очереди; возвращает страницу."""
+
+    current = page
 
     for action in actions[:12]:
         if not isinstance(action, dict):
             continue
 
         kind = str(action.get("type") or "").strip().lower()
+        tab_page = browser_tabs.apply(
+            current,
+            kind,
+            action,
+            timeout,
+            SETTLE_MS,
+        )
+
+        if tab_page is not None:
+            current = tab_page
+            continue
 
         if kind == "download":
             _act_download(
-                page,
+                current,
                 action,
                 timeout,
                 download_dir,
@@ -226,7 +239,9 @@ def _run_actions(
         handler = ACTIONS.get(kind)
 
         if handler is not None:
-            handler(page, action, timeout)
+            handler(current, action, timeout)
+
+    return current
 
 
 def render(request: dict) -> dict:
@@ -272,13 +287,13 @@ def render(request: dict) -> dict:
 
             if isinstance(actions, list) and actions:
                 downloads: list[str] = []
-                _run_actions(
+                page = _run_actions(
                     page,
                     actions,
                     timeout,
                     str(request.get("download_dir") or ""),
                     downloads,
-                )
+                ) or page
                 page.wait_for_timeout(500)
             else:
                 downloads = []
@@ -363,39 +378,7 @@ def _new_page(runtime):
     return browser, context, page
 
 
-def _page_data(page) -> dict:
-    """Текущий URL, заголовок и текст."""
-
-    text, truncated = _clip(page.inner_text("body"))
-
-    return {
-        "url": page.url,
-        "title": page.title(),
-        "text": text,
-        "truncated": truncated,
-    }
-
-
-def _take_shot(page, request: dict) -> str:
-    """Скриншот, если запрошен."""
-
-    shot_path = str(request.get("shot_path") or "")
-
-    if not shot_path:
-        return ""
-
-    from pathlib import Path
-
-    Path(shot_path).parent.mkdir(parents=True, exist_ok=True)
-    page.screenshot(
-        path=shot_path,
-        full_page=bool(request.get("full_page")),
-    )
-
-    return shot_path
-
-
-def _open_page(page, request: dict, timeout: int) -> dict:
+def _open_page(page, request: dict, timeout: int) -> tuple[dict, object]:
     """Переход, ожидание, действия и скриншот."""
 
     wait = str(request.get("wait") or "").strip()
@@ -416,43 +399,43 @@ def _open_page(page, request: dict, timeout: int) -> dict:
     downloads: list[str] = []
 
     if isinstance(actions, list) and actions:
-        _run_actions(
+        page = _run_actions(
             page,
             actions,
             timeout,
             str(request.get("download_dir") or ""),
             downloads,
-        )
+        ) or page
         page.wait_for_timeout(500)
 
     data = _page_data(page)
     data["shot"] = _take_shot(page, request)
     data["downloads"] = downloads
 
-    return data
+    return data, page
 
 
-def _act_page(page, request: dict, timeout: int) -> dict:
+def _act_page(page, request: dict, timeout: int) -> tuple[dict, object]:
     """Действия на текущей странице без перехода."""
 
     actions = request.get("actions")
     downloads: list[str] = []
 
     if isinstance(actions, list) and actions:
-        _run_actions(
+        page = _run_actions(
             page,
             actions,
             timeout,
             str(request.get("download_dir") or ""),
             downloads,
-        )
+        ) or page
         page.wait_for_timeout(500)
 
     data = _page_data(page)
     data["shot"] = _take_shot(page, request)
     data["downloads"] = downloads
 
-    return data
+    return data, page
 
 
 def _close_state(state: dict) -> None:
@@ -507,9 +490,15 @@ def _serve_command(state: dict, runtime, request: dict) -> dict:
 
             return data
 
-        return _act_page(page, request, timeout)
+        data, current = _act_page(page, request, timeout)
+        state["page"] = current
 
-    return _open_page(page, request, timeout)
+        return data
+
+    data, current = _open_page(page, request, timeout)
+    state["page"] = current
+
+    return data
 
 
 def serve() -> None:

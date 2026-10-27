@@ -111,10 +111,10 @@ python -m playwright install chromium
 |---|---|
 | Таймаут навигации | 60 с по умолчанию, можно передать `timeout` (5–120) |
 | Ожидание JS | `wait` — CSS-селектор; иначе пауза 1.2 с |
-| Действия | до 12 за вызов: click, fill, press, hover, select, scroll, wait, goto, back |
+| Действия | до 12 за вызов: click, fill, press, hover, select, scroll, wait, wait_text, wait_url, goto, back, download, new_tab, switch_tab, close_tab |
 | Сессия | один Chromium на задачу, `url="current"` для открытой страницы |
 | Текст | до 12 000 символов |
-| Браузер | один запуск на вызов, без профиля и cookies |
+| Браузер | сессия с профилем `data/agent_browser/profile.json` |
 | Сеть | только публичные http(s)-хосты, robots.txt и пауза 1.5 с |
 | Скриншот | `data/agent_browser/*.png`, вне git |
 
@@ -137,8 +137,9 @@ python -m playwright install chromium
 - Сессия держит один Chromium на задачу; между задачами он закрывается,
   а cookies/localStorage переносятся через
   `data/agent_browser/profile.json`.
-- Нет вкладок и записи сценария: действия передаются списком; PDF
-  скачивается как файл, его текст нужно извлечь отдельно.
+- Вкладки поддерживаются действиями `new_tab`, `switch_tab` и
+  `close_tab`; запись сценария в UI пока не сделана.
+- PDF скачивается как файл, его текст нужно извлечь отдельно.
 - `page.route` проверяет HTTP(S)-запросы; WebSocket-соединения страницы
   этим механизмом не покрываются.
 - Сеть и сторонние сайты могут быть недоступны; таймаут вернёт ошибку.

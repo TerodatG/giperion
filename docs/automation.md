@@ -56,11 +56,17 @@ $env:GIPERION_WEBHOOK_URL = "https://example.com/hook"
 
 ```powershell
 python -m tools.agent_dashboard
+python -m tools.agent_alerts --window 20 --threshold 0.5 --fail
 ```
 
 Собирает `data/agent_dashboard.html`: последний успех, число прогонов,
 задачи расписания, записи аудита, график успеха и таблицу последних
 20 прогонов. Открывается в браузере, ничего не отправляет наружу.
+
+`agent_alerts` считает успех последних прогонов; при падении ниже
+порога печатает предупреждение и отправляет вебхук, если задан
+`GIPERION_WEBHOOK_URL` или `--webhook`. С `--fail` возвращает код 2 —
+удобно для ночного CI.
 
 ## Сравнение моделей и запуск
 

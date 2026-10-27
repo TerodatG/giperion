@@ -313,7 +313,9 @@ python -m tools.update_passport
   хеши файлов), а ветку агента можно отправить и превратить в PR командой
   `python -m tools.agent_pr`;
 - документы для смыслового поиска складываются в `knowledge/` командой
-  `python -m tools.knowledge_add`; фоновые read-only задачи —
+  `python -m tools.knowledge_add` или окном «База знаний…» в
+  «Провайдере» (поиск, цитаты, добавление и удаление); фоновые
+  read-only задачи —
   `python -m tools.agent_schedule` (add/list/run-due), несколько задач
   параллельно — `python -m tools.agent_parallel` (с `--write` каждая
   идёт в своём worktree); переносимая сборка —

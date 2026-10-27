@@ -215,12 +215,14 @@ def test_parse_takes_last_json_line() -> None:
 def test_worker_clip_and_scheme() -> None:
     """Воркер режет текст и принимает только http/https."""
 
+    from terminal.core.agent import browser_page
+
     text, truncated = browser_worker._clip(
-        "а" * (browser_worker.MAX_TEXT + 5)
+        "а" * (browser_page.MAX_TEXT + 5)
     )
 
     assert truncated is True
-    assert len(text) == browser_worker.MAX_TEXT
+    assert len(text) == browser_page.MAX_TEXT
     assert browser_worker._scheme_ok("https://example.com")
     assert not browser_worker._scheme_ok("file:///etc/passwd")
     assert not browser_worker._scheme_ok("javascript:alert(1)")
@@ -687,3 +689,72 @@ def test_profile_is_loaded_and_saved(tmp_path, monkeypatch) -> None:
     browser_profile.save_profile(Context())
 
     assert seen["saved"] == str(profile)
+
+
+def test_tab_actions_are_sanitized() -> None:
+    """Вкладки: новая, переключение и закрытие."""
+
+    actions = browser_js._sanitize_actions(
+        [
+            {"type": "new_tab", "url": "https://example.com/a"},
+            {"type": "new_tab", "url": "file:///etc/passwd"},
+            {"type": "switch_tab", "index": 50},
+            {"type": "close_tab"},
+        ]
+    )
+
+    assert actions == [
+        {"type": "new_tab", "url": "https://example.com/a"},
+        {"type": "switch_tab", "index": 20},
+        {"type": "close_tab"},
+    ]
+
+
+def test_run_actions_switches_tabs() -> None:
+    """new_tab и switch_tab меняют текущую страницу."""
+
+    from terminal.core.agent import browser_worker
+
+    class Page:
+        def __init__(self, context) -> None:
+            self.context = context
+            self.goto_calls = []
+
+        def set_default_timeout(self, value):
+            pass
+
+        def goto(self, url, **kwargs):
+            self.goto_calls.append(url)
+
+        def wait_for_timeout(self, value):
+            pass
+
+    class Context:
+        def __init__(self) -> None:
+            self.first = Page(self)
+            self.pages = [self.first]
+
+        def new_page(self):
+            page = Page(self)
+            self.pages.append(page)
+
+            return page
+
+    context = Context()
+    first = context.first
+    second = browser_worker._run_actions(
+        first,
+        [{"type": "new_tab", "url": "https://example.com/a"}],
+        1_000,
+    )
+
+    assert second is context.pages[1]
+    assert second.goto_calls == ["https://example.com/a"]
+
+    back = browser_worker._run_actions(
+        second,
+        [{"type": "switch_tab", "index": 0}],
+        1_000,
+    )
+
+    assert back is first
