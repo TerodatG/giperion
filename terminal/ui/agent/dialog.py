@@ -261,7 +261,30 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
             title,
             format_trace(job.steps, job.answer, job.error),
             key="agent-trace",
+            on_replay=self._replay_current,
         )
+
+    def _replay_current(self) -> None:
+        """Повторяет текущую задачу с нуля."""
+
+        job = self.job
+
+        if job is None or not job.done:
+            self.status_label.setText(
+                "Повтор доступен после завершения задачи."
+            )
+
+            return
+
+        task = str(
+            job._state.get("task") or self.task_input.toPlainText()
+        ).strip()
+
+        if not task:
+            return
+
+        self.task_input.setPlainText(task)
+        self._start()
 
     def _retry_from_step(self) -> None:
         """Открывает новую задачу с историей до выбранного шага."""

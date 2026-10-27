@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from terminal.core.agent import knowledge
 from terminal.ui.dialogs_base import SkinDialog, show_tool_window
+from terminal.ui.i18n import tr
 from tools import knowledge_add
 
 
@@ -26,7 +27,7 @@ class KnowledgeDialog(SkinDialog):
     def __init__(self, parent) -> None:
         super().__init__(
             parent,
-            "База знаний",
+            tr("knowledge.title"),
             min_width=760,
             min_height=520,
         )
@@ -35,8 +36,7 @@ class KnowledgeDialog(SkinDialog):
     def _build(self) -> None:
         layout = QVBoxLayout(self)
         hint = QLabel(
-            "Документы из knowledge/ ищутся по смыслу. "
-            "Цитата показывает файл и строку.",
+            tr("knowledge.hint"),
             self,
         )
         hint.setWordWrap(True)
@@ -44,9 +44,9 @@ class KnowledgeDialog(SkinDialog):
 
         row = QHBoxLayout()
         self.query = QLineEdit(self)
-        self.query.setPlaceholderText("Что найти?")
+        self.query.setPlaceholderText(tr("knowledge.query"))
         self.query.returnPressed.connect(self._search)
-        search = QPushButton("Найти", self)
+        search = QPushButton(tr("knowledge.search"), self)
         search.clicked.connect(self._search)
         row.addWidget(self.query, 1)
         row.addWidget(search)
@@ -62,11 +62,11 @@ class KnowledgeDialog(SkinDialog):
         layout.addWidget(self.preview)
 
         buttons = QHBoxLayout()
-        add = QPushButton("Добавить текст…", self)
+        add = QPushButton(tr("knowledge.add"), self)
         add.clicked.connect(self._add)
-        remove = QPushButton("Удалить", self)
+        remove = QPushButton(tr("knowledge.remove"), self)
         remove.clicked.connect(self._remove)
-        close = QPushButton("Закрыть", self)
+        close = QPushButton(tr("knowledge.close"), self)
         close.clicked.connect(self.close)
         buttons.addWidget(add)
         buttons.addWidget(remove)
@@ -98,7 +98,7 @@ class KnowledgeDialog(SkinDialog):
         item = current.data(0x0100) or {}
         self.preview.setPlainText(
             f"{item.get('path')}:{item.get('line')}\n\n"
-            f"{item.get('snippet') or 'фрагмент пуст'}"
+            f"{item.get('snippet') or tr('knowledge.empty')}"
         )
 
     def _add(self) -> None:
@@ -106,8 +106,8 @@ class KnowledgeDialog(SkinDialog):
 
         text, ok = QInputDialog.getMultiLineText(
             self,
-            "Новый документ",
-            "Текст:",
+            tr("knowledge.new"),
+            tr("knowledge.text"),
         )
 
         if not ok or not text.strip():
@@ -115,8 +115,8 @@ class KnowledgeDialog(SkinDialog):
 
         title, ok = QInputDialog.getText(
             self,
-            "Заголовок",
-            "Название:",
+            tr("knowledge.header"),
+            tr("knowledge.name"),
         )
 
         if not ok:
@@ -124,8 +124,8 @@ class KnowledgeDialog(SkinDialog):
 
         tags, _ok = QInputDialog.getText(
             self,
-            "Теги",
-            "Через запятую (необязательно):",
+            tr("knowledge.tags"),
+            tr("knowledge.tags_hint"),
         )
         cleaned = [
             item.strip()
@@ -163,8 +163,8 @@ class KnowledgeDialog(SkinDialog):
 
         answer = QMessageBox.question(
             self,
-            "Удалить документ",
-            f"Удалить {path} из базы знаний?",
+            tr("knowledge.delete"),
+            tr("knowledge.delete_question", path=path),
         )
 
         if answer != QMessageBox.StandardButton.Yes:

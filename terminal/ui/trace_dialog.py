@@ -58,7 +58,13 @@ def format_trace(steps, answer: str = "", error: str = "") -> str:
 class TraceDialog(SkinDialog):
     """Полный трейс одной задачи."""
 
-    def __init__(self, parent, title: str, text: str) -> None:
+    def __init__(
+        self,
+        parent,
+        title: str,
+        text: str,
+        on_replay=None,
+    ) -> None:
         super().__init__(
             parent,
             title,
@@ -78,6 +84,13 @@ class TraceDialog(SkinDialog):
         buttons.button(QDialogButtonBox.Close).setText("Закрыть")
         buttons.rejected.connect(self.reject)
 
+        if on_replay is not None:
+            replay = buttons.addButton(
+                "Повторить",
+                QDialogButtonBox.ActionRole,
+            )
+            replay.clicked.connect(on_replay)
+
         self.body_layout.addWidget(header)
         self.body_layout.addWidget(self.view, 1)
         self.body_layout.addWidget(buttons)
@@ -88,8 +101,9 @@ def show_trace_dialog(
     title: str,
     text: str,
     key: str = "agent-trace",
+    on_replay=None,
 ) -> None:
     """Открывает немодальное окно трейса."""
 
-    dialog = TraceDialog(parent, title, text)
+    dialog = TraceDialog(parent, title, text, on_replay)
     show_tool_window(parent, dialog, key)
