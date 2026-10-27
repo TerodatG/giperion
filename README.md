@@ -491,10 +491,11 @@ updates/       скачанные патчи и резервные копии (�
 
 Модель — отдельный проект `model/` с пакетом `giperion_model`,
 собственным `pyproject.toml` и тестами. Приложение ставит его как
-зависимость (`python -m pip install -e model`) и импортирует только
-публичный пакет. Граница направленная: `terminal` может импортировать
-`giperion_model` и `shared`, модель не импортирует `terminal`, `shared`
-или `config` приложения — у неё свой `config.py` и локальный `_shared`.
+зависимость (`python -m pip install -e model`) и использует как фасад
+`api.py`, так и несколько зафиксированных внутренних модулей. Граница
+направленная: `terminal` может импортировать `giperion_model` и
+`shared`, модель не импортирует `terminal`, `shared` или `config`
+приложения — у неё свой `config.py` и локальный `_shared`.
 Это проверяет `tests/test_architecture.py`. Подробнее —
 `docs/architecture.md` и `model/README.md`.
 Аудит проекта — `docs/audit_2026-10-27.md`, автоматизация и фоновые

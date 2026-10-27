@@ -109,14 +109,23 @@ def install(
     folder: Path,
     target: Path = PLUGIN_DIR,
     force: bool = False,
-    require_signature: bool = False,
+    allow_unsigned: bool = False,
+    require_signature: bool | None = None,
 ) -> dict:
-    """Копирует плагин в data/agent_tools и пишет хеши."""
+    """Копирует плагин в data/agent_tools и пишет хеши.
+
+    По умолчанию подпись обязательна; allow_unsigned отключает
+    проверку только для локальной разработки.
+    """
 
     document, manifest_path, modules = validate(folder)
     signature_file = Path(folder) / "signature.json"
+    must_sign = True if require_signature is None else require_signature
 
-    if signature_file.is_file() or require_signature:
+    if allow_unsigned:
+        must_sign = False
+
+    if signature_file.is_file() or must_sign:
         from importlib import import_module
 
         checker = import_module("tools.plugin_sign")
@@ -172,9 +181,9 @@ def main() -> int:
     parser.add_argument("folder")
     parser.add_argument("--force", action="store_true")
     parser.add_argument(
-        "--require-signature",
+        "--allow-unsigned",
         action="store_true",
-        help="требовать signature.json (HMAC-SHA256)",
+        help="разрешить установку без signature.json (для разработки)",
     )
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--target", default=str(PLUGIN_DIR))
@@ -195,7 +204,7 @@ def main() -> int:
             folder,
             target=Path(args.target),
             force=args.force,
-            require_signature=args.require_signature,
+            allow_unsigned=args.allow_unsigned,
         )
     except ValueError as error:
         print("Не установлено:", error)

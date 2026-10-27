@@ -93,6 +93,30 @@ python -m tools.agent_parallel --write "Поправь опечатки в docs/
 - Слияние веток — вручную после просмотра диффа, если `--merge` не
   указан. Автоматического разрешения конфликтов нет.
 
+### Граф задач
+
+```
+python -m tools.agent_dag plan.json --workers 2
+python -m tools.agent_dag plan.json --write --merge
+```
+
+`plan.json`:
+
+```json
+{
+  "tasks": [
+    {"id": "schema", "task": "Найди схему БД"},
+    {"id": "api", "task": "Опиши API", "depends": ["schema"]},
+    {"id": "docs", "task": "Обнови docs", "depends": ["api"], "write": true}
+  ]
+}
+```
+
+Задачи идут уровнями: потомок ждёт все зависимости. Если зависимость
+упала, потомок помечается `ПРОПУСК` и не запускается. Цикл или
+неизвестная зависимость отклоняются до старта. `write: true` отправляет
+задачу в отдельный worktree; `--merge` сливает успешные ветки.
+
 ## Установка плагинов
 
 ```
@@ -112,14 +136,15 @@ python -m tools.plugin_install path/to/plugin --force
 python -m tools.plugin_sign path/to/plugin --gen-key
 python -m tools.plugin_sign path/to/plugin
 python -m tools.plugin_sign path/to/plugin --verify
-python -m tools.plugin_install path/to/plugin --require-signature
+python -m tools.plugin_install path/to/plugin
+python -m tools.plugin_install path/to/plugin --allow-unsigned  # разработка
 ```
 
-Ключ лежит в `data/plugin_signing.key` (вне git). Если `signature.json`
-есть, установщик проверяет его и при расхождении отказывает; с
-`--require-signature` подпись обязательна. Это защита от подмены файлов,
-но не удостоверение личности автора: ключ можно передать вместе с
-плагином.
+Ключ лежит в `data/plugin_signing.key` (вне git). Подпись обязательна по
+умолчанию: неподписанный или изменённый плагин не устанавливается.
+`--allow-unsigned` отключает проверку только для локальной разработки.
+Это защита от подмены файлов, но не удостоверение личности автора: ключ
+можно передать вместе с плагином.
 
 ## Публикация ветки и PR
 
@@ -142,6 +167,18 @@ python -m tools.build_portable --with-tests --output dist/giperion.zip
 Zip без `data/`, `models/`, `.git`, worktrees и кешей; внутри
 `PORTABLE.txt` с инструкцией. Данные создаются заново при первом
 запуске.
+
+## Резервная копия данных
+
+```
+python -m tools.backup_data --create
+python -m tools.backup_data --create --with-secrets
+python -m tools.backup_data --restore data/backups/giperion-data-....zip
+```
+
+Архив `data/` с `manifest.json`; токены и ключи по умолчанию
+исключены. Восстановление не перезаписывает существующие файлы без
+`--force` и отклоняет пути с `..`.
 
 ## Ограничения
 

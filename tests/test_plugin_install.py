@@ -48,7 +48,11 @@ def test_validate_and_install(tmp_path) -> None:
     assert len(modules) == 1
 
     target = tmp_path / "tools"
-    result = plugin_install.install(folder, target=target)
+    result = plugin_install.install(
+        folder,
+        target=target,
+        allow_unsigned=True,
+    )
 
     installed = target / "word_count"
     manifest = json.loads(
@@ -66,15 +70,42 @@ def test_conflict_requires_force(tmp_path) -> None:
 
     folder = _plugin(tmp_path)
     target = tmp_path / "tools"
-    plugin_install.install(folder, target=target)
+    plugin_install.install(
+        folder,
+        target=target,
+        allow_unsigned=True,
+    )
 
     with pytest.raises(ValueError):
-        plugin_install.install(folder, target=target)
+        plugin_install.install(
+            folder,
+            target=target,
+            allow_unsigned=True,
+        )
 
     assert plugin_install.install(
         folder,
         target=target,
         force=True,
+        allow_unsigned=True,
+    )["name"] == "word_count"
+
+
+def test_unsigned_is_rejected_by_default(tmp_path) -> None:
+    """Без подписи установка блокируется, пока не разрешена явно."""
+
+    folder = _plugin(tmp_path)
+
+    with pytest.raises(ValueError, match="Подпись"):
+        plugin_install.install(
+            folder,
+            target=tmp_path / "tools",
+        )
+
+    assert plugin_install.install(
+        folder,
+        target=tmp_path / "tools",
+        allow_unsigned=True,
     )["name"] == "word_count"
 
 
