@@ -1,10 +1,10 @@
-# Giperion/tools/label_unknown.py                                 v002
+# Giperion/tools/label_unknown.py                                 v003
 # Черновик разметки непонятых фраз с подсказкой нейросети.
-# Последнее изменение: черновик пишется через общий атомарный слой.
+# Последнее изменение: учитывается общий порог выбранной модели.
 
 from config import DATA_DIR
 from giperion_model.language.intent_handler import load_intents
-from giperion_model.neural_engine import CONFIDENCE_THRESHOLD, _build_engine
+from giperion_model.neural_engine import _build_engine
 from shared.storage.json_store import write_json
 from shared.text_tools import normalize_message
 from terminal.memory.memory import get_unknown_messages
@@ -54,14 +54,18 @@ def suggest_action(
             "нейросеть недоступна — разметь вручную",
         )
 
-    label, confidence = engine.classify(text)
+    gated = engine._gated_classification(text)
 
-    if confidence >= CONFIDENCE_THRESHOLD:
+    if gated is not None:
+        label, confidence = gated
+
         return (
             "add",
             label,
             f"предложено моделью: {label} ({confidence:.2f})",
         )
+
+    label, confidence = engine.classify(text)
 
     return (
         "skip",
@@ -121,7 +125,7 @@ def main() -> None:
         LABELS_FILE,
         {
             "_meta": {
-                "path": "Giperion/data/unknown_labels.json",
+                "path": "data/unknown_labels.json",
                 "description": (
                     "Черновик разметки непонятых фраз. "
                     "add — добавить в intents (указать tag) и убрать "
