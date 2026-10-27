@@ -1,9 +1,10 @@
-# GiperionModel/giperion_model/neural_engine.py                       v004
+# GiperionModel/giperion_model/neural_engine.py                       v005
 # Нейросетевой движок: намерение классификатора и сгенерированный ответ.
-# Последнее изменение: линейный роутер отвечает раньше CNN.
+# Последнее изменение: защита от повторов и ответов не по теме.
 
 import random
 import threading
+from collections import Counter
 
 import torch
 
@@ -22,6 +23,29 @@ GENERATION_THRESHOLD = 0.6
 
 # Слишком короткий вывод seq2seq не считаем ответом.
 MIN_GENERATED_LEN = 6
+
+# Слишком длинный или зацикленный вывод тоже отбрасываем.
+MAX_GENERATED_LEN = 240
+
+# Если обратная проверка уверена в другом намерении — ответ не принимаем.
+INTENT_CHECK_THRESHOLD = 0.6
+
+
+def has_repetition(text: str) -> bool:
+    """Ищет зацикленные трёхсловные повторы в сгенерированном тексте."""
+
+    words = str(text or "").lower().split()
+
+    if len(words) < 6:
+        return False
+
+    trigrams = [
+        tuple(words[index : index + 3])
+        for index in range(len(words) - 2)
+    ]
+    counts = Counter(trigrams)
+
+    return max(counts.values(), default=0) > 1
 
 
 class NeuralEngine:
@@ -190,7 +214,23 @@ class NeuralEngine:
         if len(answer) < MIN_GENERATED_LEN:
             return None
 
+        if len(answer) > MAX_GENERATED_LEN:
+            return None
+
+        if has_repetition(answer):
+            return None
+
         return answer
+
+    def _matches_intent(self, answer: str, label: str) -> bool:
+        """Проверяет, что сгенерированный ответ про то же намерение."""
+
+        predicted, confidence = self.classify(answer)
+
+        return (
+            predicted == label
+            or confidence < INTENT_CHECK_THRESHOLD
+        )
 
     def reply_with_confidence(
         self,
@@ -215,7 +255,10 @@ class NeuralEngine:
         if self.generator is not None and confidence >= GENERATION_THRESHOLD:
             generated = self.generate(message)
 
-            if generated:
+            if generated and self._matches_intent(
+                generated,
+                label,
+            ):
                 return generated, confidence
 
         return random.choice(responses), confidence
