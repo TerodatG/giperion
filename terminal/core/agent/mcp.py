@@ -305,6 +305,52 @@ def _spec_from_tool(server: str, tool: dict) -> tuple[ToolSpec, str] | None:
     return spec, raw_name
 
 
+def _spec_from_prompt(server: str, prompt: dict) -> tuple[ToolSpec, str] | None:
+    """Превращает MCP-промпт в инструмент mcp_<сервер>_prompt_<имя>."""
+
+    raw_name = str(prompt.get("name") or "").strip()
+
+    if not raw_name:
+        return None
+
+    full_name = (
+        f"mcp_{_safe_name(server)}_prompt_{_safe_name(raw_name)}"
+    )[:64]
+    properties: dict[str, str] = {}
+    required: list[str] = []
+    arguments = prompt.get("arguments")
+
+    if isinstance(arguments, list):
+        for item in arguments:
+            if not isinstance(item, dict):
+                continue
+
+            name = str(item.get("name") or "").strip()
+
+            if not name:
+                continue
+
+            properties[name] = str(
+                item.get("description") or "аргумент промпта"
+            )
+
+            if item.get("required") is True:
+                required.append(name)
+
+    description = str(prompt.get("description") or "").strip()
+    spec = ToolSpec(
+        name=full_name,
+        description=(
+            f"MCP-промпт «{server}»: " + (description or raw_name)
+        )[:400],
+        args=properties,
+        risk="read",
+        required=tuple(required),
+    )
+
+    return spec, raw_name
+
+
 def _mcp_enabled() -> bool:
     """Включены ли MCP-серверы в настройках."""
 
@@ -416,6 +462,33 @@ def _build_cache() -> tuple[tuple[ToolSpec, ...], dict[str, tuple[str, str]]]:
             specs.append(spec)
             handlers[spec.name] = (server.name, original)
 
+        try:
+            prompts = _session(server).list_prompts()
+        except McpError:
+            prompts = []
+
+        for prompt in prompts:
+            raw_name = str(prompt.get("name") or "")
+
+            if not _tool_allowed(server, raw_name):
+                continue
+
+            parsed = _spec_from_prompt(server.name, prompt)
+
+            if parsed is None:
+                continue
+
+            spec, original = parsed
+
+            if spec.name in handlers or len(specs) >= MAX_TOOLS:
+                continue
+
+            specs.append(spec)
+            handlers[spec.name] = (
+                server.name,
+                "prompt:" + original,
+            )
+
     return tuple(specs), handlers
 
 
@@ -465,6 +538,17 @@ def call_tool(root: Path, name: str, arguments: dict | None = None) -> ToolResul
         return ToolResult(False, str(error))
 
     try:
+        if original.startswith("prompt:"):
+            text = client.get_prompt(
+                original[len("prompt:"):],
+                dict(arguments or {}),
+            )
+
+            return ToolResult(
+                True,
+                text or "MCP: пустой промпт",
+            )
+
         return client.call_tool(
             original,
             dict(arguments or {}),

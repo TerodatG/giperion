@@ -118,6 +118,12 @@ def write_file(root: Path, path: str, content: str) -> ToolResult:
     except ToolError as error:
         return ToolResult(False, str(error))
 
+    if target.exists() and old_text == str(content):
+        return ToolResult(
+            True,
+            f"Без изменений: {_relative(root, target)}",
+        )
+
     backup = _backup(root, target) if target.exists() else ""
 
     _write_atomic(target, str(content))
@@ -238,6 +244,12 @@ def apply_patch(
         )
     except ToolError as error:
         return ToolResult(False, str(error))
+
+    if new_text == _old:
+        return ToolResult(
+            True,
+            f"Без изменений: {_relative(root, target)}",
+        )
 
     backup = _backup(root, target)
     _write_atomic(target, new_text)

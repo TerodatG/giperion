@@ -292,3 +292,31 @@ def test_bool_arg_parses_strings() -> None:
         ToolCall("run_tests", {"dry_run": "нет"}),
         "dry_run",
     )
+
+
+def test_repeated_write_is_idempotent(project) -> None:
+    """Повторная запись того же текста не создаёт новую копию."""
+
+    first = tools.write_file(project, "a.txt", "привет\nмир\n")
+
+    assert first.ok
+    assert "Записан" in first.text
+
+    second = tools.write_file(project, "a.txt", "привет\nмир\n")
+
+    assert second.ok
+    assert "Без изменений" in second.text
+
+
+def test_noop_patch_is_idempotent(project) -> None:
+    """Замена фрагмента на тот же текст не перезаписывает файл."""
+
+    result = tools.apply_patch(
+        project,
+        "a.txt",
+        "привет",
+        "привет",
+    )
+
+    assert result.ok
+    assert "Без изменений" in result.text

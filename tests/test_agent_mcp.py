@@ -569,3 +569,60 @@ def test_sse_parser_takes_last_event() -> None:
     )
 
     assert _parse(raw, "text/event-stream")["result"] == {"a": 2}
+
+
+def test_prompts_and_prompt_tool_spec() -> None:
+    """Промпты читаются и превращаются в read-only инструмент."""
+
+    from terminal.core.agent.mcp_base import McpToolClient
+
+    class Client(McpToolClient):
+        server = mcp.McpServer("stub", "python")
+
+        def request(self, method, params=None):
+            if method == "prompts/list":
+                return {
+                    "prompts": [
+                        {
+                            "name": "review",
+                            "description": "Проверить код",
+                            "arguments": [
+                                {
+                                    "name": "path",
+                                    "description": "файл",
+                                    "required": True,
+                                }
+                            ],
+                        }
+                    ]
+                }
+
+            if method == "prompts/get":
+                return {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": {
+                                "type": "text",
+                                "text": "проверь " + params["arguments"]["path"],
+                            },
+                        }
+                    ]
+                }
+
+            return {}
+
+    client = Client()
+
+    assert client.list_prompts()[0]["name"] == "review"
+    assert client.get_prompt("review", {"path": "a.py"}) == "проверь a.py"
+
+    parsed = mcp._spec_from_prompt("stub", client.list_prompts()[0])
+
+    assert parsed is not None
+    spec, name = parsed
+
+    assert name == "review"
+    assert spec.name == "mcp_stub_prompt_review"
+    assert spec.risk == "read"
+    assert spec.required == ("path",)

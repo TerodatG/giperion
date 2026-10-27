@@ -159,3 +159,20 @@ def test_secrets_are_redacted() -> None:
 
     assert "sk-1234567890abcdef" not in line
     assert "[скрыто]" in line
+
+
+def test_pinned_notes_are_not_cut(monkeypatch) -> None:
+    """Закреплённая заметка остаётся в промпте при переполнении."""
+
+    monkeypatch.setattr(memory, "PROMPT_CHARS", 200)
+
+    memory.add_note("важное правило", tags=["pin"])
+
+    for index in range(20):
+        memory.add_note(f"шум {index} " + "х" * 20)
+
+    block = memory.prompt_block()
+
+    assert "Закреплено:" in block
+    assert "важное правило" in block
+    assert len(block) < 600

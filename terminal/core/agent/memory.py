@@ -301,7 +301,19 @@ def import_notes(path: Path, root: Path | None = None) -> int:
 def prompt_block(root: Path | None = None) -> str:
     """Блок «Память проекта» для системного промпта."""
 
+    pinned = load_notes(limit=MAX_CHARS, root=root, tag="pin")
     notes = load_notes(root=root)
+
+    if pinned:
+        pinned_lines = set(pinned.splitlines())
+        rest = "\n".join(
+            line
+            for line in notes.splitlines()
+            if line not in pinned_lines
+        )
+        head = "Закреплено:\n" + pinned
+        room = max(0, PROMPT_CHARS - len(head) - 2)
+        notes = head + ("\n\n" + rest[-room:] if rest and room else "")
 
     if not notes:
         return ""

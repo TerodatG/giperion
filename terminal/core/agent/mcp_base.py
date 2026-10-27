@@ -46,6 +46,46 @@ class McpToolClient:
             item for item in resources if isinstance(item, dict)
         ]
 
+    def list_prompts(self) -> list[dict]:
+        """Список промптов сервера (если он их поддерживает)."""
+
+        try:
+            result = self.request("prompts/list", {})
+        except McpError:
+            return []
+
+        prompts = result.get("prompts")
+
+        if not isinstance(prompts, list):
+            return []
+
+        return [item for item in prompts if isinstance(item, dict)]
+
+    def get_prompt(self, name: str, arguments: dict) -> str:
+        """Текст промпта MCP по имени и аргументам."""
+
+        result = self.request(
+            "prompts/get",
+            {"name": name, "arguments": dict(arguments or {})},
+        )
+        messages = result.get("messages")
+        parts = []
+
+        if isinstance(messages, list):
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+
+                content = message.get("content")
+
+                if isinstance(content, dict):
+                    text = content.get("text")
+
+                    if isinstance(text, str) and text.strip():
+                        parts.append(text)
+
+        return "\n".join(parts)
+
     def read_resource(self, uri: str) -> str:
         """Текст ресурса по URI."""
 

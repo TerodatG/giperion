@@ -758,3 +758,37 @@ def test_run_actions_switches_tabs() -> None:
     )
 
     assert back is first
+
+
+def test_websocket_guard_blocks_private_networks(monkeypatch) -> None:
+    """WS-фильтр закрывает локальные адреса и пропускает публичные."""
+
+    from types import SimpleNamespace
+
+    from terminal.core.agent import browser_worker, web
+
+    closed = []
+    opened = []
+
+    class Route:
+        def __init__(self, url: str) -> None:
+            self.url = url
+            self.request = SimpleNamespace(url=url)
+
+        def close(self):
+            closed.append(self.url)
+
+        def connect_to_server(self):
+            opened.append(self.url)
+
+    monkeypatch.setattr(
+        web,
+        "is_public_host",
+        lambda host: host == "example.com",
+    )
+
+    browser_worker._guard_ws(Route("wss://example.com/socket"))
+    browser_worker._guard_ws(Route("wss://127.0.0.1/socket"))
+
+    assert opened == ["wss://example.com/socket"]
+    assert closed == ["wss://127.0.0.1/socket"]
