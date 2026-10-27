@@ -489,7 +489,8 @@ updates/       скачанные патчи и резервные копии (�
 Аудит проекта — `docs/audit_2026-10-27.md`, автоматизация и фоновые
 задачи — `docs/automation.md`, статус этапов 1–14 —
 `docs/roadmap_2026-10-27.md`, установка и перенос — `docs/install.md`,
-долгосрочный план — `docs/roadmap_20.md`.
+долгосрочный план — `docs/roadmap_20.md`, развитие терминала —
+`docs/roadmap_terminal_20.md`.
 
 Крупные домены разделены на модули: каталог моделей
 (`model_catalog`/`model_settings`/`model_custom`/`model_stats`), системные
