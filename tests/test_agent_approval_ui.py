@@ -308,3 +308,16 @@ def test_hunk_dialog_starts_with_all_selected(qapp) -> None:
 
     assert dialog.selected() == {0}
     dialog.close()
+
+
+def test_controls_have_accessible_names(qapp) -> None:
+    """Кнопки и поле задачи доступны экранному диктору."""
+
+    from terminal.ui.agent.controls import AgentControls
+
+    controls = AgentControls(None)
+
+    assert controls.task_input.accessibleName() == "Задача агента"
+    assert controls.run_button.accessibleName() == "Запустить задачу"
+    assert controls.pause_button.accessibleName() == "Пауза задачи"
+    controls.close()

@@ -71,6 +71,25 @@ class AgentControls(QWidget):
         layout.addLayout(self._build_model_row())
         layout.addLayout(self._build_limits_row())
         layout.addLayout(self._build_buttons_row())
+        self._apply_accessibility()
+
+    def _apply_accessibility(self) -> None:
+        """Имена для экранного диктора."""
+
+        names = {
+            self.task_input: "Задача агента",
+            self.template_combo: "Шаблон задачи",
+            self.run_button: "Запустить задачу",
+            self.stop_button: "Остановить задачу",
+            self.pause_button: "Пауза задачи",
+            self.plan_button: "План задачи",
+            self.retry_button: "Повторить с шага",
+            self.trace_button: "Трейс задачи",
+            self.status_label: "Состояние задачи",
+        }
+
+        for widget, name in names.items():
+            widget.setAccessibleName(name)
 
     def _build_task(self, layout: QVBoxLayout) -> None:
         """Поле задачи и выбор шаблона."""

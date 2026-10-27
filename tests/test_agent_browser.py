@@ -613,6 +613,7 @@ def test_download_paths_are_shown(tmp_path) -> None:
         "truncated": False,
         "shot": "",
         "downloads": [str(target)],
+        "download_text": "текст из PDF",
     }
 
     result = browser_js._answer(
@@ -625,6 +626,7 @@ def test_download_paths_are_shown(tmp_path) -> None:
     assert result.ok
     assert "файлы:" in result.text
     assert "a.pdf" in result.text
+    assert "текст из PDF" in result.text
 
 
 def test_wait_actions_are_sanitized() -> None:

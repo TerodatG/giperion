@@ -400,6 +400,11 @@ def _answer(
 
         body += "\n\nфайлы: " + ", ".join(shown_downloads)
 
+    pdf = str(data.get("download_text") or "").strip()
+
+    if pdf:
+        body += "\n\nТекст PDF:\n" + pdf[:MAX_TEXT]
+
     return ToolResult(True, body)
 
 

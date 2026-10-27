@@ -8,7 +8,7 @@ import sys
 import urllib.parse
 from pathlib import Path
 
-from terminal.core.agent import browser_profile, browser_tabs
+from terminal.core.agent import browser_profile, browser_tabs, pdf_text
 from terminal.core.agent.browser_page import (
     clip as _clip,
 )
@@ -322,6 +322,7 @@ def render(request: dict) -> dict:
                 "truncated": truncated,
                 "shot": shot_path,
                 "downloads": downloads,
+                "download_text": pdf_text.from_files(downloads),
             }
         finally:
             browser.close()
@@ -411,6 +412,7 @@ def _open_page(page, request: dict, timeout: int) -> tuple[dict, object]:
     data = _page_data(page)
     data["shot"] = _take_shot(page, request)
     data["downloads"] = downloads
+    data["download_text"] = pdf_text.from_files(downloads)
 
     return data, page
 
@@ -434,6 +436,7 @@ def _act_page(page, request: dict, timeout: int) -> tuple[dict, object]:
     data = _page_data(page)
     data["shot"] = _take_shot(page, request)
     data["downloads"] = downloads
+    data["download_text"] = pdf_text.from_files(downloads)
 
     return data, page
 
