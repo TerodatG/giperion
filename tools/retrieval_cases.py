@@ -83,4 +83,80 @@ CASES = (
         "где проверяется белый список команд",
         "terminal/core/agent/commands.py",
     ),
+    (
+        "модуль vector_store и sqlite для векторов",
+        "terminal/core/agent/vector_store.py",
+    ),
+    (
+        "build_portable сборка переносимого архива",
+        "tools/build_portable.py",
+    ),
+    (
+        "подпись плагина hmac",
+        "tools/plugin_sign.py",
+    ),
+    (
+        "установка плагина из папки",
+        "tools/plugin_install.py",
+    ),
+    (
+        "due задачи расписание JSON",
+        "terminal/core/schedule.py",
+    ),
+    (
+        "сравнение моделей по истории",
+        "tools/eval_compare.py",
+    ),
+    (
+        "журнал прогонов агента",
+        "terminal/core/agent/runs.py",
+    ),
+    (
+        "вебхук о завершении задачи",
+        "terminal/core/agent/notify.py",
+    ),
+    (
+        "граф зависимостей задач",
+        "tools/agent_dag.py",
+    ),
+    (
+        "проверка секретов в файлах",
+        "tools/scan_secrets.py",
+    ),
+    (
+        "атомарная запись чекпоинта модели",
+        "model/giperion_model/storage.py",
+    ),
+    (
+        "GIPERION_DEVICE model config пути",
+        "model/giperion_model/config.py",
+    ),
+    (
+        "очередь задач агента",
+        "terminal/core/agent/queue.py",
+    ),
+    (
+        "каталог плагинов",
+        "tools/plugin_catalog.py",
+    ),
+    (
+        "профиль cookies браузера",
+        "terminal/core/agent/browser_profile.py",
+    ),
+    (
+        "вкладки браузера",
+        "terminal/core/agent/browser_tabs.py",
+    ),
+    (
+        "MCP промпты",
+        "terminal/core/agent/mcp_base.py",
+    ),
+    (
+        "квоты MCP",
+        "terminal/core/agent/mcp_policy.py",
+    ),
+    (
+        "резервная копия данных",
+        "tools/backup_data.py",
+    ),
 )
