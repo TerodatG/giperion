@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Callable
 
 from terminal.core.agent import registry
+from terminal.core.agent.loop_audit import audit as _audit
+from terminal.core.agent.loop_audit import target as _target
 from terminal.core.agent.loop_helpers import (
     Brain,
     _approval_title,
@@ -28,28 +30,6 @@ MAX_TOOL_CALLS = 60
 MAX_NETWORK_CALLS = 12
 MAX_WRITE_CALLS = 25
 NETWORK_TOOLS = {"fetch_url", "browser_read", "browser_act"}
-
-
-def _audit(event: str, payload: dict) -> dict | None:
-    """Пишет событие аудита, не ломая задачу при сбое журнала."""
-
-    try:
-        from terminal.core.agent import audit
-
-        return audit.record(event, payload)
-    except (OSError, TypeError, ValueError):
-        return None
-
-
-def _target(call: ToolCall) -> str:
-    """Короткая цель вызова для аудита."""
-
-    try:
-        from terminal.core.agent import audit
-
-        return audit.target_of(dict(call.args or {}))
-    except (TypeError, ValueError):
-        return ""
 WRITE_TOOLS = {
     "write_file",
     "apply_patch",
@@ -337,10 +317,15 @@ def _request_approval(
         approved = bool(answer.approved)
         edited = answer.text
         keep = bool(answer.remember)
+        batch = bool(answer.batch)
     else:
         approved = bool(answer)
         edited = None
         keep = False
+        batch = False
+
+    if approved and batch:
+        state.remembered.add("*:write")
 
     state.emit(
         AgentStep(
@@ -484,6 +469,22 @@ def _approve_and_execute(
                 "approval",
                 "Без вопроса · " + _approval_title(call),
                 "Разрешено до конца задачи: " + key,
+            )
+        )
+        requires_approval = False
+
+    if (
+        requires_approval
+        and "*:write" in state.remembered
+        and risk == "write"
+        and call.tool != "git_commit"
+    ):
+        state.emit(
+            AgentStep(
+                index,
+                "approval",
+                "Без вопроса · " + _approval_title(call),
+                "Разрешены все правки до конца задачи.",
             )
         )
         requires_approval = False

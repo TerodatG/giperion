@@ -70,6 +70,7 @@ class ApprovalResult:
     approved: bool
     text: str | None = None
     remember: bool = False
+    batch: bool = False
 
 
 @dataclass(frozen=True)

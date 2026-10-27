@@ -165,6 +165,10 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         return self.controls.pause_button
 
     @property
+    def batch_checkbox(self):
+        return self.approval.batch_checkbox
+
+    @property
     def provider_button(self):
         return self.controls.provider_button
 
@@ -518,7 +522,8 @@ class AgentDialog(AgentRunnerMixin, SkinDialog):
         if self.job is None:
             return
 
-        self.job.resolve_approval(approved, text, remember)
+        batch = self.approval.batch_requested()
+        self.job.resolve_approval(approved, text, remember, batch)
         self.approval.hide_panel()
 
         if not approved:

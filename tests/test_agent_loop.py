@@ -10,6 +10,7 @@ from terminal.core.agent.context import (
     parse_decision,
 )
 from terminal.core.agent.loop import run_agent
+from terminal.core.agent.protocol import ApprovalResult
 
 
 class ScriptedBrain:
@@ -995,3 +996,38 @@ def test_grounding_adds_semantic_for_questions(tmp_path, monkeypatch) -> None:
     )
 
     assert not any(call.tool == "find_relevant" for call in disabled)
+
+
+def test_batch_approval_skips_later_writes(tmp_path) -> None:
+    """Одна галочка «все правки» закрывает последующие записи."""
+
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("b", encoding="utf-8")
+    brain = ScriptedBrain(
+        [
+            _tool("write_file", path="a.txt", content="A"),
+            _tool("write_file", path="b.txt", content="B"),
+            _answer("готово"),
+        ]
+    )
+    calls = []
+
+    def approve(request):
+        calls.append(request.kind)
+
+        return ApprovalResult(True, None, False, True)
+
+    result = run_agent(
+        "правь",
+        brain,
+        tmp_path,
+        ground_first=False,
+        require_tool_first=False,
+        policy="confirm",
+        approve=approve,
+    )
+
+    assert not result.error
+    assert calls == ["write_file"]
+    assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "A"
+    assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "B"

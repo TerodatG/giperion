@@ -95,6 +95,17 @@ class ApprovalPanel(QFrame):
         self.allow_checkbox.setObjectName("approvalPolicy")
         self.allow_checkbox.setVisible(False)
 
+        self.batch_checkbox = QCheckBox(
+            "Не спрашивать все правки до конца задачи",
+            self,
+        )
+        self.batch_checkbox.setObjectName("approvalPolicy")
+        self.batch_checkbox.setVisible(False)
+        self.batch_checkbox.setToolTip(
+            "Автоматически разрешать последующие записи файлов, "
+            "кроме git-коммитов."
+        )
+
         self.approve_button = QPushButton("Одобрить", self)
         self.approve_button.setObjectName("workshopAction")
         self.approve_button.clicked.connect(self.approve)
@@ -126,6 +137,7 @@ class ApprovalPanel(QFrame):
         layout.addWidget(self.detail)
         layout.addWidget(self.edit_split)
         layout.addWidget(self.allow_checkbox)
+        layout.addWidget(self.batch_checkbox)
         layout.addLayout(buttons)
 
         self._highlight_timer = QTimer(self)
@@ -161,6 +173,8 @@ class ApprovalPanel(QFrame):
         self.allow_checkbox.setVisible(
             bool(remember_title and request.key)
         )
+        self.batch_checkbox.setChecked(False)
+        self.batch_checkbox.setVisible(request.new_text is not None)
 
         self._refresh_highlights()
         self.setVisible(True)
@@ -176,6 +190,7 @@ class ApprovalPanel(QFrame):
 
         self._editing = False
         self.hunks_button.setVisible(False)
+        self.batch_checkbox.setVisible(False)
         self.edit_button.setText("Править")
         self.edit_split.setVisible(False)
         self.detail.setVisible(True)
@@ -206,6 +221,11 @@ class ApprovalPanel(QFrame):
         """Сообщает об отклонении действия."""
 
         self.resolved.emit(False, None, False)
+
+    def batch_requested(self) -> bool:
+        """Просил ли пользователь не спрашивать все правки."""
+
+        return bool(self.batch_checkbox.isChecked())
 
     def _toggle_edit(self) -> None:
         """Переключает дифф и редактируемый текст."""

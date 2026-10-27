@@ -88,6 +88,7 @@ class AgentJob:
         # Разрешения «до конца задачи»: только для этого прогона.
         self.allowed: set[str] = set()
         self._remember = False
+        self._batch = False
         self._stop = threading.Event()
         self._pause = threading.Event()
         self._pause.set()
@@ -232,6 +233,7 @@ class AgentJob:
         self._approved = False
         self._approval_text = None
         self._remember = False
+        self._batch = False
         self._approval.clear()
 
         while not self._approval.wait(0.2):
@@ -246,6 +248,7 @@ class AgentJob:
             self._approved,
             self._approval_text,
             self._remember,
+            self._batch,
         )
 
     def resolve_approval(
@@ -253,12 +256,14 @@ class AgentJob:
         approved: bool,
         text: str | None = None,
         remember: bool = False,
+        batch: bool = False,
     ) -> None:
         """Передаёт решение кнопки, правку текста и «не спрашивать»."""
 
         self._approved = bool(approved)
         self._approval_text = text
         self._remember = bool(remember)
+        self._batch = bool(batch)
         self._approval.set()
 
     def _on_step(self, step: AgentStep) -> None:

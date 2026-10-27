@@ -49,9 +49,14 @@ def _fake_job(pending: ApprovalRequest, captured: dict):
         live_tokens=0,
         live_cost=0.0,
         partial="",
-        resolve_approval=lambda approved, text=None, remember=False: (
-            captured.update(approved=approved, remember=remember)
+        resolve_approval=lambda approved, text=None, remember=False, batch=False: (
+            captured.update(
+                approved=approved,
+                remember=remember,
+                batch=batch,
+            )
         ),
+        cancel=lambda: None,
     )
 
 
@@ -73,7 +78,11 @@ def test_file_approval_can_be_remembered(qapp) -> None:
     dialog.allow_checkbox.setChecked(True)
     dialog._approve()
 
-    assert captured == {"approved": True, "remember": True}
+    assert captured == {
+        "approved": True,
+        "remember": True,
+        "batch": False,
+    }
 
     dialog.job = None
     dialog.close()
@@ -95,7 +104,11 @@ def test_approval_without_checkbox_sends_no_remember(qapp) -> None:
 
     dialog._approve()
 
-    assert captured == {"approved": True, "remember": False}
+    assert captured == {
+        "approved": True,
+        "remember": False,
+        "batch": False,
+    }
 
     dialog.job = None
     dialog.close()
@@ -115,7 +128,11 @@ def test_commit_has_no_remember_option(qapp) -> None:
     dialog.allow_checkbox.setChecked(True)
     dialog._approve()
 
-    assert captured == {"approved": True, "remember": False}
+    assert captured == {
+        "approved": True,
+        "remember": False,
+        "batch": False,
+    }
 
     dialog.job = None
     dialog.close()
@@ -258,6 +275,23 @@ def test_save_defaults_writes_settings(qapp, monkeypatch) -> None:
     assert captured["context"] == 120_000
     assert captured["model"]
 
+    dialog.close()
+
+
+def test_batch_checkbox_allows_all_writes(qapp) -> None:
+    """Галочка «все правки» доходит до задачи."""
+
+    dialog = _make_dialog(qapp)
+    captured: dict = {}
+
+    dialog.job = _fake_job(_pending("apply_patch", "file:a.txt"), captured)
+    dialog._poll()
+
+    assert not dialog.batch_checkbox.isHidden()
+    dialog.batch_checkbox.setChecked(True)
+    dialog._approve()
+
+    assert captured["batch"] is True
     dialog.close()
 
 
