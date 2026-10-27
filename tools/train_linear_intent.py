@@ -1,8 +1,9 @@
-# Giperion/tools/train_linear_intent.py                              v001
+# Giperion/tools/train_linear_intent.py                              v002
 # Обучение линейного роутера намерений и экспорт весов в JSON.
-# Последнее изменение: первый вариант — char n-grams + LogReg.
+# Последнее изменение: C=30 и баланс классов.
 
 import argparse
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
@@ -14,6 +15,10 @@ from sklearn.metrics import f1_score
 
 from config import DATA_DIR, MODELS_DIR
 from giperion_model.language.intent_handler import load_intents
+from giperion_model.language.linear_intent import (
+    ROUTER_CONFIDENCE_THRESHOLD,
+    LinearIntentRouter,
+)
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from shared.text_tools import normalize_message
 
@@ -90,6 +95,70 @@ def load_eval_data(
     return texts, labels, notes
 
 
+def file_sha256(path: Path) -> str:
+    """Считает хеш файла для метаданных артефакта."""
+
+    digest = hashlib.sha256()
+
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1 << 20), b""):
+            digest.update(chunk)
+
+    return digest.hexdigest()
+
+
+def measure_artifact(
+    path: Path,
+    texts: list[str],
+    labels: list[str],
+    threshold: float,
+) -> tuple[float, float]:
+    """Меряет покрытие и точность уже сохранённого артефакта."""
+
+    router = LinearIntentRouter.load(path)
+
+    if router is None:
+        return 0.0, 0.0
+
+    answered = 0
+    correct = 0
+
+    for text, expected in zip(texts, labels, strict=False):
+        result = router.predict(text)
+
+        if result is None:
+            continue
+
+        predicted, confidence = result
+
+        if confidence < threshold:
+            continue
+
+        answered += 1
+        correct += int(predicted == expected)
+
+    coverage = answered / len(labels) if labels else 0.0
+    accuracy = correct / answered if answered else 0.0
+
+    return coverage, accuracy
+
+
+def update_meta(path: Path, updates: dict) -> None:
+    """Дописывает поля в meta готового артефакта."""
+
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["meta"].update(updates)
+    path.write_text(
+        json.dumps(
+            document,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def fit_router(
     texts: list[str],
     labels: list[str],
@@ -106,6 +175,7 @@ def fit_router(
     model = LogisticRegression(
         max_iter=2000,
         C=penalty_c,
+        class_weight="balanced",
     )
     model.fit(matrix, labels)
 
@@ -187,8 +257,7 @@ def export_router(
     model: LogisticRegression,
     output: Path,
     top_weights: int,
-    metrics: dict[str, float],
-    train_size: int,
+    meta: dict,
 ) -> None:
     """Пишет компактный JSON, пригодный для чистого Python."""
 
@@ -201,12 +270,10 @@ def export_router(
         "meta": {
             "version": 1,
             "created": date.today().isoformat(),
-            "train_size": train_size,
             "classes": len(model.classes_),
             "ngram_range": list(NGRAM_RANGE),
             "top_weights": top_weights,
-            "eval_top1": round(metrics["top1"], 4),
-            "eval_macro_f1": round(metrics["macro_f1"], 4),
+            **meta,
         },
         "labels": [str(label) for label in model.classes_],
         "vocabulary": [gram for gram, _index in pairs],
@@ -256,7 +323,7 @@ def parse_args(
     parser.add_argument(
         "--c",
         type=float,
-        default=10.0,
+        default=30.0,
         help="регуляризация логистической регрессии",
     )
     parser.add_argument(
@@ -323,8 +390,35 @@ def main(argv: list[str] | None = None) -> int:
         model,
         args.output,
         args.top_weights,
-        {"top1": accuracy, "macro_f1": macro},
-        len(texts),
+        {
+            "train_size": len(texts),
+            "eval_size": len(eval_texts),
+            "eval_top1": round(accuracy, 4),
+            "eval_macro_f1": round(macro, 4),
+            "answer_threshold": ROUTER_CONFIDENCE_THRESHOLD,
+            "penalty_c": args.c,
+            "class_weight": "balanced",
+            "dataset_sha256": file_sha256(CLASSIFICATION_FILE),
+            "eval_sha256": file_sha256(EVAL_FILE),
+        },
+    )
+
+    coverage, selective = measure_artifact(
+        args.output,
+        eval_texts,
+        eval_labels,
+        ROUTER_CONFIDENCE_THRESHOLD,
+    )
+    update_meta(
+        args.output,
+        {
+            "eval_coverage": round(coverage, 4),
+            "eval_selective_accuracy": round(selective, 4),
+        },
+    )
+    print(
+        f"Покрытие: {coverage:.3f}, "
+        f"точность на покрытых: {selective:.3f}"
     )
 
     size = args.output.stat().st_size / 1e6

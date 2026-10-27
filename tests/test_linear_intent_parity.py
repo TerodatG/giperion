@@ -36,8 +36,7 @@ def test_router_matches_sklearn(tmp_path) -> None:
         model,
         output,
         top_weights=0,
-        metrics={"top1": 1.0, "macro_f1": 1.0},
-        train_size=len(TEXTS),
+        meta={"train_size": len(TEXTS)},
     )
 
     router = LinearIntentRouter.load(output)
