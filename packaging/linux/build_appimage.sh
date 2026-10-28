@@ -9,6 +9,8 @@ VERSION="${1:-1.0.0}"
 SOURCE="${2:-dist/Giperion}"
 OUTPUT="${3:-dist}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+case "$SOURCE" in /*) SRC="$SOURCE" ;; *) SRC="$ROOT/$SOURCE" ;; esac
+case "$OUTPUT" in /*) OUT="$OUTPUT" ;; *) OUT="$ROOT/$OUTPUT" ;; esac
 WORK="$ROOT/build/appimage"
 APPDIR="$WORK/Giperion.AppDir"
 
@@ -19,7 +21,7 @@ fi
 
 rm -rf "$WORK"
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib/giperion"
-cp -a "$ROOT/$SOURCE/." "$APPDIR/usr/lib/giperion/"
+cp -a "$SRC/." "$APPDIR/usr/lib/giperion/"
 
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash
@@ -44,8 +46,8 @@ if [ -f "$ROOT/assets/icon.png" ]; then
   cp "$ROOT/assets/icon.png" "$APPDIR/giperion.png"
 fi
 
-mkdir -p "$ROOT/$OUTPUT"
+mkdir -p "$OUT"
 ARCH=x86_64 appimagetool "$APPDIR" \
-  "$ROOT/$OUTPUT/Giperion-${VERSION}-linux-x64.AppImage"
+  "$OUT/Giperion-${VERSION}-linux-x64.AppImage"
 
-echo "Собрано: $OUTPUT/Giperion-${VERSION}-linux-x64.AppImage"
+echo "Собрано: $OUT/Giperion-${VERSION}-linux-x64.AppImage"

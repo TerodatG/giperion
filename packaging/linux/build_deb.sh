@@ -9,6 +9,8 @@ VERSION="${1:-1.0.0}"
 SOURCE="${2:-dist/Giperion}"
 OUTPUT="${3:-dist}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+case "$SOURCE" in /*) SRC="$SOURCE" ;; *) SRC="$ROOT/$SOURCE" ;; esac
+case "$OUTPUT" in /*) OUT="$OUTPUT" ;; *) OUT="$ROOT/$OUTPUT" ;; esac
 WORK="$ROOT/build/deb"
 PACKAGE="$WORK/giperion_${VERSION}_amd64"
 
@@ -19,7 +21,7 @@ mkdir -p "$PACKAGE/DEBIAN" \
   "$PACKAGE/usr/share/applications" \
   "$PACKAGE/usr/share/icons/hicolor/256x256/apps"
 
-cp -a "$ROOT/$SOURCE/." "$PACKAGE/usr/lib/giperion/"
+cp -a "$SRC/." "$PACKAGE/usr/lib/giperion/"
 
 cat > "$PACKAGE/usr/bin/giperion" <<'EOF'
 #!/usr/bin/env bash
@@ -57,8 +59,8 @@ Description: Giperion AI coding agent
  Local terminal, agent, knowledge base and Giperion model.
 EOF
 
-mkdir -p "$ROOT/$OUTPUT"
+mkdir -p "$OUT"
 dpkg-deb --build "$PACKAGE" \
-  "$ROOT/$OUTPUT/Giperion-${VERSION}-linux-x64.deb"
+  "$OUT/Giperion-${VERSION}-linux-x64.deb"
 
-echo "Собрано: $OUTPUT/Giperion-${VERSION}-linux-x64.deb"
+echo "Собрано: $OUT/Giperion-${VERSION}-linux-x64.deb"
