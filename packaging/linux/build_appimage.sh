@@ -23,7 +23,18 @@ cp -a "$ROOT/$SOURCE/." "$APPDIR/usr/lib/giperion/"
 
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash
-exec "$(dirname "$0")/usr/lib/giperion/Giperion" "$@"
+# Giperion: данные и логи — в профиль пользователя, модели — из AppImage.
+HERE="$(dirname "$(readlink -f "$0")")"
+export GIPERION_HOME="${GIPERION_HOME:-$HOME/.local/share/giperion}"
+export GIPERION_MODELS_DIR="${GIPERION_MODELS_DIR:-$HERE/usr/lib/giperion/_internal/models}"
+
+DATA="$GIPERION_HOME/data"
+mkdir -p "$DATA"
+if [ ! -f "$DATA/intents.json" ] && [ -f "$HERE/usr/lib/giperion/_internal/data/intents.json" ]; then
+  cp "$HERE/usr/lib/giperion/_internal/data/intents.json" "$DATA/" 2>/dev/null || true
+fi
+
+exec "$HERE/usr/lib/giperion/Giperion" "$@"
 EOF
 chmod 755 "$APPDIR/AppRun"
 

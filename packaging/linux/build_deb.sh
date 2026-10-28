@@ -23,6 +23,16 @@ cp -a "$ROOT/$SOURCE/." "$PACKAGE/usr/lib/giperion/"
 
 cat > "$PACKAGE/usr/bin/giperion" <<'EOF'
 #!/usr/bin/env bash
+# Giperion: данные и логи — в профиль пользователя, модели — из пакета.
+export GIPERION_HOME="${GIPERION_HOME:-$HOME/.local/share/giperion}"
+export GIPERION_MODELS_DIR="${GIPERION_MODELS_DIR:-/usr/lib/giperion/_internal/models}"
+
+DATA="$GIPERION_HOME/data"
+mkdir -p "$DATA"
+if [ ! -f "$DATA/intents.json" ] && [ -f /usr/lib/giperion/_internal/data/intents.json ]; then
+  cp /usr/lib/giperion/_internal/data/intents.json "$DATA/" 2>/dev/null || true
+fi
+
 exec /usr/lib/giperion/Giperion "$@"
 EOF
 chmod 755 "$PACKAGE/usr/bin/giperion"
