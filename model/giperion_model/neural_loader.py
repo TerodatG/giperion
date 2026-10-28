@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/neural_loader.py                       v003
+# GiperionModel/giperion_model/neural_loader.py                       v004
 # Загрузка чекпоинтов нейросетевого движка и ответов намерений.
-# Последнее изменение: компоненты загружаются независимо.
+# Последнее изменение: CNN по умолчанию не загружается.
 
 import json
 import logging
@@ -102,18 +102,28 @@ def get_last_error() -> str:
     return LAST_ERROR
 
 
+def load_tokenizers() -> tuple[WordTokenizer, CharTokenizer]:
+    """Загружает оба токенизатора."""
+
+    return (
+        WordTokenizer.load(TOKENIZER_FILE),
+        CharTokenizer.load(CHAR_TOKENIZER_FILE),
+    )
+
+
 def load_classifier(
     device: torch.device,
-) -> tuple[
-    HybridTextClassifier,
-    WordTokenizer,
-    CharTokenizer,
-    dict,
-]:
-    """Загружает CNN и оба токенизатора."""
+    word_tokenizer: WordTokenizer | None = None,
+    char_tokenizer: CharTokenizer | None = None,
+) -> tuple[HybridTextClassifier, dict]:
+    """Загружает CNN; токенизаторы можно передать заранее."""
 
-    word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
-    char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
+    if word_tokenizer is None:
+        word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
+
+    if char_tokenizer is None:
+        char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
+
     checkpoint = torch.load(
         CLASSIFIER_FILE,
         map_location=device,
@@ -129,7 +139,7 @@ def load_classifier(
     classifier.load_state_dict(checkpoint["model_state"])
     classifier.eval()
 
-    return classifier, word_tokenizer, char_tokenizer, checkpoint
+    return classifier, checkpoint
 
 
 def load_generator(
@@ -197,19 +207,29 @@ def load_components() -> dict | None:
     max_word_len = 0
 
     try:
-        (
-            classifier,
-            word_tokenizer,
-            char_tokenizer,
-            checkpoint,
-        ) = load_classifier(device)
-        labels = checkpoint["labels"]
-        max_word_len = checkpoint["max_len"]
-    except Exception as error:  # noqa: BLE001 — без CNN
+        word_tokenizer, char_tokenizer = load_tokenizers()
+    except Exception as error:  # noqa: BLE001 — без токенизаторов
         LOGGER.warning(
-            "CNN не загружена: %s",
+            "Токенизаторы не загружены: %s",
             error,
         )
+
+    use_cnn = os.environ.get("GIPERION_USE_CNN", "0") == "1"
+
+    if use_cnn and word_tokenizer and char_tokenizer:
+        try:
+            classifier, checkpoint = load_classifier(
+                device,
+                word_tokenizer,
+                char_tokenizer,
+            )
+            labels = checkpoint["labels"]
+            max_word_len = checkpoint["max_len"]
+        except Exception as error:  # noqa: BLE001 — без CNN
+            LOGGER.warning(
+                "CNN не загружена: %s",
+                error,
+            )
 
     generator, generator_checkpoint = load_generator(
         device,

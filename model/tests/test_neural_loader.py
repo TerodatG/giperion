@@ -131,3 +131,15 @@ def test_router_works_without_cnn(monkeypatch) -> None:
     assert parts["classifier"] is None
     assert parts["router"] is fake_router
     assert parts["responses_by_tag"] == {"greeting": ["привет"]}
+
+
+def test_cnn_is_disabled_by_default(monkeypatch) -> None:
+    """Без GIPERION_USE_CNN движок не тратит время на CNN."""
+
+    monkeypatch.delenv("GIPERION_USE_CNN", raising=False)
+
+    parts = neural_loader.load_components()
+
+    assert parts is not None
+    assert parts["classifier"] is None
+    assert parts["router"] is not None

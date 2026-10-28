@@ -116,8 +116,9 @@ CNN на natural-наборе даёт 0.553/0.564, поэтому остаёт�
 CNN остаётся запасным вариантом: эксперимент с весами классов
 (`python -m giperion_model.training.train_charcnn --balanced`) дал
 0.538 top-1 против 0.553 у обычной модели, поэтому рабочую
-`hybrid.pt` не заменяли. Оценить другой чекпоинт можно через
-`python -m tools.eval_intent_model --model <путь>`.
+`hybrid.pt` не заменяли. По умолчанию CNN не загружается;
+включить её можно через `GIPERION_USE_CNN=1`. Оценить чекпоинт
+можно через `python -m tools.eval_intent_model --model <путь>`.
 
 ## Граница
 
