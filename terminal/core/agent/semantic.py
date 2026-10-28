@@ -28,6 +28,7 @@ VECTOR_WEIGHT = 0.15
 LEXICAL_WEIGHT = 0.85
 VECTOR_ONLY_WEIGHT = 0.3
 RERANK_DEPTH = 10
+PATH_BOOST = 1.0
 PATH_WEIGHTS = (("tests/", 0.4), ("docs/", 0.65), ("model/tests/", 0.3))
 
 _STATS: dict[str, tuple] = {}
@@ -86,6 +87,15 @@ def _counters(chunks: list[dict], signature: str) -> tuple:
     return value
 
 
+def _path_tokens(chunk: dict) -> set[str]:
+    """Слова из имени файла: помогают найти модуль по названию."""
+
+    name = Path(chunk.get("path", "")).stem
+    normalized = name.replace("_", " ").replace("-", " ")
+
+    return set(index_tokens(normalized))
+
+
 def _lexical(chunks: list[dict], signature: str, query: str) -> list[float]:
     """Оценка BM25 по словам запроса."""
 
@@ -119,6 +129,15 @@ def _lexical(chunks: list[dict], signature: str, query: str) -> list[float]:
                 * (K1 + 1)
                 / (frequency + K1 * norm)
             )
+
+    unique_words = list(dict.fromkeys(words))
+
+    for index, chunk in enumerate(chunks):
+        path_words = _path_tokens(chunk)
+        matches = sum(
+            1 for word in unique_words if word in path_words
+        )
+        scores[index] += PATH_BOOST * matches
 
     return scores
 
