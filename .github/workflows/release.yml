@@ -106,6 +106,13 @@ jobs:
       - name: Проверка сумм
         run: python -m tools.verify_release --folder dist
 
+      - name: Патч для автообновления
+        if: matrix.target != 'macos'
+        run: >
+          python -m tools.update_feed pack
+          --app dist/Giperion
+          --out dist/patch-${{ matrix.target }}.zip
+
       - name: Артефакты
         uses: actions/upload-artifact@v4
         with:
@@ -117,6 +124,7 @@ jobs:
             app/giperion/dist/*.AppImage
             app/giperion/dist/*.tar.gz
             app/giperion/dist/*.dmg
+            app/giperion/dist/patch-*.zip
           if-no-files-found: error
 
   publish:
@@ -125,10 +133,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools
+          sparse-checkout-cone-mode: false
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+
+      - name: Каталог выпусков
+        run: |
+          python -m tools.update_feed feeds \
+            --dist dist \
+            --version "${GITHUB_REF_NAME#v}" \
+            --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
 
       - name: Контрольные суммы
         run: |

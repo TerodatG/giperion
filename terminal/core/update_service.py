@@ -23,6 +23,7 @@ from terminal.core.app_version import (
     set_installed,
     version_key,
 )
+from terminal.core.update_channel import feed_source
 
 # Каталог выпусков: локальный файл, пока у проекта нет своего сервера.
 FEED_FILE = DATA_DIR / "releases.json"
@@ -36,7 +37,7 @@ PROJECT_ROOT = BASE_DIR
 
 # Ограничения, чтобы патч не съел память и диск.
 DOWNLOAD_TIMEOUT = 30
-MAX_PATCH_BYTES = 512 * 1024 * 1024
+MAX_PATCH_BYTES = 1024 * 1024 * 1024
 
 # Папки, которые патч трогать не имеет права.
 FORBIDDEN_PREFIXES = (".git", "updates", "logs", "__pycache__")
@@ -266,6 +267,18 @@ def load_feed(source: str = "") -> Feed:
     )
 
 
+def load_feed_any(source: str = "") -> Feed:
+    """Читает канал; если он недоступен — локальный каталог выпусков."""
+
+    try:
+        return load_feed(source or feed_source())
+    except UpdateError:
+        if source:
+            raise
+
+        return load_feed("")
+
+
 def check_for_updates(source: str = "") -> UpdateCheck:
     """Сравнивает установленную версию с каталогом выпусков."""
 
@@ -290,6 +303,20 @@ def check_for_updates(source: str = "") -> UpdateCheck:
         for release in feed.releases
         if is_newer(release.version, check.current)
     ]
+
+    return check
+
+
+def check_updates(source: str = "") -> UpdateCheck:
+    """Проверяет канал; если он недоступен — локальный каталог выпусков."""
+
+    check = check_for_updates(source or feed_source())
+
+    if check.error and not source:
+        local = check_for_updates("")
+
+        if not local.error:
+            return local
 
     return check
 

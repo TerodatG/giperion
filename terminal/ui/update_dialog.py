@@ -27,9 +27,9 @@ from terminal.core.update_service import (
     UpdateCheck,
     UpdateError,
     apply_update,
-    check_for_updates,
+    check_updates,
     download_update,
-    load_feed,
+    load_feed_any,
     patch_file_name,
     release_for,
 )
@@ -206,7 +206,7 @@ class UpdateDialog(SkinDialog):
         self.version_label.setText(self._version_text())
 
         try:
-            feed = load_feed()
+            feed = load_feed_any()
         except UpdateError as error:
             self._show_text(
                 f'<p style="color:#ff7a5c;">'
@@ -332,7 +332,7 @@ class UpdateDialog(SkinDialog):
 
         self._set_status("Проверяю выпуски…")
 
-        self._run(check_for_updates, self._checked)
+        self._run(check_updates, self._checked)
 
     def _checked(self, check: UpdateCheck) -> None:
         """Показывает итог проверки и дополняет журнал."""
