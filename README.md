@@ -320,6 +320,10 @@ python -m tools.update_passport
   параллельно — `python -m tools.agent_parallel` (с `--write` каждая
   идёт в своём worktree); переносимая сборка —
   `python -m tools.build_portable` — см. `docs/automation.md`;
+- установщики собираются одной командой
+  `python -m tools.build_release --version 1.0.0` (Windows `.exe`/zip,
+  Linux `.deb`/AppImage/tar, macOS `.dmg`/zip) — см.
+  `docs/distribution.md`;
 - MCP-серверы (`data/agent_mcp.json`) дают внешние инструменты по
   JSON-RPC через stdio; включаются галочкой «Включить MCP-серверы»,
   процесс сервера живёт между вызовами, а кнопка «Серверы…» открывает

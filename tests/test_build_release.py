@@ -1,0 +1,58 @@
+# Giperion/tests/test_build_release.py                                  v001
+# Сборка релиза: имена артефактов и dry-run.
+
+from tools import build_release
+
+
+def test_target_platform_explicit() -> None:
+    """Явная платформа не зависит от текущей ОС."""
+
+    assert build_release.target_platform("linux") == "linux"
+    assert build_release.target_platform("windows") == "windows"
+    assert build_release.target_platform("macos") == "macos"
+
+
+def test_artifact_names(monkeypatch) -> None:
+    """Имена содержат версию, платформу и расширение."""
+
+    monkeypatch.setattr(
+        build_release.platform,
+        "machine",
+        lambda: "AMD64",
+    )
+
+    assert build_release.artifact_name(
+        "windows", "1.2.3", "setup"
+    ) == "Giperion-1.2.3-windows-x64.setup.exe"
+    assert build_release.artifact_name(
+        "linux", "1.2.3", "appimage"
+    ) == "Giperion-1.2.3-linux-x64.AppImage"
+    assert build_release.artifact_name(
+        "macos", "1.2.3", "dmg"
+    ) == "Giperion-1.2.3-macos-x64.dmg"
+
+
+def test_pyinstaller_command(tmp_path) -> None:
+    """Команда PyInstaller использует спек и пути."""
+
+    command = build_release.pyinstaller_command(
+        tmp_path,
+        tmp_path / "dist",
+        tmp_path / "work",
+    )
+
+    assert "PyInstaller" in command
+    assert any("giperion.spec" in item for item in command)
+    assert str(tmp_path / "dist") in command
+
+
+def test_zip_dry_run_creates_nothing(tmp_path) -> None:
+    """dry-run не создаёт архив."""
+
+    source = tmp_path / "app"
+    source.mkdir()
+    target = tmp_path / "app.zip"
+
+    build_release._zip_folder(source, target, dry_run=True)
+
+    assert not target.exists()

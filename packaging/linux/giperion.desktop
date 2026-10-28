@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Giperion
+Comment=AI coding agent and local model terminal
+Exec=/usr/bin/giperion
+Icon=giperion
+Terminal=false
+Categories=Development;Utility;
+StartupWMClass=Giperion
