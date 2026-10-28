@@ -21,7 +21,7 @@ for package in ("giperion_model", "terminal", "shared"):
 
 hiddenimports = []
 
-for package in ("giperion_model", "terminal", "shared", "tools"):
+for package in ("giperion_model", "terminal", "shared"):
     hiddenimports += collect_submodules(package)
 
 a = Analysis(
