@@ -111,6 +111,10 @@ Workflow сам подставит версию из тега, соберёт т
 запускается, но ассистент не отвечает. AppImage в CI собирается через
 `APPIMAGE_EXTRACT_AND_RUN=1`, потому что на раннере нет FUSE.
 
+Модель живёт в отдельном репозитории `TerodatG/kraper` (пакет
+`kraper_model`). CI чекаутит оба проекта рядом (`app/giperion` и
+`app/Kraper`) и ставит пакет через `pip install -e ../Kraper`.
+
 ## Ограничения
 
 - PyInstaller-сборка с torch и PySide6 большая (сотни МБ); это ожидаемо.
