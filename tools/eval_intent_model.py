@@ -1,6 +1,6 @@
-# Giperion/tools/eval_intent_model.py                               v006
+# Giperion/tools/eval_intent_model.py                               v007
 # Оценка классификатора намерений на отложенном наборе фраз.
-# Последнее изменение: bootstrap-интервалы для top-1 и macro-F1.
+# Последнее изменение: natural/template подвыборки и --model.
 
 import argparse
 import json

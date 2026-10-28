@@ -1,6 +1,6 @@
-# Giperion/tools/train_linear_intent.py                              v002
+# Giperion/tools/train_linear_intent.py                              v003
 # Обучение линейного роутера намерений и экспорт весов в JSON.
-# Последнее изменение: C=30 и баланс классов.
+# Последнее изменение: тематическая аугментация и bootstrap-метрики.
 
 import argparse
 import hashlib

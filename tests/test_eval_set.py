@@ -1,6 +1,6 @@
-# Giperion/tests/test_eval_set.py                                    v002
+# Giperion/tests/test_eval_set.py                                    v003
 # Инварианты отложенного набора: чистый, размеченный, без утечек.
-# Последнее изменение: не меньше десяти фраз на класс.
+# Последнее изменение: 20 фраз на класс, natural и template подвыборки.
 
 import json
 from collections import Counter
