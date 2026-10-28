@@ -83,3 +83,15 @@ coll = COLLECT(
     upx=False,
     name="Giperion",
 )
+
+# На macOS собираем настоящий .app: его ждёт packaging/macos/build_dmg.sh.
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="Giperion.app",
+        bundle_identifier="com.giperion.app",
+        info_plist={
+            "NSHighResolutionCapable": True,
+            "CFBundleShortVersionString": "1.0.0",
+        },
+    )
