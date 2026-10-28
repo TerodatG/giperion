@@ -43,6 +43,11 @@ jobs:
       - name: Тесты модели
         run: python -m pytest model/tests
 
+      - name: Качество роутера
+        run: >-
+          python -m tools.eval_intent_model
+          --router --fail --bootstrap 500
+
       - name: Retrieval-бенчмарк
         run: python -m tools.eval_retrieval --limit 5 --fail
 
