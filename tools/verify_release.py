@@ -9,6 +9,7 @@ from pathlib import Path
 
 SUFFIXES = (".zip", ".exe", ".deb", ".AppImage", ".dmg", ".gz")
 
+# Windows-консоль по умолчанию cp1252: русские сообщения роняют проверку.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 

@@ -243,7 +243,7 @@ def test_update_dialog_checks_downloads_and_installs(
 
     from PySide6.QtWidgets import QApplication
 
-    from terminal.core import app_version, update_service
+    from terminal.core import app_version, update_channel, update_service
 
     root = tmp_path / "project"
     root.mkdir()
@@ -289,6 +289,8 @@ def test_update_dialog_checks_downloads_and_installs(
     monkeypatch.setattr(update_service, "UPDATES_DIR", root / "updates")
     monkeypatch.setattr(update_service, "FEED_FILE", feed)
     monkeypatch.setattr(app_version, "STATE_FILE", state)
+    # Окно читает канал из переменной окружения: иначе полезет в сеть.
+    monkeypatch.setenv(update_channel.FEED_ENV, str(feed))
 
     def wait_for_job(dialog, timeout: float = 5.0) -> None:
         """Ждёт, пока фоновая операция окна закончится."""
@@ -358,13 +360,12 @@ def test_update_dialog_survives_missing_feed(
 ) -> None:
     """Пропавший каталог выпусков показывается ошибкой, а не падением."""
 
-    from terminal.core import app_version, update_service
+    from terminal.core import app_version, update_channel, update_service
 
-    monkeypatch.setattr(
-        update_service,
-        "FEED_FILE",
-        tmp_path / "no-such-feed.json",
-    )
+    missing = tmp_path / "no-such-feed.json"
+
+    monkeypatch.setattr(update_service, "FEED_FILE", missing)
+    monkeypatch.setenv(update_channel.FEED_ENV, str(missing))
     monkeypatch.setattr(
         app_version,
         "STATE_FILE",

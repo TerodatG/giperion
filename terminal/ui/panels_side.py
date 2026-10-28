@@ -255,6 +255,9 @@ class SidePanelMixin:
         self.side_actions_panel = container
         self.system_panel = container
 
+        # Плита собрана — можно тихо проверить обновления.
+        self.schedule_update_check()
+
         return container
 
     def _on_module_toggled(

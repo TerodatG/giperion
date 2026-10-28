@@ -10,7 +10,6 @@ import shutil
 import urllib.error
 import urllib.request
 import zipfile
-from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
@@ -24,6 +23,14 @@ from terminal.core.app_version import (
     version_key,
 )
 from terminal.core.update_channel import feed_source
+from terminal.core.update_types import (  # noqa: F401 — реэкспорт
+    ApplyResult,
+    DownloadedPatch,
+    Feed,
+    Release,
+    UpdateCheck,
+    UpdateError,
+)
 
 # Каталог выпусков: локальный файл, пока у проекта нет своего сервера.
 FEED_FILE = DATA_DIR / "releases.json"
@@ -43,93 +50,6 @@ MAX_PATCH_BYTES = 1024 * 1024 * 1024
 FORBIDDEN_PREFIXES = (".git", "updates", "logs", "__pycache__")
 
 _CHUNK_SIZE = 256 * 1024
-
-
-class UpdateError(Exception):
-    """Понятная человеку ошибка обновления."""
-
-
-@dataclass
-class Release:
-    """Один выпуск терминала из каталога."""
-
-    version: str
-    date: str = ""
-    title: str = ""
-    notes: list[str] = field(default_factory=list)
-    patch: str = ""
-    sha256: str = ""
-    size: int = 0
-
-    @property
-    def has_patch(self) -> bool:
-        """Есть ли у выпуска файл патча."""
-
-        return bool(self.patch)
-
-    @property
-    def note_text(self) -> str:
-        """Короткая подпись выпуска для списков."""
-
-        return f"{self.version} от {self.date}" if self.date else self.version
-
-
-@dataclass
-class Feed:
-    """Каталог выпусков и подпись его источника."""
-
-    releases: list[Release] = field(default_factory=list)
-    source: str = ""
-    channel: str = "stable"
-    updated: str = ""
-
-
-@dataclass
-class UpdateCheck:
-    """Результат проверки обновлений."""
-
-    current: str = ""
-    released: str = ""
-    channel: str = ""
-    source: str = ""
-    updated: str = ""
-    releases: list[Release] = field(default_factory=list)
-    new_releases: list[Release] = field(default_factory=list)
-    error: str = ""
-
-    @property
-    def up_to_date(self) -> bool:
-        """Установлена ли самая свежая версия."""
-
-        return not self.new_releases and not self.error
-
-    @property
-    def available(self) -> Release | None:
-        """Самый свежий из доступных выпусков."""
-
-        return self.new_releases[0] if self.new_releases else None
-
-
-@dataclass
-class DownloadedPatch:
-    """Скачанный патч в папке updates."""
-
-    path: Path
-    version: str
-    size: int = 0
-    sha256: str = ""
-    source: str = ""
-
-
-@dataclass
-class ApplyResult:
-    """Итог установки патча."""
-
-    version: str
-    files: list[str] = field(default_factory=list)
-    backup_dir: Path | None = None
-    requires_restart: bool = True
-
 
 # --- Каталог выпусков ---
 
@@ -367,7 +287,35 @@ def _resolve_local(patch: str) -> Path:
     return BASE_DIR / candidate
 
 
-def _download_remote(url: str, destination: Path) -> None:
+def _ensure_space(required: int) -> None:
+    """Проверяет, что под патч и распаковку хватает места."""
+
+    if required <= 0:
+        return
+
+    root = UPDATES_DIR if UPDATES_DIR.exists() else UPDATES_DIR.parent
+
+    try:
+        free = shutil.disk_usage(root).free
+    except OSError:
+        return
+
+    # Патч занимает место и при скачивании, и при распаковке.
+    if free < required * 2:
+        need = required * 2 // (1024 * 1024)
+        have = free // (1024 * 1024)
+
+        raise UpdateError(
+            f"мало места на диске: нужно {need} МБ, свободно {have} МБ"
+        )
+
+
+def _download_remote(
+    url: str,
+    destination: Path,
+    progress=None,
+    total: int = 0,
+) -> None:
     """Скачивает патч по сети во временный файл."""
 
     request = urllib.request.Request(
@@ -394,6 +342,9 @@ def _download_remote(url: str, destination: Path) -> None:
                     raise UpdateError("патч больше допустимого размера")
 
                 file.write(block)
+
+                if progress is not None:
+                    progress(received, total)
     except (urllib.error.URLError, OSError) as error:
         raise UpdateError(f"не удалось скачать патч: {error}") from error
 
@@ -401,6 +352,7 @@ def _download_remote(url: str, destination: Path) -> None:
 def download_update(
     release: Release,
     directory: Path | str | None = None,
+    progress=None,
 ) -> DownloadedPatch:
     """Скачивает патч выпуска в папку updates под именем с версией и датой."""
 
@@ -408,6 +360,8 @@ def download_update(
         raise UpdateError(
             "в выпуске не указан файл патча — скачивать нечего"
         )
+
+    _ensure_space(release.size)
 
     target_dir = Path(directory or UPDATES_DIR)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -418,7 +372,12 @@ def download_update(
 
     try:
         if release.patch.startswith(("http://", "https://")):
-            _download_remote(release.patch, temporary)
+            _download_remote(
+                release.patch,
+                temporary,
+                progress=progress,
+                total=release.size,
+            )
         else:
             source = _resolve_local(release.patch)
 

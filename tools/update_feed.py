@@ -131,7 +131,35 @@ def main() -> int:
     feeds.add_argument("--released", default="")
     feeds.add_argument("--title", default="")
 
+    check = sub.add_parser("check", help="проверить канал обновлений")
+    check.add_argument("--feed", default="")
+
     args = parser.parse_args()
+
+    if args.command == "check":
+        from terminal.core.update_service import check_updates
+
+        result = check_updates(args.feed)
+
+        if result.error:
+            print("ОШИБКА:", result.error)
+
+            return 1
+
+        print(f"установлено: {result.current} · канал: {result.source}")
+
+        if not result.new_releases:
+            print("обновлений нет")
+
+            return 0
+
+        for release in result.new_releases:
+            print(f"+ {release.version} от {release.date}")
+
+            if release.patch:
+                print(f"  патч: {release.patch}")
+
+        return 0
 
     if args.command == "pack":
         pack_patch(Path(args.app), Path(args.out))

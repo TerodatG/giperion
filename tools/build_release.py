@@ -4,12 +4,14 @@
 
 import argparse
 import hashlib
+import json
 import platform
 import shutil
 import subprocess
 import sys
 import tarfile
 import zipfile
+from datetime import date
 from pathlib import Path
 
 from config import BASE_DIR
@@ -110,6 +112,45 @@ def build_pyinstaller(
         pyinstaller_command(root, dist, work),
         root,
         dry_run,
+    )
+
+
+def stamp_version(app: Path, version: str, dry_run: bool = False) -> None:
+    """Пишет версию в data/update_state.json собранного приложения.
+
+    Без этого приложение считает себя 1.0.0 и вечно предлагает обновиться.
+    """
+
+    candidates = [
+        app / "_internal" / "data",
+        app / "Contents" / "Frameworks" / "data",
+    ]
+
+    target_dir = next((path for path in candidates if path.is_dir()), None)
+
+    if target_dir is None:
+        return
+
+    target = target_dir / "update_state.json"
+    print("+ версия", version, "->", target)
+
+    if dry_run:
+        return
+
+    target.write_text(
+        json.dumps(
+            {
+                "version": "v001",
+                "app": "Giperion Terminal",
+                "installed": version,
+                "released": date.today().isoformat(),
+                "updated_at": date.today().isoformat(),
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
     )
 
 
@@ -350,6 +391,8 @@ def main() -> int:
 
         if code != 0:
             return code
+
+    stamp_version(dist / APP_NAME, version, args.dry_run)
 
     if not args.skip_installer:
         if platform_name == "windows":

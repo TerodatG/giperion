@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
 from terminal.core.app_version import (
     current_released,
     current_version,
+    set_skipped,
+    skipped_version,
 )
 from terminal.core.system_info import format_bytes
 from terminal.core.update_service import (
@@ -144,11 +146,13 @@ class UpdateDialog(SkinDialog):
         self.check_button = QPushButton("Проверить обновление", self)
         self.download_button = QPushButton("Скачать", self)
         self.update_button = QPushButton("Обновить", self)
+        self.skip_button = QPushButton("Пропустить", self)
 
         for button in (
             self.check_button,
             self.download_button,
             self.update_button,
+            self.skip_button,
         ):
             button.setObjectName("updateAction")
             button.setCursor(Qt.ArrowCursor)
@@ -158,6 +162,7 @@ class UpdateDialog(SkinDialog):
         self.check_button.clicked.connect(self._on_check)
         self.download_button.clicked.connect(self._on_download)
         self.update_button.clicked.connect(self._on_apply)
+        self.skip_button.clicked.connect(self._on_skip)
 
         actions = QHBoxLayout()
         actions.setContentsMargins(0, 0, 0, 0)
@@ -165,6 +170,7 @@ class UpdateDialog(SkinDialog):
         actions.addWidget(self.check_button)
         actions.addWidget(self.download_button)
         actions.addWidget(self.update_button)
+        actions.addWidget(self.skip_button)
         actions.addStretch(1)
 
         self.close_button = QDialogButtonBox(
@@ -294,6 +300,9 @@ class UpdateDialog(SkinDialog):
         self.update_button.setEnabled(
             not busy and self._patched is not None
         )
+        self.skip_button.setEnabled(
+            not busy and self._available is not None
+        )
 
     def _run(self, function, on_done) -> None:
         """Запускает операцию в фоне, чтобы окно не замирало."""
@@ -377,11 +386,36 @@ class UpdateDialog(SkinDialog):
             self._patched = None
 
         latest = check.available
+        skipped = skipped_version()
+
+        if skipped and latest.version == skipped:
+            self._set_status(
+                f"Версия {skipped} пропущена — она больше не предлагается. "
+                "Проверка покажет следующие выпуски."
+            )
+
+            return
 
         self._set_status(
             f"Доступно обновление {latest.version} от "
             f"{format_release_date(latest.date)}. Нажми «Скачать»."
         )
+
+    def _on_skip(self) -> None:
+        """Запоминает версию, которую больше не предлагать."""
+
+        release = self._available
+
+        if release is None:
+            return
+
+        set_skipped(release.version)
+
+        self._available = None
+        self._patched = None
+
+        self._set_status(f"Версия {release.version} пропущена.")
+        self._refresh_buttons()
 
     def _on_download(self) -> None:
         """Скачивает патч доступного выпуска в папку updates."""

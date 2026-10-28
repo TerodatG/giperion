@@ -110,3 +110,21 @@ def set_installed(
         default={},
         trailing_newline=True,
     )
+
+
+def skipped_version() -> str:
+    """Версия, которую пользователь попросил больше не предлагать."""
+
+    return str(read_state().get("skipped") or "").strip()
+
+
+def set_skipped(version: str) -> None:
+    """Запоминает пропущенную версию."""
+
+    def mutate(state: dict) -> dict:
+        state["skipped"] = str(version)
+        state["updated_at"] = date.today().isoformat()
+
+        return state
+
+    update_json(STATE_FILE, mutate, default={}, trailing_newline=True)
