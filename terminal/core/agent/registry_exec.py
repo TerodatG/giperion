@@ -409,6 +409,22 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
             _int_arg(call, "limit", semantic.DEFAULT_LIMIT),
         )
 
+    if call.tool.startswith("lsp_"):
+        from terminal.core.agent import lsp_tools
+
+        path = _string_arg(call, "path")
+
+        if call.tool == "lsp_diagnostics":
+            return lsp_tools.diagnostics(root, path)
+
+        line = _int_arg(call, "line")
+        character = _int_arg(call, "character")
+
+        if call.tool == "lsp_definition":
+            return lsp_tools.definition(root, path, line, character)
+
+        return lsp_tools.references(root, path, line, character)
+
     if call.tool == "remember":
         from terminal.core.agent import memory
 

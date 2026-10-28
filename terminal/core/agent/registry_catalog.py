@@ -34,6 +34,46 @@ TOOL_SPECS = (
         required=("query",),
     ),
     ToolSpec(
+        name="lsp_diagnostics",
+        description=(
+            "Ошибки и предупреждения файла от языкового сервера (LSP). "
+            "Точнее, чем глазами: показывает типы и несуществующие имена."
+        ),
+        args={"path": "путь к файлу относительно проекта"},
+        required=("path",),
+        permissions=("fs:read",),
+    ),
+    ToolSpec(
+        name="lsp_definition",
+        description=(
+            "Перейти к определению символа по позиции (строка и колонка "
+            "с единицы, как в редакторе)."
+        ),
+        args={
+            "path": "путь к файлу относительно проекта",
+            "line": "номер строки с единицы",
+            "character": "номер колонки с единицы",
+        },
+        types={"line": "integer", "character": "integer"},
+        required=("path", "line", "character"),
+        permissions=("fs:read",),
+    ),
+    ToolSpec(
+        name="lsp_references",
+        description=(
+            "Все ссылки на символ по позиции: где ещё используется "
+            "функция, класс или переменная."
+        ),
+        args={
+            "path": "путь к файлу относительно проекта",
+            "line": "номер строки с единицы",
+            "character": "номер колонки с единицы",
+        },
+        types={"line": "integer", "character": "integer"},
+        required=("path", "line", "character"),
+        permissions=("fs:read",),
+    ),
+    ToolSpec(
         name="find_relevant",
         description=(
             "Найти по смыслу, где в проекте говорится о задаче: код, "
