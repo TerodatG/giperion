@@ -1087,3 +1087,34 @@ def test_trust_still_shows_diff(tmp_path) -> None:
     assert approvals
     assert "--- a/a.txt" in approvals[0].detail
     assert "+++ b/a.txt" in approvals[0].detail
+
+
+def test_retryable_error_repeats_step(tmp_path) -> None:
+    """Временная ошибка модели приводит к повтору шага."""
+
+    from terminal.core.agent.errors import RetryableError
+
+    class RetryBrain:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def decide(self, prompt: str) -> str:
+            self.calls += 1
+
+            if self.calls == 1:
+                raise RetryableError("временный сбой")
+
+            return _answer("готово")
+
+    brain = RetryBrain()
+    result = run_agent(
+        "ответь",
+        brain,
+        tmp_path,
+        ground_first=False,
+        require_tool_first=False,
+    )
+
+    assert result.answer == "готово"
+    assert brain.calls == 2
+    assert any(step.kind == "retry" for step in result.steps)

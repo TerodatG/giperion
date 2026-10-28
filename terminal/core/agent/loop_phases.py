@@ -11,6 +11,7 @@ from terminal.core.agent.context import (
     is_within_budget,
     parse_decision,
 )
+from terminal.core.agent.errors import RetryableError
 from terminal.core.agent.loop_helpers import (
     Brain,
     StepTimeout,
@@ -170,6 +171,17 @@ def _decide_chat(
         )
     except StepTimeout as error:
         return _model_error(state, index, error, True)
+    except RetryableError as error:
+        state.emit(
+            AgentStep(
+                index,
+                "retry",
+                "Повтор шага",
+                str(error),
+            )
+        )
+
+        return None
     except Exception as error:  # noqa: BLE001 — покажем в трейсе
         return _model_error(state, index, error, False)
 
@@ -207,6 +219,17 @@ def _decide_prompt(
         )
     except StepTimeout as error:
         return _model_error(state, index, error, True)
+    except RetryableError as error:
+        state.emit(
+            AgentStep(
+                index,
+                "retry",
+                "Повтор шага",
+                str(error),
+            )
+        )
+
+        return None
     except Exception as error:  # noqa: BLE001 — покажем в трейсе
         return _model_error(state, index, error, False)
 
@@ -455,4 +478,3 @@ def _finish(
         context_chars=state.context_peak,
         usage=state.usage,
     )
-
