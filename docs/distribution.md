@@ -11,7 +11,8 @@ python -m tools.build_release --skip-build --skip-installer
 
 `--target` — `auto`, `windows`, `linux` или `macos`. PyInstaller собирает
 GUI `Giperion` из `packaging/giperion.spec`; затем платформенный
-упаковщик делает установщик.
+упаковщик делает установщик. В конце пишется `SHA256SUMS` для архивов и
+установщиков.
 
 ## Windows
 

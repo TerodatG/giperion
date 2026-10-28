@@ -3,6 +3,7 @@
 # Последнее изменение: первый вариант — dry-run и нативные упаковщики.
 
 import argparse
+import hashlib
 import platform
 import shutil
 import subprocess
@@ -106,6 +107,50 @@ def build_pyinstaller(
         root,
         dry_run,
     )
+
+
+def sha256(path: Path) -> str:
+    """SHA-256 файла."""
+
+    digest = hashlib.sha256()
+
+    with Path(path).open("rb") as file:
+        for block in iter(lambda: file.read(256 * 1024), b""):
+            digest.update(block)
+
+    return digest.hexdigest()
+
+
+def write_checksums(
+    folder: Path,
+    target: Path | None = None,
+) -> Path:
+    """Пишет SHA256SUMS для артефактов в папке."""
+
+    base = Path(folder)
+    output = Path(target or base / "SHA256SUMS")
+    names = {
+        ".zip",
+        ".exe",
+        ".deb",
+        ".AppImage",
+        ".dmg",
+        ".gz",
+    }
+    lines = []
+
+    for path in sorted(base.iterdir()):
+        if not path.is_file() or path == output:
+            continue
+
+        if path.suffix not in names and not path.name.endswith(".tar.gz"):
+            continue
+
+        lines.append(f"{sha256(path)}  {path.name}")
+
+    output.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+    return output
 
 
 def _zip_folder(source: Path, target: Path, dry_run: bool) -> None:
@@ -275,6 +320,10 @@ def main() -> int:
             package_macos(root, dist, version, args.dry_run)
         else:
             package_linux(root, dist, version, args.dry_run)
+
+    if not args.dry_run:
+        checksums = write_checksums(dist)
+        print("Контрольные суммы:", checksums)
 
     print("Версия:", version, "· платформа:", platform_name)
     print("Артефакты:", dist)

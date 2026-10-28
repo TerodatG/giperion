@@ -56,3 +56,17 @@ def test_zip_dry_run_creates_nothing(tmp_path) -> None:
     build_release._zip_folder(source, target, dry_run=True)
 
     assert not target.exists()
+
+
+def test_checksums_include_only_artifacts(tmp_path) -> None:
+    """SHA256SUMS содержит архивы и установщики, но не текст."""
+
+    (tmp_path / "a.zip").write_bytes(b"zip")
+    (tmp_path / "b.txt").write_text("text", encoding="utf-8")
+
+    path = build_release.write_checksums(tmp_path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+
+    assert len(lines) == 1
+    assert "a.zip" in lines[0]
+    assert "b.txt" not in path.read_text(encoding="utf-8")
