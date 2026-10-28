@@ -5,6 +5,7 @@
 import argparse
 import json
 from collections import Counter
+from pathlib import Path
 
 from config import DATA_DIR, LOGS_DIR
 from giperion_model.language.intent_handler import load_intents
@@ -249,6 +250,12 @@ def parse_args(
         help="какие фразы проверять",
     )
     parser.add_argument(
+        "--artifact",
+        type=Path,
+        default=LINEAR_MODEL_FILE,
+        help="путь к linear_intent.json",
+    )
+    parser.add_argument(
         "--fail",
         action="store_true",
         help="вернуть код 1, если метрики ниже порогов",
@@ -285,7 +292,7 @@ def evaluate_model(
 ) -> tuple[list[dict], list[str], str | None, float]:
     """Готовит предсказания роутера и его порог."""
 
-    router = LinearIntentRouter.load()
+    router = LinearIntentRouter.load(args.artifact)
 
     if router is None:
         return [], [], None, ROUTER_CONFIDENCE_THRESHOLD
@@ -298,7 +305,7 @@ def evaluate_model(
     return (
         predict_with_router(router, examples),
         notes,
-        f"{LINEAR_MODEL_FILE.name} [{args.subset}]",
+        f"{args.artifact.name} [{args.subset}]",
         router.threshold,
     )
 

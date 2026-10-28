@@ -48,6 +48,9 @@ jobs:
           python -m tools.eval_intent_model
           --router --fail --bootstrap 500
 
+      - name: Согласованность артефактов
+        run: python -m tools.check_model_artifacts
+
       - name: Retrieval-бенчмарк
         run: python -m tools.eval_retrieval --limit 5 --fail
 
