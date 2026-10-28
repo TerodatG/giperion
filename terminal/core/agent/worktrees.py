@@ -203,6 +203,7 @@ def merge_worktree(
     root: Path,
     branch: str,
     target: str = "",
+    strategy: str = "",
 ) -> str:
     """Сливает ветку агента в текущую или указанную ветку."""
 
@@ -216,15 +217,22 @@ def merge_worktree(
     if not name.startswith("agent/"):
         raise WorktreeError("Сливать можно только ветки agent/*.")
 
+    chosen = str(strategy or "").strip().lower()
+
+    if chosen not in ("", "ours", "theirs"):
+        raise WorktreeError("Стратегия должна быть ours или theirs.")
+
     current = _current_branch_or_error(base)
     target_branch = _target_branch(base, current, target)
     _ensure_clean(base)
     switched = _switch_to(base, target_branch, current)
+    command = ["merge", "--no-ff", "-m", f"merge {name}"]
 
-    result = _run(
-        base,
-        ["merge", "--no-ff", "-m", f"merge {name}", name],
-    )
+    if chosen:
+        command += ["-X", chosen]
+
+    command.append(name)
+    result = _run(base, command)
 
     if result.returncode != 0:
         _merge_error(base, name, current, switched, result)

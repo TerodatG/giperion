@@ -22,16 +22,30 @@ def _git() -> str:
     return GIT if Path(GIT).is_file() else "git"
 
 
-def merge_branches(branches: list[str]) -> list[tuple[str, int, str]]:
+def merge_branches(
+    branches: list[str],
+    strategy: str = "",
+) -> list[tuple[str, int, str]]:
     """Сливает ветки в текущую; конфликт возвращает ошибку."""
 
     results = []
     git = _git()
+    chosen = str(strategy or "").strip().lower()
+
+    if chosen not in ("", "ours", "theirs"):
+        raise ValueError("Стратегия должна быть ours или theirs.")
 
     for branch in branches:
+        command = [git, "merge", "--no-ff"]
+
+        if chosen:
+            command += ["-X", chosen]
+
+        command.append(branch)
+
         try:
             done = subprocess.run(
-                [git, "merge", "--no-ff", branch],
+                command,
                 cwd=str(BASE_DIR),
                 capture_output=True,
                 text=True,
@@ -138,6 +152,12 @@ def main() -> int:
         action="store_true",
         help="слить успешные ветки в текущую (только с --write)",
     )
+    parser.add_argument(
+        "--merge-strategy",
+        choices=("", "ours", "theirs"),
+        default="",
+        help="разрешение конфликтов при слиянии",
+    )
     parser.add_argument("--policy", default="confirm")
     parser.add_argument(
         "--branch-tokens",
@@ -201,7 +221,10 @@ def main() -> int:
             print()
             print("Слияние веток:")
 
-            for branch, code, output in merge_branches(branches):
+            for branch, code, output in merge_branches(
+                branches,
+                args.merge_strategy,
+            ):
                 mark = "OK" if code == 0 else "КОНФЛИКТ"
                 print(f"{mark} · {branch}: {output[:300]}")
 

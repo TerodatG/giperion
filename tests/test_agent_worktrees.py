@@ -176,6 +176,23 @@ def test_merge_conflict_explains_what_to_do(repo) -> None:
     assert (repo / "a.txt").read_text(encoding="utf-8") == "из основной\n"
 
 
+def test_merge_conflict_can_use_ours(repo) -> None:
+    """Стратегия ours оставляет версию основной ветки."""
+
+    folder, branch = create_worktree(repo, "ours")
+
+    (folder / "a.txt").write_text("из ветки\n", encoding="utf-8")
+    _git(folder, "commit", "-qam", "branch change")
+
+    (repo / "a.txt").write_text("из основной\n", encoding="utf-8")
+    _git(repo, "commit", "-qam", "main change")
+
+    message = merge_worktree(repo, branch, strategy="ours")
+
+    assert "merge" in message.lower() or message
+    assert (repo / "a.txt").read_text(encoding="utf-8") == "из основной\n"
+
+
 def test_remove_worktree_and_branch(repo) -> None:
     """Дерево и ветка удаляются, основное дерево остаётся."""
 
