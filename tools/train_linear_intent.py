@@ -25,6 +25,7 @@ from giperion_model.language.linear_intent import (
 )
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from shared.text_tools import normalize_message
+from tools.intent_metrics import bootstrap_metrics
 
 EVAL_FILE = DATA_DIR / "eval_set.json"
 DEFAULT_OUTPUT = MODELS_DIR / "linear_intent.json"
@@ -214,8 +215,8 @@ def evaluate(
     model: LogisticRegression,
     texts: list[str],
     labels: list[str],
-) -> tuple[float, float]:
-    """Считает top-1 и macro-F1 на отложенном наборе."""
+) -> tuple[float, float, int]:
+    """Считает top-1, macro-F1 и число верных ответов."""
 
     predictions = model.predict(vectorizer.transform(texts))
     correct = sum(
@@ -231,7 +232,7 @@ def evaluate(
         zero_division=0,
     )
 
-    return accuracy, float(macro)
+    return accuracy, float(macro), correct
 
 
 def coefficient_rows(
@@ -381,18 +382,29 @@ def main(argv: list[str] | None = None) -> int:
         load_eval_data(set(labels), "template")
     )
     vectorizer, model = fit_router(texts, labels, args.c)
-    accuracy, macro = evaluate(
+    accuracy, macro, correct = evaluate(
         vectorizer,
         model,
         eval_texts,
         eval_labels,
     )
-    template_accuracy, template_macro = evaluate(
-        vectorizer,
-        model,
-        template_texts,
-        template_labels,
+    template_accuracy, template_macro, template_correct = (
+        evaluate(
+            vectorizer,
+            model,
+            template_texts,
+            template_labels,
+        )
     )
+    eval_predictions = model.predict(
+        vectorizer.transform(eval_texts)
+    )
+    interval = bootstrap_metrics(
+        eval_labels,
+        list(eval_predictions),
+        iterations=300,
+    )
+    eval_ci = (interval["top1_high"] - interval["top1_low"]) / 2
 
     print(
         f"Обучено на {len(texts)} примерах, "
@@ -439,9 +451,12 @@ def main(argv: list[str] | None = None) -> int:
             "eval_size": len(eval_texts),
             "eval_top1": round(accuracy, 4),
             "eval_macro_f1": round(macro, 4),
+            "eval_correct": correct,
+            "eval_ci": round(eval_ci, 4),
             "template_size": len(template_texts),
             "template_top1": round(template_accuracy, 4),
             "template_macro_f1": round(template_macro, 4),
+            "template_correct": template_correct,
             "answer_threshold": ROUTER_CONFIDENCE_THRESHOLD,
             "penalty_c": args.c,
             "class_weight": "balanced",
