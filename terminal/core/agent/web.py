@@ -2,9 +2,12 @@
 # Чтение веб-страниц агентом: один GET, текст без тегов, защита от SSRF.
 # Последнее изменение: первый вариант — html.parser и подтверждение по домену.
 
+import http.client
 import ipaddress
 import re
 import socket
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,6 +20,9 @@ MAX_BYTES = 400_000
 MAX_TEXT = 12_000
 ALLOWED_PORTS = (80, 443)
 SKIP_TAGS = {"script", "style", "noscript", "template", "svg"}
+DNS_TTL = 60.0
+_DNS_CACHE: dict[str, tuple[float, tuple[str, ...]]] = {}
+_DNS_LOCK = threading.Lock()
 
 
 class WebError(RuntimeError):
@@ -95,13 +101,28 @@ def validate_url(url: str) -> str:
     )
 
 
-def is_public_host(host: str) -> bool:
-    """Не ведёт ли имя на localhost или приватную сеть."""
+def resolve_public(host: str) -> tuple[str, ...]:
+    """Публичные IP хоста; кеш на DNS_TTL."""
 
     name = str(host or "").strip()
 
     if not name:
-        return False
+        return ()
+
+    try:
+        ipaddress.ip_address(name)
+
+        return (name,) if _public_ip(name) else ()
+    except ValueError:
+        pass
+
+    now = time.monotonic()
+
+    with _DNS_LOCK:
+        cached = _DNS_CACHE.get(name)
+
+    if cached is not None and now - cached[0] < DNS_TTL:
+        return cached[1]
 
     try:
         addresses = {
@@ -109,25 +130,109 @@ def is_public_host(host: str) -> bool:
             for item in socket.getaddrinfo(name, None)
         }
     except (socket.gaierror, OSError):
+        return ()
+
+    public = tuple(
+        sorted(
+            address
+            for address in addresses
+            if _public_ip(address)
+        )
+    )
+
+    with _DNS_LOCK:
+        _DNS_CACHE[name] = (now, public)
+
+    return public
+
+
+def _public_ip(address: str) -> bool:
+    """Публичный ли это IP."""
+
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError:
         return False
 
-    for address in addresses:
-        try:
-            parsed = ipaddress.ip_address(address)
-        except ValueError:
-            return False
+    return not (
+        parsed.is_private
+        or parsed.is_loopback
+        or parsed.is_link_local
+        or parsed.is_reserved
+        or parsed.is_multicast
+        or parsed.is_unspecified
+    )
 
-        if (
-            parsed.is_private
-            or parsed.is_loopback
-            or parsed.is_link_local
-            or parsed.is_reserved
-            or parsed.is_multicast
-            or parsed.is_unspecified
-        ):
-            return False
 
-    return True
+def is_public_host(host: str) -> bool:
+    """Не ведёт ли имя на localhost или приватную сеть."""
+
+    return bool(resolve_public(host))
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    """HTTP-соединение по уже проверенному IP."""
+
+    def __init__(self, host, port=None, *, pin="", **kwargs):
+        self._pin = pin
+        super().__init__(host, port, **kwargs)
+
+    def connect(self):
+        self.sock = socket.create_connection(
+            (self._pin, self.port),
+            self.timeout,
+            self.source_address,
+        )
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS-соединение по IP, но с SNI и проверкой сертификата хоста."""
+
+    def __init__(self, host, port=None, *, pin="", **kwargs):
+        self._pin = pin
+        super().__init__(host, port, **kwargs)
+
+    def connect(self):
+        sock = socket.create_connection(
+            (self._pin, self.port),
+            self.timeout,
+            self.source_address,
+        )
+        self.sock = self._context.wrap_socket(
+            sock,
+            server_hostname=self.host,
+        )
+
+
+def _connection(host: str, cls):
+    """Фабрика соединения с пиннингом первого публичного IP."""
+
+    addresses = resolve_public(host)
+
+    if not addresses:
+        raise WebError(f"Хост «{host}» не имеет публичного адреса.")
+
+    def factory(target, **kwargs):
+        return cls(target, pin=addresses[0], **kwargs)
+
+    return factory
+
+
+class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(
+            _connection(req.host, _PinnedHTTPConnection),
+            req,
+        )
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(
+            _connection(req.host, _PinnedHTTPSConnection),
+            req,
+            context=self._context,
+        )
 
 
 class _TextParser(HTMLParser):
@@ -191,7 +296,9 @@ def _http_get(url: str) -> tuple[str, str, bytes]:
 
     try:
         opener = urllib.request.build_opener(
-            _SafeRedirectHandler()
+            _SafeRedirectHandler(),
+            _PinnedHTTPHandler(),
+            _PinnedHTTPSHandler(),
         )
 
         with opener.open(request, timeout=TIMEOUT) as response:

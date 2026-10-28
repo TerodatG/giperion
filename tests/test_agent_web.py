@@ -284,3 +284,44 @@ def test_web_injection_is_flagged(tmp_path, monkeypatch) -> None:
 
     assert "security" in kinds
     assert result.answer == "там попытка внедрения"
+
+
+def test_resolve_public_filters_private(monkeypatch) -> None:
+    """В список попадают только публичные адреса."""
+
+    monkeypatch.setattr(
+        web.socket,
+        "getaddrinfo",
+        lambda host, port: [
+            (2, 1, 6, "", ("93.184.216.34", 0)),
+            (2, 1, 6, "", ("127.0.0.1", 0)),
+            (2, 1, 6, "", ("10.0.0.5", 0)),
+        ],
+    )
+    web._DNS_CACHE.clear()
+
+    assert web.resolve_public("example.com") == ("93.184.216.34",)
+    assert web.is_public_host("example.com")
+    assert not web.is_public_host("127.0.0.1")
+
+
+def test_pinned_connection_uses_resolved_ip(monkeypatch) -> None:
+    """Соединение идёт на проверенный IP, а не резолвит снова."""
+
+    seen = {}
+
+    def fake_connect(address, timeout=None, source=None):
+        seen["address"] = address
+
+        return object()
+
+    monkeypatch.setattr(web.socket, "create_connection", fake_connect)
+
+    connection = web._PinnedHTTPConnection(
+        "example.com",
+        80,
+        pin="93.184.216.34",
+    )
+    connection.connect()
+
+    assert seen["address"] == ("93.184.216.34", 80)

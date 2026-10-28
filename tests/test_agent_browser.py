@@ -834,3 +834,21 @@ def test_websocket_guard_blocks_private_networks(monkeypatch) -> None:
 
     assert opened == ["wss://example.com/socket"]
     assert closed == ["wss://127.0.0.1/socket"]
+
+
+def test_browser_pins_initial_host(monkeypatch) -> None:
+    """Chromium получает MAP хост → проверенный IP."""
+
+    from terminal.core.agent import browser_worker, web
+
+    monkeypatch.setattr(
+        web,
+        "resolve_public",
+        lambda host: ("93.184.216.34",),
+    )
+
+    args = browser_worker._resolver_args("https://example.com/page")
+
+    assert args == [
+        "--host-resolver-rules=MAP example.com 93.184.216.34"
+    ]

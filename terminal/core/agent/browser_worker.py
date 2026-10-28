@@ -9,6 +9,7 @@ import urllib.parse
 from pathlib import Path
 
 from terminal.core.agent import browser_profile, browser_tabs, pdf_text
+from terminal.core.agent.browser_net import resolver_args as _resolver_args
 from terminal.core.agent.browser_page import (
     clip as _clip,
 )
@@ -265,6 +266,9 @@ def render(request: dict) -> dict:
                 "--disable-dev-shm-usage",
                 "--disable-crash-reporter",
                 "--disable-breakpad",
+                "--disable-gpu",
+                "--js-flags=--max-old-space-size=512",
+                *_resolver_args(url),
             ],
         )
 
@@ -346,7 +350,7 @@ def _guard_ws(route) -> None:
     route.connect_to_server()
 
 
-def _new_page(runtime):
+def _new_page(runtime, url: str = ""):
     """Браузер, контекст и страница с защитой сети."""
 
     browser = runtime.chromium.launch(
@@ -357,6 +361,7 @@ def _new_page(runtime):
             "--disable-breakpad",
             "--disable-gpu",
             "--js-flags=--max-old-space-size=512",
+            *_resolver_args(url),
         ],
     )
     options: dict = {"accept_downloads": True}
@@ -474,7 +479,7 @@ def _serve_command(state: dict, runtime, request: dict) -> dict:
         return {"pong": True}
 
     if state.get("page") is None:
-        browser, context, page = _new_page(runtime)
+        browser, context, page = _new_page(runtime, str(request.get("url") or ""))
         state["browser"] = browser
         state["context"] = context
         state["page"] = page
