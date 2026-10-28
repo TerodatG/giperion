@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/training/model_seq2seq.py              v002
+# GiperionModel/giperion_model/training/model_seq2seq.py              v003
 # Генеративная модель ответов Giperion: энкодер, внимание, декодер.
-# Последнее изменение: запрет повторных n-граммов при генерации.
+# Последнее изменение: экспериментальный beam search.
 
 import torch
 import torch.nn as nn
@@ -96,6 +96,14 @@ def banned_ngram_tokens(
             banned.add(ngram[-1])
 
     return banned
+
+
+def beam_rank(beam: dict) -> float:
+    """Нормирует оценку луча по длине, чтобы не любить короткие ответы."""
+
+    length = max(1, len(beam["tokens"]))
+
+    return beam["score"] / (length**0.7)
 
 
 class Seq2Seq(nn.Module):
@@ -284,6 +292,113 @@ class Seq2Seq(nn.Module):
         return torch.stack(logits_collection, dim=1)
 
     @torch.no_grad()
+    def generate_beam(
+        self,
+        source: torch.Tensor,
+        source_mask: torch.Tensor,
+        max_len: int = 40,
+        beam_size: int = 3,
+        no_repeat_ngram_size: int = 3,
+    ) -> torch.Tensor:
+        """Beam search для одного примера: ищет наиболее вероятный ответ."""
+
+        if source.size(0) != 1:
+            raise ValueError("generate_beam поддерживает batch=1")
+        if max_len <= 0 or beam_size <= 0:
+            raise ValueError("max_len и beam_size должны быть > 0")
+
+        encoder_outputs, hidden = self.encode(source, source_mask)
+        start = torch.full(
+            (1,),
+            self.sos_id,
+            dtype=torch.long,
+            device=source.device,
+        )
+        beams = [
+            {
+                "tokens": [],
+                "score": 0.0,
+                "hidden": hidden,
+                "token": start,
+                "finished": False,
+            }
+        ]
+        completed: list[dict] = []
+
+        for _ in range(max_len):
+            candidates = list(completed)
+
+            for beam in beams:
+                if beam["finished"]:
+                    continue
+
+                logits, next_hidden, _ = self.step(
+                    beam["token"],
+                    beam["hidden"],
+                    encoder_outputs,
+                    source_mask,
+                )
+
+                if no_repeat_ngram_size > 1:
+                    banned = banned_ngram_tokens(
+                        beam["tokens"],
+                        no_repeat_ngram_size,
+                    )
+
+                    if banned:
+                        logits = logits.clone()
+                        logits[0, list(banned)] = float("-inf")
+
+                log_probs = F.log_softmax(logits, dim=1)[0]
+                values, indices = torch.topk(
+                    log_probs,
+                    min(beam_size, log_probs.size(0)),
+                )
+
+                for value, index in zip(
+                    values.tolist(),
+                    indices.tolist(),
+                    strict=False,
+                ):
+                    token = int(index)
+                    candidates.append(
+                        {
+                            "tokens": beam["tokens"] + [token],
+                            "score": beam["score"] + float(value),
+                            "hidden": next_hidden,
+                            "token": torch.tensor(
+                                [token],
+                                dtype=torch.long,
+                                device=source.device,
+                            ),
+                            "finished": token == self.eos_id,
+                        }
+                    )
+
+            if not candidates:
+                break
+
+            candidates.sort(
+                key=beam_rank,
+                reverse=True,
+            )
+            beams = candidates[:beam_size]
+            completed = [
+                beam for beam in beams if beam["finished"]
+            ]
+
+            if len(completed) == len(beams):
+                break
+
+        finished = completed or beams
+        best = max(finished, key=beam_rank)
+
+        return torch.tensor(
+            [best["tokens"]],
+            dtype=torch.long,
+            device=source.device,
+        )
+
     def generate(
         self,
         source: torch.Tensor,
