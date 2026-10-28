@@ -14,7 +14,6 @@ from torch.utils.data import DataLoader, Dataset
 from giperion_model.config import MODELS_DIR, resolve_device
 from giperion_model.storage import save_torch
 from giperion_model.training.build_dataset import PAIRS_FILE
-from giperion_model.training.model_classifier import parameter_count
 from giperion_model.training.model_seq2seq import Seq2Seq
 from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
@@ -38,6 +37,16 @@ EVAL_LIMIT = 300
 SEED = 42
 
 DEVICE = resolve_device()
+
+
+def parameter_count(model) -> int:
+    """Число обучаемых параметров модели."""
+
+    return sum(
+        parameter.numel()
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    )
 
 
 class PairDataset(Dataset):

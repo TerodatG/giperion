@@ -46,11 +46,3 @@ def test_resolve_device_respects_cpu(monkeypatch) -> None:
     monkeypatch.setattr(config, "DEVICE", "cpu")
 
     assert config.resolve_device().type == "cpu"
-
-
-def test_diagnose_hybrid_uses_models_dir() -> None:
-    """Диагностика ищет hybrid.pt в настроенной папке моделей."""
-
-    from giperion_model.training.diagnose_hybrid import CHECKPOINT_FILE
-
-    assert CHECKPOINT_FILE == config.MODELS_DIR / "hybrid.pt"
