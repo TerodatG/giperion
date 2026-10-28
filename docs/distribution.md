@@ -57,6 +57,7 @@ macOS по тегу `v*` или вручную. Артефакты склады�
 ## Ограничения
 
 - PyInstaller-сборка с torch и PySide6 большая (сотни МБ); это ожидаемо.
+  В CI ставится CPU-сборка torch, чтобы артефакт не тянул CUDA.
 - Кросс-компиляции нет: каждая ОС собирает свой артефакт.
 - Windows-установщик требует Inno Setup; Linux `.deb` — `dpkg-deb`;
   AppImage — `appimagetool`; macOS — `hdiutil`.

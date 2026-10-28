@@ -32,7 +32,19 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=["pytest", "ruff", "tests"],
+    excludes=[
+        "pytest",
+        "ruff",
+        "tests",
+        "sklearn",
+        "scipy",
+        "pandas",
+        "matplotlib",
+        "tkinter",
+        "IPython",
+        "notebook",
+        "jupyter",
+    ],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

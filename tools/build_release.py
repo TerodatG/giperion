@@ -178,6 +178,27 @@ def _zip_folder(
                 archive.write(path, path.name)
 
 
+def _iscc() -> str | None:
+    """Ищет ISCC.exe в PATH и типовых папках Inno Setup."""
+
+    found = shutil.which("iscc") or shutil.which("ISCC.exe")
+
+    if found:
+        return found
+
+    candidates = (
+        Path.home() / "AppData/Local/Programs/Inno Setup 6/ISCC.exe",
+        Path("C:/Program Files (x86)/Inno Setup 6/ISCC.exe"),
+        Path("C:/Program Files/Inno Setup 6/ISCC.exe"),
+    )
+
+    for path in candidates:
+        if path.is_file():
+            return str(path)
+
+    return None
+
+
 def package_windows(
     root: Path,
     dist: Path,
@@ -199,7 +220,7 @@ def package_windows(
             ),
         )
 
-    iscc = shutil.which("iscc") or shutil.which("ISCC.exe")
+    iscc = _iscc()
 
     if not iscc:
         print("Inno Setup (iscc) не найден: .exe не собран.")
