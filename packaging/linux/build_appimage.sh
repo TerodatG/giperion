@@ -25,15 +25,17 @@ cp -a "$SRC/." "$APPDIR/usr/lib/giperion/"
 
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash
-# Giperion: данные и логи — в профиль пользователя, модели — из AppImage.
+# Giperion: данные, логи и архив — в профиль пользователя.
+# GIPERION_HOME не трогаем: от него зависит поиск assets/skins в AppImage.
 HERE="$(dirname "$(readlink -f "$0")")"
-export GIPERION_HOME="${GIPERION_HOME:-$HOME/.local/share/giperion}"
-export GIPERION_MODELS_DIR="${GIPERION_MODELS_DIR:-$HERE/usr/lib/giperion/_internal/models}"
+GI_HOME="${GIPERION_STATE_DIR:-$HOME/.local/share/giperion}"
+export GIPERION_DATA_DIR="${GIPERION_DATA_DIR:-$GI_HOME/data}"
+export GIPERION_LOGS_DIR="${GIPERION_LOGS_DIR:-$GI_HOME/logs}"
+export GIPERION_ARCHIVE_DIR="${GIPERION_ARCHIVE_DIR:-$GI_HOME/archive}"
 
-DATA="$GIPERION_HOME/data"
-mkdir -p "$DATA"
-if [ ! -f "$DATA/intents.json" ] && [ -f "$HERE/usr/lib/giperion/_internal/data/intents.json" ]; then
-  cp "$HERE/usr/lib/giperion/_internal/data/intents.json" "$DATA/" 2>/dev/null || true
+mkdir -p "$GIPERION_DATA_DIR" "$GIPERION_LOGS_DIR" "$GIPERION_ARCHIVE_DIR"
+if [ ! -f "$GIPERION_DATA_DIR/intents.json" ] && [ -f "$HERE/usr/lib/giperion/_internal/data/intents.json" ]; then
+  cp "$HERE/usr/lib/giperion/_internal/data/intents.json" "$GIPERION_DATA_DIR/" 2>/dev/null || true
 fi
 
 exec "$HERE/usr/lib/giperion/Giperion" "$@"

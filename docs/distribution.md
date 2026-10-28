@@ -69,7 +69,18 @@ CI ставит Inno через Chocolatey.
 - AppImage через `packaging/linux/build_appimage.sh` (`appimagetool`).
 
 `.deb` кладёт приложение в `/usr/lib/giperion`, а в `/usr/bin/giperion`
-— обёртку и `.desktop`-файл.
+— обёртку и `.desktop`-файл. AppImage использует `AppRun`.
+
+Обе обёртки задают `GIPERION_DATA_DIR`, `GIPERION_LOGS_DIR` и
+`GIPERION_ARCHIVE_DIR` в `~/.local/share/giperion`: сам пакет только для
+чтения. `GIPERION_HOME` не переопределяется — от него зависит поиск
+`assets/` и `skins/`.
+
+`.deb` объявляет `Depends` на библиотеки Qt (libgl1, libegl1,
+libxkbcommon-x11-0, libxcb-*): без них плагин `xcb` не загружается.
+
+Проверено на чистой Ubuntu 24.04: `apt install ./Giperion-1.0.0-linux-x64.deb`,
+запуск, ответ ассистента, `apt purge` без остатков в `/usr`.
 
 ## macOS
 

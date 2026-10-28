@@ -5,11 +5,20 @@
 import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-ARCHIVE_DIR = BASE_DIR / "archive"
-LOGS_DIR = BASE_DIR / "logs"
-MODELS_DIR = BASE_DIR / "models"
+
+def _dir(name: str, default: Path) -> Path:
+    """Каталог из переменной окружения или значение по умолчанию."""
+
+    value = os.environ.get(name, "").strip()
+
+    return Path(value).expanduser().resolve() if value else default
+
+
+BASE_DIR = _dir("GIPERION_HOME", Path(__file__).resolve().parent)
+DATA_DIR = _dir("GIPERION_DATA_DIR", BASE_DIR / "data")
+ARCHIVE_DIR = _dir("GIPERION_ARCHIVE_DIR", BASE_DIR / "archive")
+LOGS_DIR = _dir("GIPERION_LOGS_DIR", BASE_DIR / "logs")
+MODELS_DIR = _dir("GIPERION_MODELS_DIR", BASE_DIR / "models")
 
 # Модель живёт отдельным пакетом и читает пути из окружения.
 os.environ.setdefault("GIPERION_HOME", str(BASE_DIR))
