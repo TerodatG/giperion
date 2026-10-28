@@ -27,10 +27,19 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
-; По умолчанию — установка для всех пользователей (нужен админ).
-; Без прав администратора можно поставить в профиль: /CURRENTUSER.
-PrivilegesRequired=admin
+; По умолчанию — установка в профиль пользователя: приложение пишет
+; данные рядом с собой, а Program Files для обычного пользователя
+; только для чтения. Для всех пользователей: /ALLUSERS (нужен админ).
+PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog commandline
+
+[Dirs]
+; Для установки для всех пользователей: даём обычным пользователям
+; писать данные, логи, архив и модели.
+Name: "{app}\_internal\data"; Permissions: users-modify
+Name: "{app}\_internal\logs"; Permissions: users-modify
+Name: "{app}\_internal\archive"; Permissions: users-modify
+Name: "{app}\_internal\models"; Permissions: users-modify
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"

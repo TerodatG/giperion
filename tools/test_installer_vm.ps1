@@ -113,11 +113,14 @@ Step "Копирование установщика"
 Guest @("copyto", $Installer, "$guestDownloads\\$installerName")
 
 Step "Установка (без администратора)"
-$result = GuestCmd "$guestDownloads\\$installerName /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=$guestDownloads\\install.log & echo EXITCODE=%ERRORLEVEL%" 1800000
+$result = GuestCmd "$guestDownloads\\$installerName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=$guestDownloads\\install.log & echo EXITCODE=%ERRORLEVEL%" 1800000
 $result | Out-Host
 
 Step "Проверка файлов и ярлыка"
 $check = GuestCmd 'if exist "%LOCALAPPDATA%\Programs\Giperion\Giperion.exe" (echo EXE_OK) else (echo EXE_MISSING)'
+$check | Out-Host
+
+$check = GuestCmd 'if exist "%LOCALAPPDATA%\Programs\Giperion\_internal\models\seq2seq.pt" (echo MODELS_OK) else (echo MODELS_MISSING)'
 $check | Out-Host
 
 $check = GuestCmd 'if exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Giperion" (echo LNK_OK) else (echo LNK_MISSING)'

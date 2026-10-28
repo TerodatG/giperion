@@ -32,12 +32,14 @@ python -m tools.verify_release --folder dist
 `main_window.ui`, веса `models/` и стартовый `data/intents.json`.
 Без `models/` окно открывается, но ассистент не отвечает.
 
-`.exe` по умолчанию ставит для всех пользователей (нужен администратор).
-Без прав администратора: `/CURRENTUSER` — установка в
-`%LOCALAPPDATA%\Programs\Giperion`. Тихая установка:
+`.exe` по умолчанию ставит в профиль пользователя
+(`%LOCALAPPDATA%\Programs\Giperion`) и не требует администратора — это
+рабочий вариант: приложение пишет данные рядом с собой. Для всех
+пользователей: `/ALLUSERS` (нужен администратор, установщик выдаёт
+права на запись в `_internal\data|logs|archive|models`). Тихая установка:
 
 ```powershell
-Giperion-1.0.0-windows-x64-setup.exe /CURRENTUSER /VERYSILENT `
+Giperion-1.0.0-windows-x64-setup.exe /VERYSILENT `
     /SUPPRESSMSGBOXES /NORESTART /LOG=%TEMP%\giperion-install.log
 ```
 
