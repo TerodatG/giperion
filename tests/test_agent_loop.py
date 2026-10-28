@@ -1060,3 +1060,30 @@ def test_plan_source_is_applied(tmp_path) -> None:
         for step in result.steps
         if step.kind == "plan"
     )
+
+
+def test_trust_still_shows_diff(tmp_path) -> None:
+    """Политика trust не скрывает дифф записи."""
+
+    (tmp_path / "a.txt").write_text("старое", encoding="utf-8")
+    brain = ScriptedBrain(
+        [
+            _tool("write_file", path="a.txt", content="новое"),
+            _answer("готово"),
+        ]
+    )
+
+    result = run_agent(
+        "правь",
+        brain,
+        tmp_path,
+        ground_first=False,
+        require_tool_first=False,
+        policy="trust",
+    )
+
+    approvals = [step for step in result.steps if step.kind == "approval"]
+
+    assert approvals
+    assert "--- a/a.txt" in approvals[0].detail
+    assert "+++ b/a.txt" in approvals[0].detail

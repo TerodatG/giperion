@@ -258,6 +258,26 @@ def test_chat_compaction_keeps_recent_and_pairs() -> None:
     ) == 4
 
 
+def test_smart_excerpt_keeps_error_and_path() -> None:
+    """Сжатие не теряет ошибку и путь среди шума."""
+
+    from terminal.core.agent.loop_helpers import _smart_excerpt
+
+    text = "\n".join(
+        [f"шум {index} " + "x" * 40 for index in range(40)]
+        + [
+            "ERROR: terminal/core/agent/loop.py не найден",
+            "решение: использовать tools_write.py",
+        ]
+    )
+    result = _smart_excerpt(text, 300)
+
+    assert len(result) <= 300 + 40
+    assert "ERROR" in result
+    assert "loop.py" in result
+    assert "старый результат сжат" in result
+
+
 def test_salvaged_call_becomes_chat_tool_call(tmp_path) -> None:
     """Вызов, напечатанный текстом, тоже превращается в пару сообщений."""
 

@@ -290,6 +290,85 @@ def _trim_chat(messages: list[dict], max_chars: int) -> list[dict]:
     return trimmed
 
 
+def _smart_excerpt(text: str, limit: int) -> str:
+    """Сжимает вывод, сохраняя ошибки, пути и решения."""
+
+    marker = "\n… старый результат сжат"
+    budget = max(100, int(limit) - len(marker))
+    value = str(text or "")
+
+    if len(value) <= budget:
+        return value
+
+    lines = value.splitlines()
+    head = lines[:3]
+    used = sum(len(line) + 1 for line in head)
+    scored: list[tuple[int, int, str]] = []
+
+    for index, line in enumerate(lines[3:], start=3):
+        lowered = line.casefold()
+        score = 0
+
+        if any(
+            word in lowered
+            for word in (
+                "error",
+                "ошиб",
+                "exception",
+                "traceback",
+                "failed",
+                "не найден",
+                "запрещ",
+            )
+        ):
+            score += 5
+
+        if PATH_TOKEN.search(line):
+            score += 4
+
+        if any(
+            word in lowered
+            for word in (
+                "решен",
+                "выбрал",
+                "нужно",
+                "нельзя",
+                "итог",
+                "важно",
+            )
+        ):
+            score += 3
+
+        if any(char.isdigit() for char in line):
+            score += 1
+
+        if score:
+            scored.append((score, index, line))
+
+    chosen: set[int] = set(range(len(head)))
+
+    for _score, index, line in sorted(
+        scored,
+        key=lambda item: (-item[0], item[1]),
+    ):
+        if used + len(line) + 1 > budget:
+            continue
+
+        chosen.add(index)
+        used += len(line) + 1
+
+    if len(chosen) == len(head):
+        return value[:budget].rstrip() + marker
+
+    result = "\n".join(
+        line
+        for index, line in enumerate(lines)
+        if index in chosen
+    )
+
+    return result[:budget].rstrip() + marker
+
+
 def _compact_chat(
     messages: list[dict],
     recent_steps: int = 2,
@@ -321,7 +400,7 @@ def _compact_chat(
 
         messages[index] = {
             **message,
-            "content": content[:limit] + "\n… старый результат сжат",
+            "content": _smart_excerpt(content, limit),
         }
 
 

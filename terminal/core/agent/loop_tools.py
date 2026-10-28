@@ -399,6 +399,20 @@ def _request_approval(
     return call
 
 
+def _trust_preview(state, index, call, root) -> None:
+    """Показывает дифф перед авто-разрешением trust."""
+
+    preview = registry.preview(root, call)
+    state.emit(
+        AgentStep(
+            index,
+            "approval",
+            "Разрешено политикой · " + _approval_title(call),
+            (preview.text or "Предпросмотр недоступен.")[:2_000],
+        )
+    )
+
+
 def _approve_and_execute(
     state: _RunState,
     index: int,
@@ -449,15 +463,7 @@ def _approve_and_execute(
         and risk == "write"
         and call.tool != "git_commit"
     ):
-        state.emit(
-            AgentStep(
-                index,
-                "approval",
-                "Разрешено политикой · "
-                + _approval_title(call),
-                "Правки разрешены на время задачи.",
-            )
-        )
+        _trust_preview(state, index, call, root)
         requires_approval = False
 
     key = approval_key(call)
@@ -590,4 +596,3 @@ def _execute_calls(
             policy=policy,
             approve=approve,
         )
-
