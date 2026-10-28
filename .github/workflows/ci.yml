@@ -43,6 +43,9 @@ jobs:
       - name: Структура
         run: python -m tools.check_structure --strict
 
+      - name: Аудит связей
+        run: python -m tools.audit --check
+
       - name: Тесты
         run: python -m pytest
 
