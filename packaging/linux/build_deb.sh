@@ -52,6 +52,7 @@ Section: devel
 Priority: optional
 Architecture: amd64
 Maintainer: Giperion <noreply@example.com>
+Depends: libgl1, libegl1, libxkbcommon-x11-0, libdbus-1-3, libfontconfig1, libxcb-cursor0
 Description: Giperion AI coding agent
  Local terminal, agent, knowledge base and Giperion model.
 EOF
