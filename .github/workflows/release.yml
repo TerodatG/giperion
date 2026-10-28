@@ -28,6 +28,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Версия
+        id: version
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=1.0.0" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -46,8 +56,31 @@ jobs:
           choco install innosetup --no-progress -y
           echo "C:\Program Files (x86)\Inno Setup 6" >> $env:GITHUB_PATH
 
+      - name: Библиотеки Qt (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libegl1 libdbus-1-3 libfontconfig1 \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 \
+            libxcb-xinerama0 libxcb-xkb1 libfuse2
+
+      - name: appimagetool (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$HOME/bin"
+          curl -sSL -o "$HOME/bin/appimagetool" \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$HOME/bin/appimagetool"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
       - name: Сборка
-        run: python -m tools.build_release --target ${{ matrix.target }}
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: >
+          python -m tools.build_release
+          --target ${{ matrix.target }}
+          --version ${{ steps.version.outputs.value }}
 
       - name: Проверка сумм
         run: python -m tools.verify_release --folder dist

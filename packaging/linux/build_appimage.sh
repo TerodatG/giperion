@@ -49,7 +49,9 @@ if [ -f "$ROOT/assets/icon.png" ]; then
 fi
 
 mkdir -p "$OUT"
-ARCH=x86_64 appimagetool "$APPDIR" \
+# Без FUSE (например, в CI) инструмент распаковывает себя сам.
+APPIMAGE_EXTRACT_AND_RUN="${APPIMAGE_EXTRACT_AND_RUN:-1}" \
+  ARCH=x86_64 appimagetool "$APPDIR" \
   "$OUT/Giperion-${VERSION}-linux-x64.AppImage"
 
 echo "Собрано: $OUT/Giperion-${VERSION}-linux-x64.AppImage"

@@ -9,8 +9,9 @@ __pycache__/
 .coverage
 htmlcov/
 
-# --- Веса моделей (восстанавливаются обучением) ---
-models/*.pt
+# --- Веса моделей ---
+# models/*.pt НЕ игнорируем: без seq2seq.pt сборка запускается, но молчит.
+models/*.tmp
 
 # --- Рабочие журналы и скриншоты ---
 logs/
@@ -29,6 +30,7 @@ data/model_settings.json
 data/conference_settings.json
 data/custom_models.json
 data/window_settings.json
+data/chat_sessions.json
 data/personality_settings.json
 data/dataset/
 data/chat_contexts/
@@ -93,3 +95,4 @@ data/agent_schedule_runs.jsonl
 data/plugin_signing.key
 data/agent_dashboard.html
 debug.log
+.orchestra/session-progress.md
