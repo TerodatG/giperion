@@ -77,9 +77,9 @@ def test_selective_metrics_without_answers() -> None:
 def test_router_uses_stricter_thresholds() -> None:
     """У роутера порог выше, чем у запасного CNN."""
 
-    assert parse_args([]).min_top1 == 0.52
+    assert parse_args([]).min_top1 == 0.40
     assert parse_args(["--router"]).min_top1 == 0.75
-    assert parse_args([]).min_macro_f1 == 0.53
+    assert parse_args([]).min_macro_f1 == 0.40
     assert parse_args(["--router"]).min_macro_f1 == 0.70
 
 

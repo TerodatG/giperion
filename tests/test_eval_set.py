@@ -1,6 +1,6 @@
-# Giperion/tests/test_eval_set.py                                    v003
+# Giperion/tests/test_eval_set.py                                    v004
 # Инварианты отложенного набора: чистый, размеченный, без утечек.
-# Последнее изменение: 20 фраз на класс, natural и template подвыборки.
+# Последнее изменение: 20 natural и 10 template фраз на класс.
 
 import json
 from collections import Counter
@@ -100,7 +100,7 @@ def test_eval_set_is_disjoint_from_training() -> None:
 
 
 def test_eval_set_covers_every_intent() -> None:
-    """У каждого намерения есть хотя бы двадцать отложенных фраз."""
+    """У каждого намерения есть хотя бы тридцать отложенных фраз."""
 
     counts = Counter(
         item["label"] for item in load_phrases()
@@ -119,16 +119,16 @@ def test_eval_set_covers_every_intent() -> None:
     thin = sorted(
         label
         for label, count in counts.items()
-        if count < 20
+        if count < 30
     )
 
     assert not thin, (
-        "Меньше двадцати фраз на класс: " + ", ".join(thin)
+        "Меньше тридцати фраз на класс: " + ", ".join(thin)
     )
 
 
 def test_eval_set_has_two_balanced_subsets() -> None:
-    """На каждый класс приходится 10 natural и 10 template фраз."""
+    """На каждый класс приходится 20 natural и 10 template фраз."""
 
     counts = Counter(
         (item["label"], item.get("source"))
@@ -142,7 +142,7 @@ def test_eval_set_has_two_balanced_subsets() -> None:
     } <= {"natural", "template"}
 
     for tag in tags:
-        assert counts[(tag, "natural")] == 10
+        assert counts[(tag, "natural")] == 20
         assert counts[(tag, "template")] == 10
 
 

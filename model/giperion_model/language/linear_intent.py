@@ -14,8 +14,8 @@ LINEAR_MODEL_FILE = MODELS_DIR / "linear_intent.json"
 NGRAM_MIN = 3
 NGRAM_MAX = 5
 
-# Порог выбран на natural-подвыборке: покрытие ~0.57 при точности ~0.94.
-ROUTER_CONFIDENCE_THRESHOLD = 0.65
+# Порог выбран на natural-подвыборке: покрытие ~0.76 при точности ~0.95.
+ROUTER_CONFIDENCE_THRESHOLD = 0.50
 
 LOGGER = logging.getLogger(__name__)
 
