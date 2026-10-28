@@ -14,6 +14,12 @@ GUI `Giperion` из `packaging/giperion.spec`; затем платформенн
 упаковщик делает установщик. В конце пишется `SHA256SUMS` для архивов и
 установщиков.
 
+Проверка перед публикацией:
+
+```powershell
+python -m tools.verify_release --folder dist
+```
+
 ## Windows
 
 - one-dir `dist/Giperion/`;

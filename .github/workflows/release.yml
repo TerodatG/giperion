@@ -45,6 +45,9 @@ jobs:
       - name: Сборка
         run: python -m tools.build_release --target ${{ matrix.target }}
 
+      - name: Проверка сумм
+        run: python -m tools.verify_release --folder dist
+
       - name: Артефакты
         uses: actions/upload-artifact@v4
         with:
