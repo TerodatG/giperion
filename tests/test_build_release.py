@@ -58,6 +58,32 @@ def test_zip_dry_run_creates_nothing(tmp_path) -> None:
     assert not target.exists()
 
 
+def test_zip_includes_install_scripts(tmp_path) -> None:
+    """В Windows-zip рядом с приложением лежат install/uninstall."""
+
+    import zipfile
+
+    source = tmp_path / "Giperion"
+    source.mkdir()
+    (source / "Giperion.exe").write_bytes(b"exe")
+    install = tmp_path / "install.ps1"
+    install.write_text("# install", encoding="utf-8")
+    target = tmp_path / "Giperion.zip"
+
+    build_release._zip_folder(
+        source,
+        target,
+        dry_run=False,
+        extras=(install,),
+    )
+
+    with zipfile.ZipFile(target) as archive:
+        names = archive.namelist()
+
+    assert "Giperion/Giperion.exe" in names
+    assert "install.ps1" in names
+
+
 def test_checksums_include_only_artifacts(tmp_path) -> None:
     """SHA256SUMS содержит архивы и установщики, но не текст."""
 

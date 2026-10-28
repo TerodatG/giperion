@@ -153,7 +153,12 @@ def write_checksums(
     return output
 
 
-def _zip_folder(source: Path, target: Path, dry_run: bool) -> None:
+def _zip_folder(
+    source: Path,
+    target: Path,
+    dry_run: bool,
+    extras: tuple[Path, ...] = (),
+) -> None:
     print("+ zip", source, "->", target)
 
     if dry_run:
@@ -167,6 +172,10 @@ def _zip_folder(source: Path, target: Path, dry_run: bool) -> None:
         for path in source.rglob("*"):
             if path.is_file():
                 archive.write(path, path.relative_to(source.parent))
+
+        for path in extras:
+            if path.is_file():
+                archive.write(path, path.name)
 
 
 def package_windows(
@@ -184,6 +193,10 @@ def package_windows(
             app,
             dist / artifact_name("windows", version, "zip"),
             dry_run,
+            (
+                root / "packaging/windows/install.ps1",
+                root / "packaging/windows/uninstall.ps1",
+            ),
         )
 
     iscc = shutil.which("iscc") or shutil.which("ISCC.exe")

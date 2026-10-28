@@ -17,7 +17,8 @@ GUI `Giperion` из `packaging/giperion.spec`; затем платформенн
 ## Windows
 
 - one-dir `dist/Giperion/`;
-- zip `Giperion-<версия>-windows-x64.zip`;
+- zip `Giperion-<версия>-windows-x64.zip` с `install.ps1` и
+  `uninstall.ps1` — установка без администратора в `%LOCALAPPDATA%`;
 - `.exe` через Inno Setup (`iscc`), если он установлен:
   `packaging/windows/giperion.iss`.
 
