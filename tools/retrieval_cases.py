@@ -25,7 +25,7 @@ CASES = (
     ),
     (
         "подтверждения записи файлов",
-        "terminal/core/agent/loop_tools.py",
+        "terminal/ui/agent/approval.py",
     ),
     (
         "откат изменений агента после ошибки",
@@ -53,7 +53,7 @@ CASES = (
     ),
     (
         "где проверяются подтверждения записи файлов",
-        "terminal/core/agent/loop_tools.py",
+        "terminal/ui/agent/approval.py",
     ),
     (
         "как работает откат изменений агента",
