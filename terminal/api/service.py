@@ -6,10 +6,7 @@ from pathlib import Path
 from terminal.api import config
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.native_brain import NativeBrain
-from terminal.core.agent.providers import (
-    provider_from_env,
-    provider_from_settings,
-)
+from terminal.core.agent.providers import provider_chain
 from terminal.core.agent.registry import all_specs
 from terminal.core.agent.runs import read_runs
 from terminal.core.app_version import current_version
@@ -26,7 +23,7 @@ class ApiError(RuntimeError):
 def build_brain():
     """Собирает «мозг» агента из настроек или переменных окружения."""
 
-    provider = provider_from_settings() or provider_from_env()
+    provider = provider_chain()
 
     if provider is None:
         raise ApiError(

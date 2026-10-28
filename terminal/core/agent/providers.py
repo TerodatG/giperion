@@ -21,6 +21,8 @@ __all__ = [
     "ProviderError",
     "ProviderReply",
     "ProviderRetry",
+    "anthropic_from_env",
+    "provider_chain",
     "provider_from_env",
     "provider_from_settings",
 ]
@@ -56,3 +58,38 @@ def provider_from_settings() -> OpenAICompatibleProvider | None:
         timeout=settings.request_timeout(),
         stream=settings.stream_enabled(),
     )
+
+
+def anthropic_from_env():
+    """Запасной провайдер Anthropic из переменных окружения."""
+
+    import os
+
+    from terminal.core.agent.provider_anthropic import AnthropicProvider
+
+    base_url = os.environ.get("AGENT_FALLBACK_BASE_URL", "").strip()
+    api_key = os.environ.get("AGENT_FALLBACK_API_KEY", "").strip()
+    model = os.environ.get("AGENT_FALLBACK_MODEL", "").strip()
+
+    if not (base_url and api_key and model):
+        return None
+
+    return AnthropicProvider(base_url, api_key, model)
+
+
+def provider_chain():
+    """Основной провайдер и, если задан, запасной Anthropic."""
+
+    from terminal.core.agent.provider_router import FallbackProvider
+
+    primary = provider_from_settings() or provider_from_env()
+
+    if primary is None:
+        return None
+
+    fallback = anthropic_from_env()
+
+    if fallback is None:
+        return primary
+
+    return FallbackProvider(primary, fallback)
