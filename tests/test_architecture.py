@@ -16,7 +16,11 @@ ROOT = Path(__file__).resolve().parent.parent
 MODEL_ROOT = Path(
     os.environ.get(
         "KRAPER_MODEL_PATH",
-        str(ROOT.parent / "Kraper" / "kraper_model"),
+        str(
+            ROOT.parent / "Kraper" / "kraper_model"
+            if (ROOT.parent / "Kraper" / "kraper_model").is_dir()
+            else ROOT / "Kraper" / "kraper_model"
+        ),
     )
 )
 
