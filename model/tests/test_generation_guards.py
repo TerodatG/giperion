@@ -3,6 +3,17 @@
 # Последнее изменение: первый вариант — повторы и обратная проверка.
 
 from giperion_model.neural_engine import NeuralEngine, has_repetition
+from giperion_model.training.model_seq2seq import banned_ngram_tokens
+
+
+def test_banned_ngram_tokens_blocks_loops() -> None:
+    """Повтор последней пары слов запрещает третье слово."""
+
+    assert banned_ngram_tokens([1, 2, 3, 1, 2], 3) == {3}
+    assert banned_ngram_tokens([1, 2, 3], 3) == set()
+    assert banned_ngram_tokens([1, 2], 3) == set()
+    assert banned_ngram_tokens([1, 1, 1], 3) == {1}
+    assert banned_ngram_tokens([1, 2, 3], 1) == set()
 
 
 def test_repetition_detects_loops() -> None:

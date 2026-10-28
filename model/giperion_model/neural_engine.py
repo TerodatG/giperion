@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/neural_engine.py                       v005
+# GiperionModel/giperion_model/neural_engine.py                       v006
 # Нейросетевой движок: намерение классификатора и сгенерированный ответ.
-# Последнее изменение: защита от повторов и ответов не по теме.
+# Последнее изменение: запрет повторов n-граммов при генерации.
 
 import random
 import threading
@@ -26,6 +26,9 @@ MIN_GENERATED_LEN = 6
 
 # Слишком длинный или зацикленный вывод тоже отбрасываем.
 MAX_GENERATED_LEN = 240
+
+# При генерации запрещаем повторять одинаковые трёхсловные цепочки.
+NO_REPEAT_NGRAM_SIZE = 3
 
 # Если обратная проверка уверена в другом намерении — ответ не принимаем.
 INTENT_CHECK_THRESHOLD = 0.6
@@ -196,6 +199,7 @@ class NeuralEngine:
                 source,
                 source_mask,
                 max_len=self.max_tgt_len,
+                no_repeat_ngram_size=NO_REPEAT_NGRAM_SIZE,
             )
 
         # Собираем текст до первого </eos>.

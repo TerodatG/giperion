@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/training/model_seq2seq.py              v001
+# GiperionModel/giperion_model/training/model_seq2seq.py              v002
 # Генеративная модель ответов Giperion: энкодер, внимание, декодер.
-# Последнее изменение: первый вариант — своё внимание Бахданау на GRU.
+# Последнее изменение: запрет повторных n-граммов при генерации.
 
 import torch
 import torch.nn as nn
@@ -75,6 +75,27 @@ class BahdanauAttention(nn.Module):
         ).squeeze(1)
 
         return context, weights
+
+
+def banned_ngram_tokens(
+    prefix: list[int],
+    size: int,
+) -> set[int]:
+    """Возвращает токены, которые создадут повтор n-грамма."""
+
+    if size <= 1 or len(prefix) < size - 1:
+        return set()
+
+    suffix = tuple(prefix[-(size - 1) :])
+    banned = set()
+
+    for start in range(len(prefix) - size + 1):
+        ngram = prefix[start : start + size]
+
+        if tuple(ngram[:-1]) == suffix:
+            banned.add(ngram[-1])
+
+    return banned
 
 
 class Seq2Seq(nn.Module):
@@ -268,6 +289,7 @@ class Seq2Seq(nn.Module):
         source: torch.Tensor,
         source_mask: torch.Tensor,
         max_len: int = 40,
+        no_repeat_ngram_size: int = 0,
     ) -> torch.Tensor:
         """Придумывает ответы без учителя. Возвращает id токенов."""
 
@@ -292,6 +314,7 @@ class Seq2Seq(nn.Module):
         )
 
         generated = []
+        history: list[list[int]] = [[] for _ in range(batch_size)]
 
         for _ in range(max_len):
             logits, hidden, _ = self.step(
@@ -301,8 +324,24 @@ class Seq2Seq(nn.Module):
                 source_mask,
             )
 
+            if no_repeat_ngram_size > 1:
+                logits = logits.clone()
+
+                for row in range(batch_size):
+                    banned = banned_ngram_tokens(
+                        history[row],
+                        no_repeat_ngram_size,
+                    )
+
+                    if banned:
+                        logits[row, list(banned)] = float("-inf")
+
             predicted = logits.argmax(dim=1)
             generated.append(predicted)
+
+            for row in range(batch_size):
+                if not bool(finished[row]):
+                    history[row].append(int(predicted[row]))
 
             finished = finished | (
                 predicted == self.eos_id
