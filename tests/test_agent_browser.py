@@ -852,3 +852,52 @@ def test_browser_pins_initial_host(monkeypatch) -> None:
     assert args == [
         "--host-resolver-rules=MAP example.com 93.184.216.34"
     ]
+
+
+def test_act_records_scenario(tmp_path, monkeypatch) -> None:
+    """Успешный browser_act сохраняет JSON-сценарий внутри проекта."""
+
+    from terminal.core.agent.protocol import ToolResult
+
+    monkeypatch.setattr(
+        browser_js,
+        "_run",
+        lambda *args, **kwargs: ToolResult(True, "ok"),
+    )
+
+    result = browser_js.act(
+        tmp_path,
+        "https://example.com/login",
+        actions=[{"type": "click", "selector": "#go"}],
+        wait="#form",
+        record="data/scenario.json",
+    )
+
+    assert result.ok
+    text = (tmp_path / "data" / "scenario.json").read_text(
+        encoding="utf-8"
+    )
+    assert "example.com/login" in text
+    assert "#go" in text
+
+
+def test_record_outside_project_is_ignored(tmp_path, monkeypatch) -> None:
+    """Сценарий нельзя записать за пределы проекта."""
+
+    from terminal.core.agent.protocol import ToolResult
+
+    monkeypatch.setattr(
+        browser_js,
+        "_run",
+        lambda *args, **kwargs: ToolResult(True, "ok"),
+    )
+
+    outside = tmp_path.parent / "evil.json"
+    browser_js.act(
+        tmp_path,
+        "https://example.com",
+        actions=[],
+        record=str(outside),
+    )
+
+    assert not outside.exists()

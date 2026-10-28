@@ -467,6 +467,9 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
                 "Аргумент «actions» должен быть списком действий.",
             )
 
+        record = _string_arg(call, "record")
+        kwargs = {"record": record} if record else {}
+
         return browser_js.act(
             root,
             _string_arg(call, "url"),
@@ -474,6 +477,7 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
             _string_arg(call, "wait"),
             bool(call.args.get("shot")),
             full_page=bool(call.args.get("full_page")),
+            **kwargs,
         )
 
     return None

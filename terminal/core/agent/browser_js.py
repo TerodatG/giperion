@@ -527,6 +527,7 @@ def act(
     shot: bool = False,
     timeout: int = DEFAULT_TIMEOUT,
     full_page: bool = False,
+    record: str = "",
 ) -> ToolResult:
     """Открывает страницу, выполняет действия и возвращает текст."""
 
@@ -537,7 +538,7 @@ def act(
     except web.WebError as error:
         return ToolResult(False, str(error))
 
-    return _run(
+    result = _run(
         root,
         url,
         wait=wait,
@@ -545,4 +546,55 @@ def act(
         actions=clean_actions,
         shot=bool(shot),
         full_page=bool(full_page),
+    )
+
+    if record and result.ok:
+        _save_scenario(
+            Path(root),
+            record,
+            url,
+            clean_actions,
+            wait,
+            full_page,
+        )
+
+    return result
+
+
+def _save_scenario(
+    root: Path,
+    record: str,
+    url: str,
+    actions: list[dict],
+    wait: str,
+    full_page: bool,
+) -> None:
+    """Сохраняет выполненный сценарий в JSON внутри проекта."""
+
+    path = Path(record)
+
+    if not path.is_absolute():
+        path = root / path
+
+    try:
+        path.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return
+
+    if path.suffix.lower() != ".json":
+        return
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "url": url,
+                "wait": wait,
+                "actions": actions,
+                "full_page": bool(full_page),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
     )

@@ -300,6 +300,12 @@ TOOL_SPECS = (
                     "type": "boolean",
                     "description": "скриншот всей страницы, а не экрана",
                 },
+                "record": {
+                    "type": "string",
+                    "description": (
+                        "путь .json внутри проекта для записи сценария"
+                    ),
+                },
             },
             "required": ["url", "actions"],
             "additionalProperties": False,
