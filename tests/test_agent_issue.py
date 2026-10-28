@@ -87,3 +87,28 @@ def test_fetch_gitlab(monkeypatch) -> None:
     assert issue["number"] == 3
     assert issue["title"] == "Задача"
     assert issue["body"] == "Текст"
+
+
+def test_create_branch_uses_issue_slug(monkeypatch, tmp_path) -> None:
+    """Ветка из issue называется agent/issue-<номер>-<слаг>."""
+
+    calls = {}
+
+    def fake_create(root, name):
+        calls.update(root=root, name=name)
+
+        return tmp_path / "worktree", "agent/" + name
+
+    monkeypatch.setattr(
+        "terminal.core.agent.worktrees.create_worktree",
+        fake_create,
+    )
+
+    folder, branch = agent_issue.create_branch(
+        {"number": 12, "title": "Fix Login Form"},
+        tmp_path,
+    )
+
+    assert calls["name"] == "issue-12-fix-login-form"
+    assert branch == "agent/issue-12-fix-login-form"
+    assert folder == tmp_path / "worktree"

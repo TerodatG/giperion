@@ -159,4 +159,48 @@ CASES = (
         "резервная копия данных",
         "tools/backup_data.py",
     ),
+    (
+        "browser_page обрезка текста страницы",
+        "terminal/core/agent/browser_page.py",
+    ),
+    (
+        "browser_fields поля действий",
+        "terminal/core/agent/browser_fields.py",
+    ),
+    (
+        "browser_tabs переключение вкладок",
+        "terminal/core/agent/browser_tabs.py",
+    ),
+    (
+        "queue приоритет очереди задач",
+        "terminal/core/agent/queue.py",
+    ),
+    (
+        "agent_nightly ночной отчёт",
+        "tools/agent_nightly.py",
+    ),
+    (
+        "plugins отзыв разрешений плагина",
+        "terminal/core/agent/plugins.py",
+    ),
+    (
+        "agent_issue gitlab token",
+        "tools/agent_issue.py",
+    ),
+    (
+        "onboarding флаг первого запуска",
+        "terminal/core/agent/onboarding.py",
+    ),
+    (
+        "plan parse статус пункта",
+        "terminal/core/agent/plan.py",
+    ),
+    (
+        "loop_audit цель вызова",
+        "terminal/core/agent/loop_audit.py",
+    ),
+    (
+        "errors retry ask stop",
+        "terminal/core/agent/errors.py",
+    ),
 )

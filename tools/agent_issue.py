@@ -10,6 +10,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from config import BASE_DIR
 
@@ -109,6 +110,22 @@ def task_text(issue: dict) -> str:
     return (title + ("\n\n" + body if body else "")).strip()
 
 
+def create_branch(issue: dict, root: Path | None = None) -> tuple[Path, str]:
+    """Создаёт worktree и ветку agent/issue-<номер>."""
+
+    from terminal.core.agent.worktrees import create_worktree
+
+    number = int(issue.get("number") or 0)
+    title = str(issue.get("title") or "").strip()
+    slug = "".join(
+        char if char.isalnum() else "-"
+        for char in title.lower()
+    ).strip("-")[:40]
+    name = f"issue-{number}-{slug or 'task'}"
+
+    return create_worktree(Path(root or BASE_DIR), name)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Прочитать issue и превратить в задачу.",
@@ -119,6 +136,11 @@ def main() -> int:
     parser.add_argument("--project", default="")
     parser.add_argument("--url", default="https://gitlab.com")
     parser.add_argument("--token-env", default="GITLAB_TOKEN")
+    parser.add_argument(
+        "--worktree",
+        action="store_true",
+        help="создать worktree и ветку agent/issue-*",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -141,6 +163,17 @@ def main() -> int:
         print(json.dumps(issue, ensure_ascii=False, indent=2))
     else:
         print(task_text(issue))
+
+    if args.worktree:
+        try:
+            folder, branch = create_branch(issue)
+        except Exception as error:  # noqa: BLE001 — покажем причину
+            print("Ветка не создана:", error)
+
+            return 1
+
+        print("Ветка:", branch)
+        print("Папка:", folder)
 
     return 0
 

@@ -97,14 +97,15 @@ python -m tools.agent_alerts --window 20 --threshold 0.5 --fail
 
 ```powershell
 python -m tools.eval_compare --last 5
+python -m tools.eval_ab "где считается бюджет" --a-model m1 --b-model m2
 python -m tools.profile_startup
 python -m tools.profile_startup --budget 2500
 ```
 
 `eval_compare` берёт историю стенда и показывает средний успех, шаги,
-время и стабильность по каждой модели. `profile_startup` меряет импорт
-ключевых модулей: сейчас львиная доля — `giperion_model.neural_engine`
-(около 2.6 с), поэтому ленивый импорт остаётся задачей этапа 18.
+время и стабильность по каждой модели. `eval_ab` прогоняет одну и ту же
+задачу двумя моделями и печатает успех, шаги, токены и стоимость.
+`profile_startup` меряет импорт ключевых модулей.
 - Модель и провайдер берутся из настроек; можно передать `--model`,
   `--provider`.
 
@@ -201,9 +202,10 @@ python -m tools.agent_pr agent/parallel-123 --title "Задача"
 ```
 
 `agent_issue` читает issue через `gh` или GitLab REST (`GITLAB_TOKEN`) и
-печатает готовый текст задачи. `agent_pr` делает `git push -u origin
-<branch>` и `gh pr create`, если установлен GitHub CLI. Без `gh` печатает
-команду для ручного создания PR.
+печатает готовый текст задачи. С `--worktree` создаёт ветку
+`agent/issue-<номер>-<слаг>` и отдельную папку. `agent_pr` делает
+`git push -u origin <branch>` и `gh pr create`, если установлен GitHub
+CLI. Без `gh` печатает команду для ручного создания PR.
 
 ## Переносимая сборка
 
