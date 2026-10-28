@@ -27,6 +27,10 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
+; По умолчанию — установка для всех пользователей (нужен админ).
+; Без прав администратора можно поставить в профиль: /CURRENTUSER.
+PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog commandline
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
@@ -44,3 +48,7 @@ Name: "{autodesktop}\Giperion"; Filename: "{app}\Giperion.exe"; Tasks: desktopic
 
 [Run]
 Filename: "{app}\Giperion.exe"; Description: "{cm:LaunchProgram,Giperion}"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Приложение пишет чаты и логи рядом с собой — убираем папку целиком.
+Type: filesandordirs; Name: "{app}"
