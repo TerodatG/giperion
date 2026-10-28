@@ -175,6 +175,17 @@ def test_budget_allows_final_answer(tmp_path) -> None:
     assert result.error == ""
 
 
+def test_fork_can_have_own_budget() -> None:
+    """Ветка может получить отдельный бюджет."""
+
+    brain = NativeBrain(object(), BudgetLimits(tokens=100))
+    child = brain.fork(BudgetLimits(tokens=5))
+
+    assert child.limits.tokens == 5
+    assert child._parent is None
+    assert brain.fork().limits.tokens == 100
+
+
 def test_usage_is_recorded_per_step(tmp_path) -> None:
     """Токены и стоимость пишутся по шагам."""
 

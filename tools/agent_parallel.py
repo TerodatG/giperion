@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from config import BASE_DIR
+from terminal.core.agent.budget import BudgetLimits
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.worktrees import create_worktree
 from tools.eval_runner import build_brain
@@ -48,12 +49,21 @@ def merge_branches(branches: list[str]) -> list[tuple[str, int, str]]:
     return results
 
 
-def _fork(brain):
+def _fork(brain, limits=None):
     """Копия мозга для параллельной задачи, если поддерживается."""
 
     fork = getattr(brain, "fork", None)
 
-    return fork() if callable(fork) else brain
+    if not callable(fork):
+        return brain
+
+    if limits is None:
+        return fork()
+
+    try:
+        return fork(limits)
+    except TypeError:
+        return fork()
 
 
 def run_read(task: str, brain, steps: int) -> dict:
@@ -79,19 +89,26 @@ def run_read(task: str, brain, steps: int) -> dict:
     }
 
 
-def run_write(task: str, brain, steps: int, policy: str) -> dict:
+def run_write(
+    task: str,
+    brain,
+    steps: int,
+    policy: str,
+    budget=None,
+) -> dict:
     """Пишущая задача в отдельном worktree; слияние — вручную."""
 
     name = f"parallel-{int(time.time())}"
     folder, branch = create_worktree(BASE_DIR, name)
     result = run_agent(
         task,
-        _fork(brain),
+        _fork(brain, budget),
         folder,
         max_steps=steps,
         policy=policy,
         approve=lambda request: True,
         ground_first=True,
+        budget=budget,
     )
 
     return {
@@ -122,6 +139,12 @@ def main() -> int:
         help="слить успешные ветки в текущую (только с --write)",
     )
     parser.add_argument("--policy", default="confirm")
+    parser.add_argument(
+        "--branch-tokens",
+        type=int,
+        default=0,
+        help="лимит токенов на каждую пишущую ветку (0 — без лимита)",
+    )
     parser.add_argument("--model", default="")
     parser.add_argument("--provider", default="")
     args = parser.parse_args()
@@ -136,7 +159,17 @@ def main() -> int:
     print("Режим:", "запись в worktrees" if args.write else "чтение")
 
     runner = (
-        (lambda task: run_write(task, brain, args.steps, args.policy))
+        (
+            lambda task: run_write(
+                task,
+                brain,
+                args.steps,
+                args.policy,
+                BudgetLimits(tokens=max(0, args.branch_tokens))
+                if args.branch_tokens
+                else None,
+            )
+        )
         if args.write
         else (lambda task: run_read(task, brain, args.steps))
     )

@@ -44,13 +44,17 @@ class NativeBrain:
         self.on_delta = None
         self._parent = parent
 
-    def fork(self) -> "NativeBrain":
-        """Мозг для подагента: свой диалог, общий расход и доли."""
+    def fork(self, limits=None) -> "NativeBrain":
+        """Мозг для подагента: свой диалог и бюджет ветки."""
 
         return NativeBrain(
             self.provider,
-            self.limits,
-            parent=self._parent or self,
+            limits or self.limits,
+            parent=(
+                (self._parent or self)
+                if limits is None
+                else None
+            ),
         )
 
     @property
