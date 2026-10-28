@@ -5,6 +5,7 @@
 import argparse
 import json
 from collections import Counter
+from pathlib import Path
 
 import torch
 
@@ -96,11 +97,13 @@ def load_examples(
     return examples, notes
 
 
-def build_model() -> tuple[HybridTextClassifier, list[str], int]:
+def build_model(
+    path: Path | None = None,
+) -> tuple[HybridTextClassifier, list[str], int]:
     """Загружает гибридный классификатор из чекпоинта."""
 
     checkpoint = torch.load(
-        CLASSIFIER_FILE,
+        path or CLASSIFIER_FILE,
         map_location=DEVICE,
         weights_only=True,
     )
@@ -356,6 +359,12 @@ def parse_args(
         help="какие фразы проверять",
     )
     parser.add_argument(
+        "--model",
+        type=Path,
+        default=None,
+        help="путь к CNN-чекпоинту вместо hybrid.pt",
+    )
+    parser.add_argument(
         "--fail",
         action="store_true",
         help="вернуть код 1, если метрики ниже порогов",
@@ -424,7 +433,7 @@ def evaluate_model(
             router.threshold,
         )
 
-    model, labels, max_len = build_model()
+    model, labels, max_len = build_model(args.model)
     word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
     char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
     examples, notes = load_examples(set(labels), args.subset)
@@ -441,7 +450,7 @@ def evaluate_model(
     return (
         rows,
         notes,
-        f"{CLASSIFIER_FILE.name} [{args.subset}]",
+        f"{(args.model or CLASSIFIER_FILE).name} [{args.subset}]",
         CONFIDENCE_THRESHOLD,
     )
 

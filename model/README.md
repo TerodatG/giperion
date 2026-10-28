@@ -93,6 +93,12 @@ python -m tools.eval_intent_model --router --fail
 CNN на natural-наборе даёт 0.553/0.564, поэтому остаётся только
 запасным вариантом.
 
+CNN остаётся запасным вариантом: эксперимент с весами классов
+(`python -m giperion_model.training.train_charcnn --balanced`) дал
+0.538 top-1 против 0.553 у обычной модели, поэтому рабочую
+`hybrid.pt` не заменяли. Оценить другой чекпоинт можно через
+`python -m tools.eval_intent_model --model <путь>`.
+
 ## Граница
 
 - `giperion_model` **не импортирует** `terminal` и не знает про агента.

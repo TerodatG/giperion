@@ -1,9 +1,10 @@
-# GiperionModel/giperion_model/training/train_charcnn.py              v003
+# GiperionModel/giperion_model/training/train_charcnn.py              v004
 # Обучение гибридного классификатора: слова + символы.
-# Последнее изменение: эксперимент с проверочной выборкой пишется в hybrid_val.pt.
+# Последнее изменение: флаг --balanced для весов классов.
 
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 import torch
@@ -38,6 +39,9 @@ CHECKPOINT_FILE = MODELS_DIR / "hybrid.pt"
 # Экспериментальная модель (обучение с проверочной выборкой) пишется отдельно,
 # чтобы случайный запуск не подменил рабочую модель бота.
 EXPERIMENT_FILE = MODELS_DIR / "hybrid_val.pt"
+
+# Флаг --balanced включает веса классов при обучении.
+BALANCED = "--balanced" in sys.argv
 
 
 def checkpoint_file(full: bool):
@@ -211,6 +215,36 @@ def evaluate(
     return correct / len(val_loader.dataset)
 
 
+def loss_function(
+    labels: list[str],
+    examples: list[dict],
+) -> nn.CrossEntropyLoss:
+    """Возвращает обычный или взвешенный loss."""
+
+    if not BALANCED:
+        return nn.CrossEntropyLoss(
+            label_smoothing=LABEL_SMOOTHING
+        )
+
+    counts = Counter(
+        item["label"] for item in examples
+    )
+    total = sum(counts.values())
+    weights = torch.tensor(
+        [
+            total / (len(labels) * counts[label])
+            for label in labels
+        ],
+        dtype=torch.float32,
+        device=DEVICE,
+    )
+
+    return nn.CrossEntropyLoss(
+        weight=weights,
+        label_smoothing=LABEL_SMOOTHING,
+    )
+
+
 def _prepare_training(full: bool) -> dict:
     """Готовит данные, модель, загрузчики и оптимизатор."""
 
@@ -272,7 +306,7 @@ def _prepare_training(full: bool) -> dict:
         lr=LEARNING_RATE,
         weight_decay=WEIGHT_DECAY,
     )
-    criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
+    criterion = loss_function(labels, train_examples)
 
     return {
         "checkpoint": checkpoint,
