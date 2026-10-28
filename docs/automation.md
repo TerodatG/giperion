@@ -52,6 +52,17 @@ $env:GIPERION_WEBHOOK_URL = "https://example.com/hook"
 После запуска демон делает JSON POST с текстом и кодом; секреты
 вырезаются. Без переменной вебхук не отправляется.
 
+Служба Windows (нужны права администратора):
+
+```powershell
+python -m tools.agent_service --install --interval 300 --dry-run
+python -m tools.agent_service --install --interval 300
+python -m tools.agent_service --query
+python -m tools.agent_service --remove
+```
+
+`--dry-run` печатает команду `sc.exe` без изменений в системе.
+
 ## Очередь задач
 
 ```powershell
