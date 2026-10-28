@@ -112,3 +112,54 @@ def test_create_branch_uses_issue_slug(monkeypatch, tmp_path) -> None:
     assert calls["name"] == "issue-12-fix-login-form"
     assert branch == "agent/issue-12-fix-login-form"
     assert folder == tmp_path / "worktree"
+
+
+def test_run_issue_commits_and_creates_pr(monkeypatch, tmp_path) -> None:
+    """Сквозной сценарий: ветка, агент, коммит, PR."""
+
+    from types import SimpleNamespace
+
+    issue = {"number": 5, "title": "Fix bug", "body": "Details"}
+    calls = {}
+
+    monkeypatch.setattr(
+        agent_issue,
+        "create_branch",
+        lambda value: (tmp_path / "wt", "agent/issue-5-fix-bug"),
+    )
+    monkeypatch.setattr(
+        "tools.eval_runner.build_brain",
+        lambda model, provider: (object(), "test/model"),
+    )
+    monkeypatch.setattr(
+        "terminal.core.agent.loop.run_agent",
+        lambda *args, **kwargs: SimpleNamespace(
+            answer="готово",
+            error="",
+            cancelled=False,
+            steps=[1],
+        ),
+    )
+    monkeypatch.setattr(
+        agent_issue,
+        "_commit_all",
+        lambda folder, message: calls.update(
+            commit=(folder, message)
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        "tools.agent_pr.publish",
+        lambda branch, title, body: calls.update(
+            pr=(branch, title, body)
+        )
+        or [("pr", 0, "ok")],
+    )
+
+    result = agent_issue.run_issue(issue, create_pr=True)
+
+    assert result["ok"]
+    assert result["committed"]
+    assert result["branch"] == "agent/issue-5-fix-bug"
+    assert calls["commit"][1].startswith("issue #5")
+    assert calls["pr"][0] == "agent/issue-5-fix-bug"

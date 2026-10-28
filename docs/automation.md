@@ -215,9 +215,10 @@ python -m tools.agent_pr agent/parallel-123 --title "Задача"
 
 `agent_issue` читает issue через `gh` или GitLab REST (`GITLAB_TOKEN`) и
 печатает готовый текст задачи. С `--worktree` создаёт ветку
-`agent/issue-<номер>-<слаг>` и отдельную папку. `agent_pr` делает
-`git push -u origin <branch>` и `gh pr create`, если установлен GitHub
-CLI. Без `gh` печатает команду для ручного создания PR.
+`agent/issue-<номер>-<слаг>` и отдельную папку. С `--run` выполняет
+задачу агентом, коммитит изменения, а с `--pr` создаёт PR. `agent_pr`
+делает `git push -u origin <branch>` и `gh pr create`, если установлен
+GitHub CLI. Без `gh` печатает команду для ручного создания PR.
 
 ## Переносимая сборка
 
