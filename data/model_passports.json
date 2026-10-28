@@ -7,13 +7,13 @@
   },
   "passports": {
     "giperion": {
-      "updated": "2026-10-25",
+      "updated": "2026-10-28",
       "level": {
         "code": "L1",
         "title": "секретарь-стажёр"
       },
       "architecture": {
-        "kind": "гибридный word/char-CNN + seq2seq (Bahdanau)",
+        "kind": "линейный char-ngram роутер + word/char-CNN и seq2seq (резерв)",
         "classifier_params": 691469,
         "generator_params": 2205108,
         "size_mb": 11.1,
@@ -24,20 +24,20 @@
       },
       "training": {
         "intents": 77,
-        "patterns": 1775,
-        "pairs": 11885,
-        "eval_phrases": 154,
-        "eval_usable": 136
+        "patterns": 1847,
+        "pairs": 12346,
+        "eval_phrases": 770,
+        "eval_usable": 770
       },
       "quality": {
-        "accuracy": 0.64,
-        "accuracy_correct": 87,
-        "accuracy_total": 136,
-        "macro_f1": 0.62,
-        "ci": 0.08,
-        "mean_confidence": 0.482,
+        "accuracy": 0.836,
+        "accuracy_correct": 644,
+        "accuracy_total": 770,
+        "macro_f1": 0.84,
+        "ci": 0.027,
+        "mean_confidence": 0.599,
         "ece": null,
-        "fallback": 0.248,
+        "fallback": 0.395,
         "noise_accuracy": null,
         "ood_auroc": null
       },
@@ -47,9 +47,9 @@
         "retention": null
       },
       "speed": {
-        "p50_ms": 1.6,
-        "p95_ms": 2.4,
-        "device": "CUDA",
+        "p50_ms": 0.8,
+        "p95_ms": 1.6,
+        "device": "CPU-роутер, CUDA для CNN/seq2seq",
         "cold_start_s": null,
         "ram_mb": null,
         "cost": "0 ₽"
@@ -62,8 +62,9 @@
       },
       "notes": [
         "Гиперион — секретарь: понимает реплику, относит к намерению и отвечает коротко.",
-        "Контекст 32 токена: модель видит 1–2 короткие реплики, дальше нужен агент.",
-        "Уверенность в среднем ниже точности — калибровка пока не настроена.",
+        "Основной классификатор — линейный роутер на char n-граммах: 0.836 top-1 на 770 фразах.",
+        "CNN и seq2seq остаются резервом и генератором; без них роутер отвечает сам.",
+        "Порог 0.50 даёт покрытие 0.605 при точности на покрытых 0.942.",
         "Ответы внешних моделей в обучение не попадают: это чужая речь."
       ]
     },

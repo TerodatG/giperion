@@ -24,7 +24,7 @@ def test_passport_of_giperion_is_readable() -> None:
 
     assert passport is not None
     assert passport_level_code(passport) == "L1"
-    assert passport_accuracy(passport) == 0.64
+    assert passport_accuracy(passport) == 0.836
 
 
 def test_missing_passport_returns_none() -> None:
@@ -41,10 +41,10 @@ def test_compact_metrics_are_seven_dynamic_rows() -> None:
 
     assert len(metrics) == 7
     assert values["Уровень"] == "L1 · секретарь-стажёр"
-    assert values["Точность"] == "64,0 %"
+    assert values["Точность"] == "83,6 %"
     assert values["Параметры"] == "2,9 млн"
     assert values["Контекст"] == "32 токена"
-    assert values["Обновлён"] == "25.10.2026"
+    assert values["Обновлён"] == "28.10.2026"
 
 
 def test_sections_cover_passport_and_quality() -> None:
@@ -67,9 +67,9 @@ def test_sections_cover_passport_and_quality() -> None:
         "ДИНАМИКА",
     ]
     assert "2,9 млн" in rows["Параметры"]
-    assert rows["Точность (top-1)"].startswith("64,0 %")
+    assert rows["Точность (top-1)"].startswith("83,6 %")
     assert rows["Калибровка (ECE)"] == "не измерено"
-    assert rows["p95 ответа"] == "2,4 мс"
+    assert rows["p95 ответа"] == "1,6 мс"
 
 
 def test_notes_are_clean() -> None:
