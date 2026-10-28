@@ -7,10 +7,14 @@ import pytest
 from giperion_model.language.linear_intent import LINEAR_MODEL_FILE
 from tools.eval_intent_model import (
     CLASSIFIER_FILE,
-    class_metrics,
-    macro_f1,
     main,
     parse_args,
+)
+from tools.intent_metrics import (
+    bootstrap_metrics,
+    class_metrics,
+    macro_f1,
+    percentile,
     selective_metrics,
 )
 
@@ -77,6 +81,45 @@ def test_router_uses_stricter_thresholds() -> None:
     assert parse_args(["--router"]).min_top1 == 0.75
     assert parse_args([]).min_macro_f1 == 0.53
     assert parse_args(["--router"]).min_macro_f1 == 0.70
+
+
+def test_bootstrap_perfect_predictions() -> None:
+    """Идеальные ответы дают интервал из единиц."""
+
+    interval = bootstrap_metrics(
+        ["a", "b", "a", "b"],
+        ["a", "b", "a", "b"],
+        iterations=50,
+    )
+
+    assert interval["top1_low"] == 1.0
+    assert interval["top1_high"] == 1.0
+    assert interval["macro_low"] == 1.0
+    assert interval["macro_high"] == 1.0
+
+
+def test_bootstrap_interval_contains_point() -> None:
+    """Доверительный интервал накрывает точечную оценку."""
+
+    truths = ["a", "a", "b", "b", "c", "c"]
+    predictions = ["a", "b", "b", "b", "c", "a"]
+    interval = bootstrap_metrics(
+        truths,
+        predictions,
+        iterations=200,
+    )
+    metrics = class_metrics(truths, predictions)
+    point = macro_f1(metrics)
+
+    assert interval["macro_low"] <= point <= interval["macro_high"]
+    assert interval["top1_low"] <= 0.5 <= interval["top1_high"]
+
+
+def test_percentile_edges() -> None:
+    """Процентили не выходят за границы списка."""
+
+    assert percentile([1.0, 2.0, 3.0], 0.0) == 1.0
+    assert percentile([1.0, 2.0, 3.0], 1.0) == 3.0
 
 
 @pytest.mark.skipif(

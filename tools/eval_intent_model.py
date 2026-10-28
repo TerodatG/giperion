@@ -1,6 +1,6 @@
-# Giperion/tools/eval_intent_model.py                               v005
+# Giperion/tools/eval_intent_model.py                               v006
 # Оценка классификатора намерений на отложенном наборе фраз.
-# Последнее изменение: пороги пересчитаны на расширенном наборе.
+# Последнее изменение: bootstrap-интервалы для top-1 и macro-F1.
 
 import argparse
 import json
@@ -206,92 +206,12 @@ def predict_with_router(
     return rows
 
 
-def class_metrics(
-    truths: list[str],
-    predictions: list[str],
-) -> dict[str, dict[str, float]]:
-    """Считает precision, recall и F1 для каждого класса."""
-
-    pairs = list(zip(truths, predictions, strict=False))
-    result: dict[str, dict[str, float]] = {}
-
-    for label in sorted(set(truths)):
-        true_positive = sum(
-            1
-            for truth, predicted in pairs
-            if truth == label and predicted == label
-        )
-        predicted_positive = sum(
-            1 for _truth, predicted in pairs if predicted == label
-        )
-        actual_positive = sum(
-            1 for truth, _predicted in pairs if truth == label
-        )
-
-        precision = (
-            true_positive / predicted_positive
-            if predicted_positive
-            else 0.0
-        )
-        recall = (
-            true_positive / actual_positive
-            if actual_positive
-            else 0.0
-        )
-        f1 = (
-            2 * precision * recall / (precision + recall)
-            if precision + recall
-            else 0.0
-        )
-
-        result[label] = {
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-            "support": float(actual_positive),
-        }
-
-    return result
-
-
-def macro_f1(per_class: dict[str, dict[str, float]]) -> float:
-    """Средний F1 по классам: редкие классы весят как частые."""
-
-    if not per_class:
-        return 0.0
-
-    return sum(item["f1"] for item in per_class.values()) / len(
-        per_class
-    )
-
-
-def selective_metrics(
-    truths: list[str],
-    predictions: list[str],
-    confidences: list[float],
-    threshold: float,
-) -> tuple[float, float]:
-    """Покрытие и точность на ответах не ниже порога."""
-
-    covered = [
-        (truth, predicted)
-        for truth, predicted, confidence in zip(
-            truths,
-            predictions,
-            confidences,
-            strict=False,
-        )
-        if confidence >= threshold
-    ]
-
-    if not covered:
-        return 0.0, 0.0
-
-    correct = sum(
-        1 for truth, predicted in covered if truth == predicted
-    )
-
-    return len(covered) / len(truths), correct / len(covered)
+from tools.intent_metrics import (
+    bootstrap_metrics,
+    class_metrics,
+    macro_f1,
+    selective_metrics,
+)
 
 
 def build_report(
@@ -299,6 +219,7 @@ def build_report(
     notes: list[str],
     model_name: str,
     threshold: float,
+    bootstrap: dict[str, float] | None = None,
 ) -> tuple[str, dict[str, float]]:
     """Собирает текст отчёта и сводные метрики."""
 
@@ -337,6 +258,18 @@ def build_report(
             for label, item in per_class.items()
         )
     )
+    top1_line = f"Точность (top-1): {accuracy:.3f}"
+    macro_line = f"Macro-F1: {average_f1:.3f}"
+
+    if bootstrap:
+        top1_line += (
+            f" (95% ДИ {bootstrap['top1_low']:.3f}–"
+            f"{bootstrap['top1_high']:.3f})"
+        )
+        macro_line += (
+            f" (95% ДИ {bootstrap['macro_low']:.3f}–"
+            f"{bootstrap['macro_high']:.3f})"
+        )
 
     lines = [
         "=== Оценка классификатора Giperion ===",
@@ -345,8 +278,8 @@ def build_report(
         f"Фраз в проверке: {len(rows)}",
         f"Классов: {len(per_class)}",
         f"Верных ответов: {correct}",
-        f"Точность (top-1): {accuracy:.3f}",
-        f"Macro-F1: {average_f1:.3f}",
+        top1_line,
+        macro_line,
         f"Покрытие (уверенность ≥ {threshold:.2f}): "
         f"{coverage:.3f}",
         f"Точность на покрытых: {selective:.3f}",
@@ -432,6 +365,12 @@ def parse_args(
         default=None,
         help="минимальный macro-F1",
     )
+    parser.add_argument(
+        "--bootstrap",
+        type=int,
+        default=0,
+        help="число bootstrap-итераций для доверительных интервалов",
+    )
 
     args = parser.parse_args(argv)
 
@@ -511,11 +450,21 @@ def main(argv: list[str] | None = None) -> int:
 
         return 1 if args.fail else 0
 
+    bootstrap = None
+
+    if args.bootstrap > 0:
+        bootstrap = bootstrap_metrics(
+            [row["label"] for row in rows],
+            [row["predicted"] for row in rows],
+            iterations=args.bootstrap,
+        )
+
     report, metrics = build_report(
         rows,
         notes,
         model_name,
         threshold,
+        bootstrap,
     )
 
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
