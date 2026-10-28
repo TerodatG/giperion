@@ -23,25 +23,25 @@
         "classes": 77
       },
       "training": {
-        "intents": 77,
-        "patterns": 1847,
-        "pairs": 12346,
-        "eval_phrases": 1540,
-        "eval_usable": 1540,
-        "template_phrases": 770
+        "intents": 100,
+        "patterns": 2077,
+        "pairs": 13266,
+        "eval_phrases": 2000,
+        "eval_usable": 2000,
+        "template_phrases": 1000
       },
       "quality": {
-        "accuracy": 0.8701,
-        "accuracy_correct": 1340,
-        "accuracy_total": 1540,
-        "macro_f1": 0.8742,
-        "ci": 0.0172,
-        "fallback": 0.215,
-        "template_accuracy": 0.9117,
-        "template_macro_f1": 0.9171,
-        "template_coverage": 0.8506,
-        "ece": 0.034,
-        "brier": 0.084,
+        "accuracy": 0.8835,
+        "accuracy_correct": 1767,
+        "accuracy_total": 2000,
+        "macro_f1": 0.8901,
+        "ci": 0.0145,
+        "fallback": 0.21,
+        "template_accuracy": 0.904,
+        "template_macro_f1": 0.9183,
+        "template_coverage": 0.855,
+        "ece": 0.0475,
+        "brier": 0.0823,
         "noise_accuracy": null,
         "ood_auroc": null
       },
@@ -66,9 +66,9 @@
       },
       "notes": [
         "Гиперион — секретарь: понимает реплику, относит к намерению и отвечает коротко.",
-        "Основной классификатор — линейный роутер: top-1 0.8701 на natural-наборе.",
-        "Template-подвыборка: 0.9117 top-1.",
-        "Порог 0.7 даёт покрытие 0.7851 при точности на покрытых 0.9545.",
+        "Основной классификатор — линейный роутер: top-1 0.8835 на natural-наборе.",
+        "Template-подвыборка: 0.904 top-1.",
+        "Порог 0.7 даёт покрытие 0.79 при точности на покрытых 0.9544.",
         "CNN и seq2seq остаются резервом и генератором.",
         "Ответы внешних моделей в обучение не попадают: это чужая речь."
       ]
