@@ -243,6 +243,18 @@ python -m tools.backup_data --restore data/backups/giperion-data-....zip
 исключены. Восстановление не перезаписывает существующие файлы без
 `--force` и отклоняет пути с `..`.
 
+## Миграции данных
+
+```
+python -m tools.migrate_data --check
+python -m tools.migrate_data --dry-run
+python -m tools.migrate_data
+```
+
+Миграция хранит версию в `data/schema_version.json`, создаёт нужные
+каталоги и перед изменениями делает `pre-migrate-*.zip` со всеми
+данными, включая секреты.
+
 ## Ограничения
 
 - Расписание не демон и не служба: его запускает внешний планировщик.
