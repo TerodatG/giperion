@@ -81,6 +81,36 @@ def test_run_python_process_mode_falls_back(monkeypatch, tmp_path) -> None:
     assert calls == [["python", "-m", "pytest"]]
 
 
+def test_non_python_command_uses_container(monkeypatch, tmp_path) -> None:
+    """git и другие команды идут в командный AppContainer."""
+
+    from terminal.core.agent import container
+
+    calls = {}
+
+    monkeypatch.setattr(exec_sandbox, "isolation", lambda: "auto")
+    monkeypatch.setattr(container, "available", lambda: True)
+    monkeypatch.setattr(
+        container,
+        "grant_commands",
+        lambda root, exe: calls.update(grant=(root, exe)),
+    )
+
+    def fake_run(args, cwd, **kwargs):
+        calls.update(args=args, cwd=cwd, kwargs=kwargs)
+
+        return 0, "ok"
+
+    monkeypatch.setattr(container, "run_text", fake_run)
+
+    result = exec_sandbox.run(["git", "status"], tmp_path)
+
+    assert result.code == 0
+    assert result.isolated
+    assert calls["args"] == ["status"]
+    assert calls["kwargs"]["profile"] == container.COMMAND_PROFILE
+
+
 def test_appcontainer_mode_without_setup(monkeypatch, tmp_path) -> None:
     """Без подготовленного контейнера режим appcontainer честно отказывает."""
 

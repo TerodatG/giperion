@@ -20,6 +20,7 @@ from config import BASE_DIR, DATA_DIR
 from terminal.core.agent import sandbox
 
 PROFILE_NAME = "Giperion.Agent.Plugin"
+COMMAND_PROFILE = "Giperion.Agent.Command"
 PYTHON_DIR = DATA_DIR / "plugin_python"
 MARKER = PYTHON_DIR / ".ready"
 TEMP_DIR = BASE_DIR / ".agent_plugin_tmp"
@@ -46,7 +47,19 @@ SKIP_COPY = shutil.ignore_patterns(
 )
 
 READ_DIRS = ("terminal", "shared", "model", "docs", "tests", "tools")
+COMMAND_READ_DIRS = (
+    "terminal",
+    "shared",
+    "docs",
+    "tests",
+    "tools",
+    "knowledge",
+    "model",
+    "skins",
+    ".git",
+)
 SKIP_DIRS = {".git", ".agent_worktrees", "models", "data"}
+_COMMAND_GRANTED: set[str] = set()
 
 
 class ContainerError(RuntimeError):
@@ -159,21 +172,22 @@ def _structures():
     )
 
 
-def ensure_profile():
+def ensure_profile(profile: str = PROFILE_NAME):
     """Создаёт профиль AppContainer (или берёт существующий SID)."""
 
     if sys.platform != "win32":
         raise ContainerError("AppContainer доступен только на Windows.")
 
+    name = str(profile or PROFILE_NAME)
     userenv = ctypes.WinDLL("userenv", use_last_error=True)
     advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
     sid = ctypes.c_void_p()
     hr = userenv.CreateAppContainerProfile(
-        PROFILE_NAME,
-        PROFILE_NAME,
-        "Изоляция плагинов агента Giperion",
+        name,
+        name,
+        "Изоляция агента Giperion",
         None,
         0,
         ctypes.byref(sid),
@@ -182,7 +196,7 @@ def ensure_profile():
     if (hr & 0xFFFFFFFF) == 0x800700B7:
         sid = ctypes.c_void_p()
         hr = userenv.DeriveAppContainerSidFromAppContainerName(
-            PROFILE_NAME,
+            name,
             ctypes.byref(sid),
         )
 
@@ -216,7 +230,11 @@ def _icacls(path: Path, *args: str) -> bool:
     return result.returncode == 0
 
 
-def grant(sid_text: str, root: Path | None = None) -> list[str]:
+def grant(
+    sid_text: str,
+    root: Path | None = None,
+    dirs: tuple[str, ...] = READ_DIRS,
+) -> list[str]:
     """Выдаёт контейнеру чтение проекта и запись во временную папку."""
 
     base = Path(root or BASE_DIR).resolve()
@@ -233,7 +251,7 @@ def grant(sid_text: str, root: Path | None = None) -> list[str]:
     if _icacls(base, "/grant", f"*{sid_text}:(OI)RX", "/Q"):
         report.append("чтение: файлы корня")
 
-    for name in READ_DIRS:
+    for name in dirs:
         folder = base / name
 
         if not folder.is_dir():
@@ -263,6 +281,35 @@ def grant(sid_text: str, root: Path | None = None) -> list[str]:
             report.append(f"чтение: {PYTHON_DIR.name}")
 
     return report
+
+
+def grant_commands(root: Path, git_exe: Path | None = None) -> bool:
+    """Готовит командный профиль: проект на чтение, git и temp."""
+
+    base = Path(root or BASE_DIR).resolve()
+    key = str(base)
+
+    if key in _COMMAND_GRANTED:
+        return True
+
+    _sid, sid_text = ensure_profile(COMMAND_PROFILE)
+    grant(sid_text, base, COMMAND_READ_DIRS)
+
+    if git_exe is not None:
+        folder = Path(git_exe).resolve().parent
+
+        while folder.parent != folder and folder.name.lower() not in (
+            "git",
+            "program files",
+            "program files (x86)",
+        ):
+            folder = folder.parent
+
+        _icacls(folder, "/grant", f"*{sid_text}:(OI)(CI)RX", "/T", "/Q")
+
+    _COMMAND_GRANTED.add(key)
+
+    return True
 
 
 def revoke(sid_text: str, root: Path | None = None) -> list[str]:
@@ -385,6 +432,7 @@ def run_text(
     timeout: int = 30,
     extra_env: dict[str, str] | None = None,
     executable: Path | None = None,
+    profile: str = PROFILE_NAME,
 ) -> tuple[int, str]:
     """Запускает команду в контейнере и возвращает код и вывод."""
 
@@ -403,7 +451,7 @@ def run_text(
     ) = _structures()
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
-    sid, _sid_text = ensure_profile()
+    sid, _sid_text = ensure_profile(profile)
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
     out_path = TEMP_DIR / f"{OUTPUT_PREFIX}{uuid.uuid4().hex}.txt"

@@ -23,7 +23,7 @@
 | Режим | Поведение |
 | --- | --- |
 | `process` | всегда процесс с Job Object и чистым env |
-| `auto` (по умолчанию) | Python-команды — в AppContainer, если он готов; иначе процесс |
+| `auto` (по умолчанию) | Python-команды и git — в AppContainer, если он готов; иначе процесс |
 | `appcontainer` | только AppContainer; без подготовки — ошибка |
 
 Подготовка AppContainer (Windows):
@@ -34,8 +34,10 @@ python -m tools.setup_plugin_container --prepare
 
 В AppContainer у команды нет сети и записи в проект: доступно чтение
 `terminal`, `shared`, `docs`, `tests`, `tools`, `knowledge`, `model`,
-`skins` и запись только во временную папку. Для pytest отключается
-кеш (`-p no:cacheprovider`), байткод не пишется.
+`skins`, `.git` и запись только во временную папку. Для pytest
+отключается кеш (`-p no:cacheprovider`), байткод не пишется. Git
+запускается в отдельном профиле `Giperion.Agent.Command`: каталог Git
+доступен только на чтение, сеть отсутствует.
 
 ## Ограничения
 

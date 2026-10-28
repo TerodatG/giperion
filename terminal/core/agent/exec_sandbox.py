@@ -177,6 +177,43 @@ def run(
     if not args:
         return ExecResult(1, "Пустая команда.")
 
+    mode = isolation()
+
+    if (
+        mode in ("auto", "appcontainer")
+        and not is_python(args)
+    ):
+        try:
+            from terminal.core.agent import container
+
+            if container.available():
+                container.grant_commands(
+                    Path(cwd),
+                    Path(args[0]),
+                )
+                code, output = container.run_text(
+                    args[1:],
+                    Path(cwd),
+                    timeout=timeout,
+                    executable=Path(args[0]),
+                    profile=container.COMMAND_PROFILE,
+                )
+
+                return ExecResult(
+                    int(code),
+                    output.strip(),
+                    isolated=True,
+                )
+
+            if mode == "appcontainer":
+                return ExecResult(
+                    1,
+                    "AppContainer не подготовлен: "
+                    "python -m tools.setup_plugin_container --prepare",
+                )
+        except container.ContainerError as error:
+            return ExecResult(1, str(error))
+
     key = (tuple(args), str(Path(cwd).resolve()))
     fingerprint = _fingerprint(cwd)
 
