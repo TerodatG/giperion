@@ -9,20 +9,21 @@ VERSION="${1:-1.0.0}"
 SOURCE="${2:-dist/Giperion.app}"
 OUTPUT="${3:-dist}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-APP="$ROOT/$SOURCE"
+case "$SOURCE" in /*) APP="$SOURCE" ;; *) APP="$ROOT/$SOURCE" ;; esac
+case "$OUTPUT" in /*) OUT="$OUTPUT" ;; *) OUT="$ROOT/$OUTPUT" ;; esac
 
 if [ ! -d "$APP" ]; then
   echo "Нет .app: $APP"
   exit 1
 fi
 
-mkdir -p "$ROOT/$OUTPUT"
+mkdir -p "$OUT"
 
 ditto -c -k --sequesterRsrc --keepParent "$APP" \
-  "$ROOT/$OUTPUT/Giperion-${VERSION}-macos.zip"
+  "$OUT/Giperion-${VERSION}-macos.zip"
 
 hdiutil create -volname "Giperion" -srcfolder "$APP" \
   -ov -format UDZO \
-  "$ROOT/$OUTPUT/Giperion-${VERSION}-macos.dmg"
+  "$OUT/Giperion-${VERSION}-macos.dmg"
 
-echo "Собрано: $OUTPUT/Giperion-${VERSION}-macos.{dmg,zip}"
+echo "Собрано: $OUT/Giperion-${VERSION}-macos.{dmg,zip}"
