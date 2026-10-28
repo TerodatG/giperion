@@ -52,6 +52,7 @@ def intent_patterns() -> set[str]:
 
 def load_examples(
     labels: set[str],
+    subset: str = "natural",
 ) -> tuple[list[dict], list[str]]:
     """Читает отложенный набор и отбрасывает пересечения с обучением.
 
@@ -83,6 +84,11 @@ def load_examples(
         if normalize_message(text) in known_patterns:
             notes.append(f"уже есть в обучении: «{text}»")
 
+            continue
+
+        source = item.get("source", "natural")
+
+        if subset != "all" and source != subset:
             continue
 
         examples.append({"text": text, "label": label})
@@ -344,6 +350,12 @@ def parse_args(
         help="оценивать линейный роутер вместо CNN",
     )
     parser.add_argument(
+        "--subset",
+        choices=("natural", "template", "all"),
+        default="natural",
+        help="какие фразы проверять",
+    )
+    parser.add_argument(
         "--fail",
         action="store_true",
         help="вернуть код 1, если метрики ниже порогов",
@@ -400,19 +412,22 @@ def evaluate_model(
         if router is None:
             return [], [], None, CONFIDENCE_THRESHOLD
 
-        examples, notes = load_examples(set(router.labels))
+        examples, notes = load_examples(
+            set(router.labels),
+            args.subset,
+        )
 
         return (
             predict_with_router(router, examples),
             notes,
-            LINEAR_MODEL_FILE.name,
+            f"{LINEAR_MODEL_FILE.name} [{args.subset}]",
             router.threshold,
         )
 
     model, labels, max_len = build_model()
     word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
     char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
-    examples, notes = load_examples(set(labels))
+    examples, notes = load_examples(set(labels), args.subset)
 
     rows = predict_all(
         model,
@@ -426,7 +441,7 @@ def evaluate_model(
     return (
         rows,
         notes,
-        CLASSIFIER_FILE.name,
+        f"{CLASSIFIER_FILE.name} [{args.subset}]",
         CONFIDENCE_THRESHOLD,
     )
 

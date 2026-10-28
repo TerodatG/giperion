@@ -15,6 +15,10 @@ from sklearn.metrics import f1_score
 
 from config import DATA_DIR, MODELS_DIR
 from giperion_model.language.intent_handler import load_intents
+from giperion_model.language.intent_topics import (
+    INTENT_TOPICS,
+    TOPIC_AUGMENT_TEMPLATES,
+)
 from giperion_model.language.linear_intent import (
     ROUTER_CONFIDENCE_THRESHOLD,
     LinearIntentRouter,
@@ -51,6 +55,23 @@ def load_training_data() -> tuple[list[str], list[str]]:
     return texts, labels
 
 
+def augment_topics(
+    texts: list[str],
+    labels: list[str],
+) -> tuple[list[str], list[str]]:
+    """Добавляет тематические формулировки для устойчивости роутера."""
+
+    augmented_texts = list(texts)
+    augmented_labels = list(labels)
+
+    for tag, topic in INTENT_TOPICS.items():
+        for template in TOPIC_AUGMENT_TEMPLATES:
+            augmented_texts.append(template.format(topic=topic))
+            augmented_labels.append(tag)
+
+    return augmented_texts, augmented_labels
+
+
 def training_patterns() -> set[str]:
     """Собирает фразы, которые нельзя оценивать как отложенные."""
 
@@ -66,6 +87,7 @@ def training_patterns() -> set[str]:
 
 def load_eval_data(
     known_labels: set[str],
+    source: str = "natural",
 ) -> tuple[list[str], list[str], list[str]]:
     """Читает отложенный набор и отбрасывает утечки."""
 
@@ -87,6 +109,11 @@ def load_eval_data(
         if normalize_message(text) in patterns:
             notes.append(f"утечка в обучение: «{text}»")
 
+            continue
+
+        item_source = item.get("source", "natural")
+
+        if source != "all" and item_source != source:
             continue
 
         texts.append(text)
@@ -345,7 +372,14 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parse_args(argv)
     texts, labels = load_training_data()
-    eval_texts, eval_labels, notes = load_eval_data(set(labels))
+    texts, labels = augment_topics(texts, labels)
+    eval_texts, eval_labels, notes = load_eval_data(
+        set(labels),
+        "natural",
+    )
+    template_texts, template_labels, template_notes = (
+        load_eval_data(set(labels), "template")
+    )
     vectorizer, model = fit_router(texts, labels, args.c)
     accuracy, macro = evaluate(
         vectorizer,
@@ -353,16 +387,26 @@ def main(argv: list[str] | None = None) -> int:
         eval_texts,
         eval_labels,
     )
+    template_accuracy, template_macro = evaluate(
+        vectorizer,
+        model,
+        template_texts,
+        template_labels,
+    )
 
     print(
         f"Обучено на {len(texts)} примерах, "
-        f"проверено на {len(eval_texts)}."
+        f"проверено на {len(eval_texts)} natural."
     )
     print(
-        f"top-1: {accuracy:.3f}, macro-F1: {macro:.3f}"
+        f"natural: top-1 {accuracy:.3f}, macro-F1 {macro:.3f}"
+    )
+    print(
+        f"template: top-1 {template_accuracy:.3f}, "
+        f"macro-F1 {template_macro:.3f}"
     )
 
-    for note in notes:
+    for note in notes + template_notes:
         print(f"Замечание: {note}")
 
     failures = []
@@ -395,6 +439,9 @@ def main(argv: list[str] | None = None) -> int:
             "eval_size": len(eval_texts),
             "eval_top1": round(accuracy, 4),
             "eval_macro_f1": round(macro, 4),
+            "template_size": len(template_texts),
+            "template_top1": round(template_accuracy, 4),
+            "template_macro_f1": round(template_macro, 4),
             "answer_threshold": ROUTER_CONFIDENCE_THRESHOLD,
             "penalty_c": args.c,
             "class_weight": "balanced",
@@ -409,16 +456,31 @@ def main(argv: list[str] | None = None) -> int:
         eval_labels,
         ROUTER_CONFIDENCE_THRESHOLD,
     )
+    template_coverage, template_selective = measure_artifact(
+        args.output,
+        template_texts,
+        template_labels,
+        ROUTER_CONFIDENCE_THRESHOLD,
+    )
     update_meta(
         args.output,
         {
             "eval_coverage": round(coverage, 4),
             "eval_selective_accuracy": round(selective, 4),
+            "template_coverage": round(template_coverage, 4),
+            "template_selective_accuracy": round(
+                template_selective,
+                4,
+            ),
         },
     )
     print(
-        f"Покрытие: {coverage:.3f}, "
-        f"точность на покрытых: {selective:.3f}"
+        f"Покрытие natural: {coverage:.3f}, "
+        f"точность: {selective:.3f}"
+    )
+    print(
+        f"Покрытие template: {template_coverage:.3f}, "
+        f"точность: {template_selective:.3f}"
     )
 
     size = args.output.stat().st_size / 1e6

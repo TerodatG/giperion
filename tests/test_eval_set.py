@@ -100,7 +100,7 @@ def test_eval_set_is_disjoint_from_training() -> None:
 
 
 def test_eval_set_covers_every_intent() -> None:
-    """У каждого намерения есть хотя бы десять отложенных фраз."""
+    """У каждого намерения есть хотя бы двадцать отложенных фраз."""
 
     counts = Counter(
         item["label"] for item in load_phrases()
@@ -119,12 +119,31 @@ def test_eval_set_covers_every_intent() -> None:
     thin = sorted(
         label
         for label, count in counts.items()
-        if count < 10
+        if count < 20
     )
 
     assert not thin, (
-        "Меньше десяти фраз на класс: " + ", ".join(thin)
+        "Меньше двадцати фраз на класс: " + ", ".join(thin)
     )
+
+
+def test_eval_set_has_two_balanced_subsets() -> None:
+    """На каждый класс приходится 10 natural и 10 template фраз."""
+
+    counts = Counter(
+        (item["label"], item.get("source"))
+        for item in load_phrases()
+    )
+    tags = intent_tags()
+
+    assert {
+        source
+        for _label, source in counts
+    } <= {"natural", "template"}
+
+    for tag in tags:
+        assert counts[(tag, "natural")] == 10
+        assert counts[(tag, "template")] == 10
 
 
 def test_eval_meta_matches_content() -> None:
