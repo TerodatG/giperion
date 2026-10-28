@@ -18,6 +18,10 @@ from terminal.core.app_version import current_version
 SPEC = "packaging/giperion.spec"
 APP_NAME = "Giperion"
 
+# Windows-консоль по умолчанию cp1252: русские сообщения роняют сборку.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 def target_platform(value: str = "auto") -> str:
     """windows, linux или macos."""

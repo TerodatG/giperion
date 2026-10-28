@@ -25,6 +25,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
 
+    env:
+      PYTHONIOENCODING: utf-8
+
     steps:
       - uses: actions/checkout@v4
 

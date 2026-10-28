@@ -9,6 +9,9 @@ from pathlib import Path
 
 SUFFIXES = (".zip", ".exe", ".deb", ".AppImage", ".dmg", ".gz")
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
