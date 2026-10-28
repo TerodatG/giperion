@@ -25,7 +25,11 @@ from giperion_model.language.linear_intent import (
 )
 from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from shared.text_tools import normalize_message
-from tools.intent_metrics import bootstrap_metrics
+from tools.intent_metrics import (
+    bootstrap_metrics,
+    class_metrics,
+    macro_f1,
+)
 
 EVAL_FILE = DATA_DIR / "eval_set.json"
 DEFAULT_OUTPUT = MODELS_DIR / "linear_intent.json"
@@ -140,35 +144,81 @@ def measure_artifact(
     texts: list[str],
     labels: list[str],
     threshold: float,
-) -> tuple[float, float]:
-    """Меряет покрытие и точность уже сохранённого артефакта."""
+) -> dict[str, float]:
+    """Меряет метрики уже сохранённого артефакта."""
 
     router = LinearIntentRouter.load(path)
 
     if router is None:
-        return 0.0, 0.0
+        return {
+            "top1": 0.0,
+            "macro_f1": 0.0,
+            "correct": 0.0,
+            "ci": 0.0,
+            "coverage": 0.0,
+            "selective": 0.0,
+        }
 
-    answered = 0
-    correct = 0
+    predictions = []
+    confidences = []
 
-    for text, expected in zip(texts, labels, strict=False):
+    for text in texts:
         result = router.predict(text)
 
         if result is None:
+            predictions.append("")
+            confidences.append(0.0)
             continue
 
         predicted, confidence = result
+        predictions.append(predicted)
+        confidences.append(confidence)
 
-        if confidence < threshold:
-            continue
+    correct = sum(
+        1
+        for expected, predicted in zip(
+            labels,
+            predictions,
+            strict=False,
+        )
+        if expected == predicted
+    )
+    per_class = class_metrics(labels, predictions)
+    interval = bootstrap_metrics(
+        labels,
+        predictions,
+        iterations=300,
+    )
+    covered = [
+        (expected, predicted)
+        for expected, predicted, confidence in zip(
+            labels,
+            predictions,
+            confidences,
+            strict=False,
+        )
+        if confidence >= threshold
+    ]
+    coverage = len(covered) / len(labels) if labels else 0.0
+    selective = (
+        sum(
+            1
+            for expected, predicted in covered
+            if expected == predicted
+        )
+        / len(covered)
+        if covered
+        else 0.0
+    )
 
-        answered += 1
-        correct += int(predicted == expected)
-
-    coverage = answered / len(labels) if labels else 0.0
-    accuracy = correct / answered if answered else 0.0
-
-    return coverage, accuracy
+    return {
+        "top1": correct / len(labels) if labels else 0.0,
+        "macro_f1": macro_f1(per_class),
+        "correct": float(correct),
+        "ci": (interval["top1_high"] - interval["top1_low"]) / 2,
+        "coverage": coverage,
+        "selective": selective,
+    }
 
 
 def update_meta(path: Path, updates: dict) -> None:
@@ -465,13 +515,13 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
 
-    coverage, selective = measure_artifact(
+    natural = measure_artifact(
         args.output,
         eval_texts,
         eval_labels,
         ROUTER_CONFIDENCE_THRESHOLD,
     )
-    template_coverage, template_selective = measure_artifact(
+    template = measure_artifact(
         args.output,
         template_texts,
         template_labels,
@@ -480,22 +530,36 @@ def main(argv: list[str] | None = None) -> int:
     update_meta(
         args.output,
         {
-            "eval_coverage": round(coverage, 4),
-            "eval_selective_accuracy": round(selective, 4),
-            "template_coverage": round(template_coverage, 4),
+            "eval_top1": round(natural["top1"], 4),
+            "eval_macro_f1": round(natural["macro_f1"], 4),
+            "eval_correct": int(natural["correct"]),
+            "eval_ci": round(natural["ci"], 4),
+            "eval_coverage": round(natural["coverage"], 4),
+            "eval_selective_accuracy": round(
+                natural["selective"],
+                4,
+            ),
+            "template_top1": round(template["top1"], 4),
+            "template_macro_f1": round(template["macro_f1"], 4),
+            "template_correct": int(template["correct"]),
+            "template_coverage": round(template["coverage"], 4),
             "template_selective_accuracy": round(
-                template_selective,
+                template["selective"],
                 4,
             ),
         },
     )
     print(
-        f"Покрытие natural: {coverage:.3f}, "
-        f"точность: {selective:.3f}"
+        f"natural: top-1 {natural['top1']:.3f}, "
+        f"macro-F1 {natural['macro_f1']:.3f}, "
+        f"покрытие {natural['coverage']:.3f}, "
+        f"точность {natural['selective']:.3f}"
     )
     print(
-        f"Покрытие template: {template_coverage:.3f}, "
-        f"точность: {template_selective:.3f}"
+        f"template: top-1 {template['top1']:.3f}, "
+        f"macro-F1 {template['macro_f1']:.3f}, "
+        f"покрытие {template['coverage']:.3f}, "
+        f"точность {template['selective']:.3f}"
     )
 
     size = args.output.stat().st_size / 1e6
