@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/neural_engine.py                       v006
+# GiperionModel/giperion_model/neural_engine.py                       v007
 # Нейросетевой движок: намерение классификатора и сгенерированный ответ.
-# Последнее изменение: запрет повторов n-граммов при генерации.
+# Последнее изменение: CNN и генератор стали необязательными.
 
 import random
 import threading
@@ -60,10 +60,10 @@ class NeuralEngine:
 
     def __init__(
         self,
-        classifier: HybridTextClassifier,
+        classifier: HybridTextClassifier | None,
         generator: Seq2Seq | None,
-        word_tokenizer: WordTokenizer,
-        char_tokenizer: CharTokenizer,
+        word_tokenizer: WordTokenizer | None,
+        char_tokenizer: CharTokenizer | None,
         labels: list[str],
         responses_by_tag: dict[str, list[str]],
         device: torch.device,
@@ -122,6 +122,13 @@ class NeuralEngine:
     def _classify_cnn(self, text: str) -> tuple[str, float]:
         """Классифицирует текст гибридной CNN."""
 
+        if (
+            self.classifier is None
+            or self.word_tokenizer is None
+            or self.char_tokenizer is None
+        ):
+            return "", 0.0
+
         ids = self.word_tokenizer.encode(
             text,
         )[: self.max_word_len]
@@ -168,6 +175,9 @@ class NeuralEngine:
         """Придумывает ответ seq2seq; None, если вывод не годится."""
 
         if self.generator is None or not str(text or "").strip():
+            return None
+
+        if self.word_tokenizer is None:
             return None
 
         if self.max_src_len <= 0 or self.max_tgt_len <= 0:

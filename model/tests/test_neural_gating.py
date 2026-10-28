@@ -56,3 +56,16 @@ def test_missing_router_uses_cnn_threshold() -> None:
     engine._classify_cnn = lambda text: ("joke", 0.46)
 
     assert engine._gated_classification("шутка") == ("joke", 0.46)
+
+
+def test_router_answers_without_cnn() -> None:
+    """Роутер отвечает, даже если CNN не загружена."""
+
+    engine = make_engine(FakeRouter(("greeting", 0.8)))
+    engine.classifier = None
+    engine.word_tokenizer = None
+    engine.char_tokenizer = None
+    engine.generator = None
+
+    assert engine.classify("привет") == ("greeting", 0.8)
+    assert engine.generate("привет") is None

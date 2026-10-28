@@ -93,3 +93,41 @@ def test_engine_is_built_once_under_concurrency(monkeypatch) -> None:
         thread.join()
 
     assert len(builds) == 1
+
+
+def test_router_works_without_cnn(monkeypatch) -> None:
+    """Без hybrid.pt движок всё равно собирается вокруг роутера."""
+
+    fake_router = object()
+
+    monkeypatch.setattr(
+        neural_loader.LinearIntentRouter,
+        "load",
+        staticmethod(lambda: fake_router),
+    )
+
+    def missing_classifier(device):
+        raise OSError("нет чекпоинта")
+
+    monkeypatch.setattr(
+        neural_loader,
+        "load_classifier",
+        missing_classifier,
+    )
+    monkeypatch.setattr(
+        neural_loader,
+        "load_generator",
+        lambda device, tokenizer: (None, {}),
+    )
+    monkeypatch.setattr(
+        neural_loader,
+        "load_responses",
+        lambda: {"greeting": ["привет"]},
+    )
+
+    parts = neural_loader.load_components()
+
+    assert parts is not None
+    assert parts["classifier"] is None
+    assert parts["router"] is fake_router
+    assert parts["responses_by_tag"] == {"greeting": ["привет"]}
