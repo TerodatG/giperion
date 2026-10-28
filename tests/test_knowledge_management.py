@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from giperion_model.language import (
+from kraper_model.language import (
     intent_handler,
     learning_service,
 )

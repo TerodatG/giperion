@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from giperion_model.identity_matrix import IDENTITY_MATRIX
+from kraper_model.identity_matrix import IDENTITY_MATRIX
 from terminal.core.model_catalog import (
     DEFAULT_MODEL_ID,
 )

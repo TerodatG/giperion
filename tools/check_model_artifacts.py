@@ -9,7 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from config import DATA_DIR, MODELS_DIR
-from giperion_model.language.intent_handler import load_intents
+from kraper_model.language.intent_handler import load_intents
 
 DEFAULT_ARTIFACT = MODELS_DIR / "linear_intent.json"
 DEFAULT_EVAL = DATA_DIR / "eval_set.json"

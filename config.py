@@ -26,6 +26,12 @@ os.environ.setdefault("GIPERION_DATA_DIR", str(DATA_DIR))
 os.environ.setdefault("GIPERION_MODELS_DIR", str(MODELS_DIR))
 os.environ.setdefault("GIPERION_LOGS_DIR", str(LOGS_DIR))
 
+# Kraper — отдельный пакет; он читает свои KRAPER_* пути.
+os.environ.setdefault("KRAPER_HOME", str(BASE_DIR))
+os.environ.setdefault("KRAPER_DATA_DIR", str(DATA_DIR))
+os.environ.setdefault("KRAPER_MODELS_DIR", str(MODELS_DIR))
+os.environ.setdefault("KRAPER_LOGS_DIR", str(LOGS_DIR))
+
 BOT_NAME = "Giperion"
 
 USER_PROFILE_FILE = DATA_DIR / "user_profile.json"

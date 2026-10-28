@@ -6,7 +6,7 @@ import pytest
 
 sklearn = pytest.importorskip("sklearn")
 
-from giperion_model.language.linear_intent import (  # noqa: E402
+from kraper_model.language.linear_intent import (  # noqa: E402
     LinearIntentRouter,
 )
 from tools.train_linear_intent import (  # noqa: E402

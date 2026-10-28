@@ -14,7 +14,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import Pipeline
 
 from config import LOGS_DIR
-from giperion_model.language.intent_taxonomy import TAXONOMY_NOTES
+from kraper_model.language.intent_taxonomy import TAXONOMY_NOTES
 from tools.train_linear_intent import (
     augment_topics,
     load_training_data,

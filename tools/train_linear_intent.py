@@ -14,15 +14,15 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import Pipeline
 
 from config import DATA_DIR, MODELS_DIR
-from giperion_model.language.intent_handler import load_intents
-from giperion_model.language.intent_topics import (
+from kraper_model.language.intent_handler import load_intents
+from kraper_model.language.intent_topics import (
     INTENT_TOPICS,
     TOPIC_AUGMENT_TEMPLATES,
 )
-from giperion_model.language.linear_intent import (
+from kraper_model.language.linear_intent import (
     ROUTER_CONFIDENCE_THRESHOLD,
 )
-from giperion_model.training.build_dataset import CLASSIFICATION_FILE
+from kraper_model.training.build_dataset import CLASSIFICATION_FILE
 from shared.text_tools import normalize_message
 from tools.intent_metrics import (
     bootstrap_metrics,

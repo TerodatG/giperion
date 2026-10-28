@@ -4,9 +4,9 @@
 
 import pytest
 
-from giperion_model import api
-from giperion_model.identity_matrix import IDENTITY_MATRIX
-from giperion_model.language.intent_handler import find_intent_response
+from kraper_model import api
+from kraper_model.identity_matrix import IDENTITY_MATRIX
+from kraper_model.language.intent_handler import find_intent_response
 from terminal.core import chat_pipeline, chatbot
 from terminal.core.chat_pipeline import STAGES
 from terminal.memory import memory, system_handler

@@ -6,11 +6,11 @@ import argparse
 import json
 
 from config import DATA_DIR, LOGS_DIR
-from giperion_model.neural_engine import (
+from kraper_model.neural_engine import (
     GENERATION_THRESHOLD,
     NeuralEngine,
 )
-from giperion_model.neural_loader import load_components
+from kraper_model.neural_loader import load_components
 
 EVAL_FILE = DATA_DIR / "eval_set.json"
 REPORT_FILE = LOGS_DIR / "generation_report.txt"

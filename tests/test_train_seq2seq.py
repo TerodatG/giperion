@@ -2,7 +2,7 @@
 # Подготовка пар для генератора.
 # Последнее изменение: один ответ на вход.
 
-from giperion_model.training.train_seq2seq import (
+from kraper_model.training.train_seq2seq import (
     one_response_per_input,
 )
 

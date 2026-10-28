@@ -38,7 +38,6 @@ repos:
           tests/test_eval_generation.py
           tests/test_linear_intent_parity.py
           tests/test_label_unknown.py
-          model/tests
         language: system
         pass_filenames: false
 

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from giperion_model.personality_catalog import (
+from kraper_model.personality_catalog import (
     get_selected_personality_id,
     load_personality_matrices,
     set_selected_personality_id,

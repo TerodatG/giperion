@@ -5,7 +5,7 @@
 import argparse
 from collections import Counter
 
-from giperion_model.training import build_dataset
+from kraper_model.training import build_dataset
 from shared.storage.json_store import write_json
 from terminal.memory.memory import get_unknown_messages
 from tools.apply_unknown import main as apply_draft

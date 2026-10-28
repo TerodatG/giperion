@@ -2,8 +2,8 @@
 # Пояснения к близким намерениям.
 # Последнее изменение: первый вариант — проверка тегов и текстов.
 
-from giperion_model.language.intent_handler import load_intents
-from giperion_model.language.intent_taxonomy import TAXONOMY_NOTES
+from kraper_model.language.intent_handler import load_intents
+from kraper_model.language.intent_taxonomy import TAXONOMY_NOTES
 
 
 def test_taxonomy_pairs_reference_known_tags() -> None:

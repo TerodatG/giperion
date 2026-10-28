@@ -5,8 +5,8 @@
 import json
 
 from config import DATA_DIR
-from giperion_model.language.intent_handler import load_intents
-from giperion_model.language.intent_topics import (
+from kraper_model.language.intent_handler import load_intents
+from kraper_model.language.intent_topics import (
     INTENT_TOPICS,
     TOPIC_AUGMENT_TEMPLATES,
 )

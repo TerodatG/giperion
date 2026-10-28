@@ -4,7 +4,7 @@
 
 import pytest
 
-from giperion_model.language.linear_intent import LINEAR_MODEL_FILE
+from kraper_model.language.linear_intent import LINEAR_MODEL_FILE
 from tools.eval_intent_model import (
     main,
     parse_args,

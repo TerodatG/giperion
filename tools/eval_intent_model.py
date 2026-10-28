@@ -8,8 +8,8 @@ from collections import Counter
 from pathlib import Path
 
 from config import DATA_DIR, LOGS_DIR
-from giperion_model.language.intent_handler import load_intents
-from giperion_model.language.linear_intent import (
+from kraper_model.language.intent_handler import load_intents
+from kraper_model.language.linear_intent import (
     LINEAR_MODEL_FILE,
     ROUTER_CONFIDENCE_THRESHOLD,
     LinearIntentRouter,

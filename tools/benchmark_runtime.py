@@ -8,8 +8,8 @@ import statistics
 import time
 
 from config import DATA_DIR, LOGS_DIR
-from giperion_model import neural_loader
-from giperion_model.language.linear_intent import LinearIntentRouter
+from kraper_model import neural_loader
+from kraper_model.language.linear_intent import LinearIntentRouter
 
 EVAL_FILE = DATA_DIR / "eval_set.json"
 REPORT_FILE = LOGS_DIR / "runtime_report.txt"

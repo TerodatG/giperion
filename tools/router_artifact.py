@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from giperion_model.language.linear_intent import LinearIntentRouter
+from kraper_model.language.linear_intent import LinearIntentRouter
 from tools.intent_metrics import (
     bootstrap_metrics,
     calibration_metrics,

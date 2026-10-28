@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 from config import MODELS_DIR
-from giperion_model.training import build_dataset
+from kraper_model.training import build_dataset
 from tools.eval_intent_model import main as evaluate
 from tools.sync_router_passport import (
     DEFAULT_PASSPORTS,

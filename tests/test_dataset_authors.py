@@ -4,7 +4,7 @@
 
 import json
 
-from giperion_model.training import build_dataset
+from kraper_model.training import build_dataset
 from terminal.memory import memory
 
 

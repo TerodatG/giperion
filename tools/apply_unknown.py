@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from config import DATA_DIR
-from giperion_model.language.learning_service import add_phrase_to_category
+from kraper_model.language.learning_service import add_phrase_to_category
 from terminal.memory.memory import remove_unknown_messages
 
 LABELS_FILE = DATA_DIR / "unknown_labels.json"
@@ -80,7 +80,7 @@ def main() -> None:
     if added:
         print()
         print("Дальше — переобучение роутера:")
-        print("python -m giperion_model.training.build_dataset")
+        print("python -m kraper_model.training.build_dataset")
         print("python -m tools.train_linear_intent")
         print("python -m tools.eval_intent_model --router --fail")
 

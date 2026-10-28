@@ -6,7 +6,7 @@ import json
 from collections import Counter
 
 from config import DATA_DIR
-from giperion_model.language.intent_handler import load_intents
+from kraper_model.language.intent_handler import load_intents
 from shared.text_tools import normalize_message
 
 EVAL_FILE = DATA_DIR / "eval_set.json"

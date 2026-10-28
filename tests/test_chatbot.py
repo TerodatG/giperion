@@ -30,7 +30,7 @@ def test_identity_is_not_tied_to_one_user() -> None:
 
     response, save_to_history = get_response("кто ты")
 
-    assert "Гиперион" in response
+    assert "Крапер" in response
     assert "низшего порядка" in response
     assert "0,1" in response
     assert "1,0" in response
@@ -48,7 +48,7 @@ def test_identity_with_name_and_punctuation() -> None:
     ):
         response, save_to_history = get_response(query)
 
-        assert "Гиперион" in response
+        assert "Крапер" in response
         assert "низшего порядка" in response
         assert save_to_history is True
 

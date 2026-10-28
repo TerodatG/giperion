@@ -3,8 +3,8 @@
 # Последнее изменение: учитывается общий порог выбранной модели.
 
 from config import DATA_DIR
-from giperion_model.language.intent_handler import load_intents
-from giperion_model.neural_engine import _build_engine
+from kraper_model.language.intent_handler import load_intents
+from kraper_model.neural_engine import _build_engine
 from shared.storage.json_store import write_json
 from shared.text_tools import normalize_message
 from terminal.memory.memory import get_unknown_messages

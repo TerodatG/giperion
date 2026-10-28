@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - "terminal/**"
-      - "model/**"
       - "shared/**"
       - "tools/**"
       - "tests/**"
@@ -29,10 +28,17 @@ jobs:
           python-version: "3.13"
           cache: pip
 
+      - name: Checkout Kraper
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.KRAPER_REPOSITORY || format('{0}/Kraper', github.repository_owner) }}
+          path: Kraper
+
       - name: Зависимости
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
+          python -m pip install -e ./Kraper --no-deps
 
       - name: Структура
         run: python -m tools.check_structure --strict
@@ -41,7 +47,7 @@ jobs:
         run: python -m pytest
 
       - name: Тесты модели
-        run: python -m pytest model/tests
+        run: python -m pytest Kraper/tests
 
       - name: Качество роутера
         run: >-
@@ -55,29 +61,5 @@ jobs:
         run: python -m tools.eval_retrieval --limit 5 --fail
 
       - name: Компиляция
-        run: python -m compileall -q terminal model shared tests tools
-
-  model:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Зависимости модели
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest ruff
-          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install -e model --no-deps
-
-      - name: Тесты модели на Linux
-        run: python -m pytest model/tests
-
-      - name: Линтер модели
-        run: python -m ruff check model
+        run: >-
+          python -m compileall -q terminal Kraper/kraper_model shared tests tools

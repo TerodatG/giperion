@@ -36,7 +36,8 @@ def test_missing_passport_returns_none() -> None:
 def test_compact_metrics_are_seven_dynamic_rows() -> None:
     """Левая панель получает ровно семь строк."""
 
-    metrics = compact_metrics(get_passport("giperion"))
+    passport = get_passport("giperion")
+    metrics = compact_metrics(passport)
     values = dict(metrics)
 
     assert len(metrics) == 7
@@ -44,7 +45,7 @@ def test_compact_metrics_are_seven_dynamic_rows() -> None:
     assert values["Точность"] == "88,3 %"
     assert values["Параметры"] == "2,9 млн"
     assert values["Контекст"] == "32 токена"
-    assert values["Обновлён"] == "28.10.2026"
+    assert values["Обновлён"] == format_date(passport["updated"])
 
 
 def test_sections_cover_passport_and_quality() -> None:

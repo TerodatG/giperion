@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 
 from config import DATA_DIR, MODELS_DIR
-from giperion_model.language.intent_handler import load_intents
+from kraper_model.language.intent_handler import load_intents
 
 DEFAULT_ARTIFACT = MODELS_DIR / "linear_intent.json"
 DEFAULT_PASSPORTS = DATA_DIR / "model_passports.json"
@@ -90,10 +90,10 @@ def sync(
     passport["speed"]["p50_ms"] = 0.8
     passport["speed"]["p95_ms"] = 1.6
     passport["speed"]["device"] = (
-        "CPU-роутер, CUDA для CNN/seq2seq"
+        "CPU-роутер, CUDA для seq2seq"
     )
     passport["notes"] = [
-        "Гиперион — секретарь: понимает реплику, "
+        "Kraper — секретарь: понимает реплику, "
         "относит к намерению и отвечает коротко.",
         (
             "Основной классификатор — линейный роутер: "
@@ -108,7 +108,7 @@ def sync(
             f"{meta.get('eval_coverage')} при точности на покрытых "
             f"{meta.get('eval_selective_accuracy')}."
         ),
-        "CNN и seq2seq остаются резервом и генератором.",
+        "seq2seq остаётся генератором ответов.",
         "Ответы внешних моделей в обучение не попадают: "
         "это чужая речь.",
     ]

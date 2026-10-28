@@ -28,7 +28,7 @@ VECTOR_WEIGHT = 0.15
 LEXICAL_WEIGHT = 0.85
 VECTOR_ONLY_WEIGHT = 0.3
 RERANK_DEPTH = 10
-PATH_BOOST = 1.0
+PATH_BOOST = 60.0
 PATH_WEIGHTS = (("tests/", 0.4), ("docs/", 0.65), ("model/tests/", 0.3))
 
 _STATS: dict[str, tuple] = {}

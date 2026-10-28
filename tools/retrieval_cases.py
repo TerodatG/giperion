@@ -124,14 +124,6 @@ CASES = (
         "tools/scan_secrets.py",
     ),
     (
-        "атомарная запись чекпоинта модели",
-        "model/giperion_model/storage.py",
-    ),
-    (
-        "GIPERION_DEVICE model config пути",
-        "model/giperion_model/config.py",
-    ),
-    (
         "очередь задач агента",
         "terminal/core/agent/queue.py",
     ),

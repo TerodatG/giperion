@@ -2,7 +2,7 @@
 # Метрики оценки генератора ответов.
 # Последнее изменение: первый вариант — кандидаты и согласованность.
 
-from giperion_model.neural_engine import NeuralEngine
+from kraper_model.neural_engine import NeuralEngine
 from tools.eval_generation import evaluate
 
 

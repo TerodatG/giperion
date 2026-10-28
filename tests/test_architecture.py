@@ -1,16 +1,26 @@
 # Giperion/tests/test_architecture.py                               v003
-# Граница между отдельным проектом модели (giperion_model) и агентом.
+# Граница между отдельным проектом модели (kraper_model) и агентом.
 # Последнее изменение: запрещены UI-импорты, добавлена runtime-проверка.
 
 import ast
+import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 
-# Модель: самостоятельный проект model/ с пакетом giperion_model.
-MODEL_ROOTS = ("model/giperion_model",)
+# Kraper — отдельный проект в соседней папке.
+MODEL_ROOT = Path(
+    os.environ.get(
+        "KRAPER_MODEL_PATH",
+        str(ROOT.parent / "Kraper" / "kraper_model"),
+    )
+)
+
+MODEL_ROOTS = (MODEL_ROOT,)
 
 MODEL_FILES: tuple[str, ...] = ()
 
@@ -86,7 +96,8 @@ def test_model_does_not_import_agent() -> None:
 
     files = model_files()
 
-    assert files, "Не найдено ни одного файла модели"
+    if not files:
+        pytest.skip("Kraper не найден рядом с терминалом")
 
     violations = []
 
@@ -96,7 +107,7 @@ def test_model_does_not_import_agent() -> None:
 
             if target:
                 violations.append(
-                    f"{path.relative_to(ROOT).as_posix()}: {target}"
+                    f"{path.as_posix()}: {target}"
                 )
 
     assert not violations, (
@@ -108,9 +119,12 @@ def test_model_does_not_import_agent() -> None:
 def test_model_api_import_stays_independent() -> None:
     """Импорт точки входа модели не тянет терминал, UI и корневой shared."""
 
+    if not model_files():
+        pytest.skip("Kraper не найден рядом с терминалом")
+
     probe = (
         "import json, sys\n"
-        "import giperion_model.api\n"
+        "import kraper_model.api\n"
         "roots = {'terminal', 'shared', 'config', 'main', 'gui', "
         "'PySide6'}\n"
         "found = sorted(\n"
@@ -137,7 +151,7 @@ def test_model_api_import_stays_independent() -> None:
     found = result.stdout.strip().splitlines()[-1]
 
     assert found == "[]", (
-        "Импорт giperion_model.api подтянул чужие модули: " + found
+        "Импорт kraper_model.api подтянул чужие модули: " + found
     )
 
 

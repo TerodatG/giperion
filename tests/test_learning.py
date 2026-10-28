@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from giperion_model._shared import action_log as model_action_log
-from giperion_model.language import (
+from kraper_model._shared import action_log as model_action_log
+from kraper_model.language import (
     intent_handler,
     learning_service,
 )
