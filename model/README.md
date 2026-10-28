@@ -72,6 +72,20 @@ pickle-код из чекпоинта не исполняется. Текущи�
 по-прежнему нужно брать из доверенного каталога: подмена весов меняет
 ответы, даже если код не выполняется.
 
+Переобучение seq2seq можно провести в отдельный файл:
+
+```powershell
+$env:GIPERION_SEQ2SEQ_OUTPUT = "models/seq2seq_new.pt"
+$env:GIPERION_SEQ2SEQ_ONE_RESPONSE = "1"  # опционально
+python -m giperion_model.training.train_seq2seq
+$env:GIPERION_SEQ2SEQ_FILE = "models/seq2seq_new.pt"
+python -m tools.eval_generation --limit 200
+```
+
+Эксперименты дали 0.896 (обычное переобучение) и 0.904
+(один ответ на паттерн) против 0.921 у рабочей модели, поэтому
+`seq2seq.pt` не заменялся.
+
 ## Линейный роутер
 
 Если рядом с чекпоинтами лежит `linear_intent.json`, движок сначала

@@ -3,7 +3,9 @@
 # Последнее изменение: примеры печатаются с лучшими сохранёнными весами.
 
 import json
+import os
 import random
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
@@ -17,6 +19,12 @@ from giperion_model.training.model_seq2seq import Seq2Seq
 from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CHECKPOINT_FILE = MODELS_DIR / "seq2seq.pt"
+OUTPUT_FILE = Path(
+    os.environ.get(
+        "GIPERION_SEQ2SEQ_OUTPUT",
+        str(CHECKPOINT_FILE),
+    )
+)
 
 BATCH_SIZE = 64
 EPOCHS = 30
@@ -109,6 +117,24 @@ class _SampleList(Dataset):
         """Возвращает один пример."""
 
         return self.samples[index]
+
+
+def one_response_per_input(
+    pairs: list[dict],
+) -> list[dict]:
+    """Оставляет один случайный ответ на каждый вопрос."""
+
+    grouped: dict[str, list[dict]] = {}
+
+    for pair in pairs:
+        grouped.setdefault(pair["input"], []).append(pair)
+
+    rng = random.Random(SEED)
+
+    return [
+        rng.choice(options)
+        for _key, options in sorted(grouped.items())
+    ]
 
 
 def split_samples(
@@ -221,7 +247,7 @@ def save_checkpoint(
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     save_torch(
-        CHECKPOINT_FILE,
+        OUTPUT_FILE,
         {
             "format_version": 1,
             "model_state": model.state_dict(),
@@ -277,6 +303,9 @@ def train() -> None:
         encoding="utf-8",
     ) as file:
         pairs = json.load(file)
+
+    if os.environ.get("GIPERION_SEQ2SEQ_ONE_RESPONSE") == "1":
+        pairs = one_response_per_input(pairs)
 
     tokenizer = WordTokenizer.load(TOKENIZER_FILE)
 
@@ -384,12 +413,12 @@ def train() -> None:
 
     print()
     print(f"Лучшая точность генерации: {best_score:.3f}")
-    print(f"Модель сохранена: {CHECKPOINT_FILE}")
+    print(f"Модель сохранена: {OUTPUT_FILE}")
     print()
 
     # Примеры должны показывать именно ту модель, которая сохранена.
     best_checkpoint = torch.load(
-        CHECKPOINT_FILE,
+        OUTPUT_FILE,
         map_location=DEVICE,
         weights_only=True,
     )

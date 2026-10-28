@@ -4,6 +4,8 @@
 
 import json
 import logging
+import os
+from pathlib import Path
 
 import torch
 
@@ -22,7 +24,12 @@ from giperion_model.training.model_seq2seq import Seq2Seq
 from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
 CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
-SEQ2SEQ_FILE = MODELS_DIR / "seq2seq.pt"
+SEQ2SEQ_FILE = Path(
+    os.environ.get(
+        "GIPERION_SEQ2SEQ_FILE",
+        str(MODELS_DIR / "seq2seq.pt"),
+    )
+)
 INTENTS_FILE = DATA_DIR / "intents.json"
 LAST_ERROR = ""
 LOGGER = logging.getLogger(__name__)
