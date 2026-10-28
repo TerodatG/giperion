@@ -14,6 +14,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import Pipeline
 
 from config import LOGS_DIR
+from giperion_model.language.intent_taxonomy import TAXONOMY_NOTES
 from tools.train_linear_intent import (
     augment_topics,
     load_training_data,
@@ -136,6 +137,7 @@ def build_report(
                 "true": truth,
                 "predicted": guess,
                 "count": count,
+                "note": TAXONOMY_NOTES.get((truth, guess), ""),
                 "examples": group,
             }
         )
@@ -212,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
             f"{group['true']} → {group['predicted']}: "
             f"{group['count']}"
         )
+
+        if group["note"]:
+            print(f"    {group['note']}")
 
     print(f"Отчёт: {args.output}")
 
