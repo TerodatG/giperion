@@ -1,12 +1,11 @@
-# Giperion/tests/test_eval_intent_model.py                            v001
+# Giperion/tests/test_eval_intent_model.py                            v002
 # Проверка метрик оценки интентов и локального порога качества.
-# Последнее изменение: первый вариант — macro-F1 и покрытие.
+# Последнее изменение: оценка только роутера.
 
 import pytest
 
 from giperion_model.language.linear_intent import LINEAR_MODEL_FILE
 from tools.eval_intent_model import (
-    CLASSIFIER_FILE,
     main,
     parse_args,
 )
@@ -74,12 +73,12 @@ def test_selective_metrics_without_answers() -> None:
     ) == (0.0, 0.0)
 
 
-def test_router_uses_stricter_thresholds() -> None:
-    """У роутера порог выше, чем у запасного CNN."""
+def test_router_gate_thresholds() -> None:
+    """Гейт роутера требует 0.75 top-1 и 0.70 macro-F1."""
 
-    assert parse_args([]).min_top1 == 0.40
+    assert parse_args([]).min_top1 == 0.75
     assert parse_args(["--router"]).min_top1 == 0.75
-    assert parse_args([]).min_macro_f1 == 0.40
+    assert parse_args([]).min_macro_f1 == 0.70
     assert parse_args(["--router"]).min_macro_f1 == 0.70
 
 
@@ -120,16 +119,6 @@ def test_percentile_edges() -> None:
 
     assert percentile([1.0, 2.0, 3.0], 0.0) == 1.0
     assert percentile([1.0, 2.0, 3.0], 1.0) == 3.0
-
-
-@pytest.mark.skipif(
-    not CLASSIFIER_FILE.is_file(),
-    reason="нет обученного чекпоинта",
-)
-def test_current_model_passes_quality_gate() -> None:
-    """Текущая модель не должна проседать ниже порогов."""
-
-    assert main(["--fail"]) == 0
 
 
 @pytest.mark.skipif(

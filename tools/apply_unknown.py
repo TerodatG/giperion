@@ -79,12 +79,10 @@ def main() -> None:
 
     if added:
         print()
-        print("Дальше — переобучение:")
+        print("Дальше — переобучение роутера:")
         print("python -m giperion_model.training.build_dataset")
-        print("python -m giperion_model.training.tokenizer")
-        print("python -m giperion_model.training.char_tokenizer")
-        print("python -m giperion_model.training.train_charcnn --full")
-        print("python -m giperion_model.training.train_seq2seq")
+        print("python -m tools.train_linear_intent")
+        print("python -m tools.eval_intent_model --router --fail")
 
 
 if __name__ == "__main__":

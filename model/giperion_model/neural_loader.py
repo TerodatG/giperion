@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/neural_loader.py                       v004
+# GiperionModel/giperion_model/neural_loader.py                       v005
 # Загрузка чекпоинтов нейросетевого движка и ответов намерений.
-# Последнее изменение: CNN по умолчанию не загружается.
+# Последнее изменение: CNN удалена из рантайма.
 
 import json
 import logging
@@ -15,15 +15,9 @@ from giperion_model.config import (
     resolve_device,
 )
 from giperion_model.language.linear_intent import LinearIntentRouter
-from giperion_model.training.char_tokenizer import (
-    CHAR_TOKENIZER_FILE,
-    CharTokenizer,
-)
-from giperion_model.training.model_charcnn import HybridTextClassifier
 from giperion_model.training.model_seq2seq import Seq2Seq
 from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 
-CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
 SEQ2SEQ_FILE = Path(
     os.environ.get(
         "GIPERION_SEQ2SEQ_FILE",
@@ -102,44 +96,10 @@ def get_last_error() -> str:
     return LAST_ERROR
 
 
-def load_tokenizers() -> tuple[WordTokenizer, CharTokenizer]:
-    """Загружает оба токенизатора."""
+def load_word_tokenizer() -> WordTokenizer:
+    """Загружает токенизатор слов для seq2seq."""
 
-    return (
-        WordTokenizer.load(TOKENIZER_FILE),
-        CharTokenizer.load(CHAR_TOKENIZER_FILE),
-    )
-
-
-def load_classifier(
-    device: torch.device,
-    word_tokenizer: WordTokenizer | None = None,
-    char_tokenizer: CharTokenizer | None = None,
-) -> tuple[HybridTextClassifier, dict]:
-    """Загружает CNN; токенизаторы можно передать заранее."""
-
-    if word_tokenizer is None:
-        word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
-
-    if char_tokenizer is None:
-        char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
-
-    checkpoint = torch.load(
-        CLASSIFIER_FILE,
-        map_location=device,
-        weights_only=True,
-    )
-    classifier = HybridTextClassifier(
-        vocab_size=word_tokenizer.vocab_size,
-        char_vocab_size=char_tokenizer.vocab_size,
-        num_classes=len(checkpoint["labels"]),
-        pad_id=word_tokenizer.pad_id,
-    ).to(device)
-
-    classifier.load_state_dict(checkpoint["model_state"])
-    classifier.eval()
-
-    return classifier, checkpoint
+    return WordTokenizer.load(TOKENIZER_FILE)
 
 
 def load_generator(
@@ -180,10 +140,10 @@ def load_generator(
 
 
 def load_components() -> dict | None:
-    """Собирает доступные компоненты движка.
+    """Собирает роутер, seq2seq и ответы намерений.
 
-    Роутер и CNN независимы: если CNN или seq2seq отсутствуют,
-    движок продолжает отвечать намерениями по роутеру.
+    CNN в рантайме больше не используется: пониманием занимается
+    линейный роутер, генерацией — seq2seq.
     """
 
     global LAST_ERROR
@@ -200,48 +160,23 @@ def load_components() -> dict | None:
             error,
         )
 
-    classifier = None
     word_tokenizer = None
-    char_tokenizer = None
-    labels: list[str] = []
-    max_word_len = 0
 
     try:
-        word_tokenizer, char_tokenizer = load_tokenizers()
-    except Exception as error:  # noqa: BLE001 — без токенизаторов
+        word_tokenizer = load_word_tokenizer()
+    except Exception as error:  # noqa: BLE001 — без токенизатора
         LOGGER.warning(
-            "Токенизаторы не загружены: %s",
+            "Токенизатор не загружен: %s",
             error,
         )
-
-    use_cnn = os.environ.get("GIPERION_USE_CNN", "0") == "1"
-
-    if use_cnn and word_tokenizer and char_tokenizer:
-        try:
-            classifier, checkpoint = load_classifier(
-                device,
-                word_tokenizer,
-                char_tokenizer,
-            )
-            labels = checkpoint["labels"]
-            max_word_len = checkpoint["max_len"]
-        except Exception as error:  # noqa: BLE001 — без CNN
-            LOGGER.warning(
-                "CNN не загружена: %s",
-                error,
-            )
 
     generator, generator_checkpoint = load_generator(
         device,
         word_tokenizer,
     )
 
-    if (
-        classifier is None
-        and router is None
-        and generator is None
-    ):
-        LAST_ERROR = "нет ни роутера, ни CNN, ни генератора"
+    if router is None and generator is None:
+        LAST_ERROR = "нет ни роутера, ни генератора"
         LOGGER.warning("Нейросеть отключена: %s", LAST_ERROR)
 
         return None
@@ -249,15 +184,11 @@ def load_components() -> dict | None:
     LAST_ERROR = ""
 
     return {
-        "classifier": classifier,
         "router": router,
         "generator": generator,
         "word_tokenizer": word_tokenizer,
-        "char_tokenizer": char_tokenizer,
-        "labels": labels,
         "responses_by_tag": responses_by_tag,
         "device": device,
-        "max_word_len": max_word_len,
         "max_src_len": generator_checkpoint.get(
             "max_src_len",
             0,

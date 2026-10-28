@@ -46,8 +46,6 @@ def make_engine(decoded: str, tokens) -> NeuralEngine:
     engine = object.__new__(NeuralEngine)
     engine.generator = FakeGenerator(tokens)
     engine.word_tokenizer = FakeTokenizer(decoded)
-    engine.char_tokenizer = None
-    engine.classifier = None
     engine.router = None
     engine.device = torch.device("cpu")
     engine.max_src_len = 2
@@ -93,8 +91,8 @@ def test_generate_without_generator() -> None:
     assert engine.generate("привет") is None
 
 
-def test_cnn_classify_without_model() -> None:
-    """Без CNN классификатор возвращает пустой результат."""
+def test_classify_without_router() -> None:
+    """Без роутера классификатор возвращает пустой результат."""
 
     engine = make_engine("ответ", [4, 3])
 

@@ -5,37 +5,21 @@
 import argparse
 import json
 from collections import Counter
-from pathlib import Path
 
-import torch
-
-from config import DATA_DIR, LOGS_DIR, MODELS_DIR
+from config import DATA_DIR, LOGS_DIR
 from giperion_model.language.intent_handler import load_intents
 from giperion_model.language.linear_intent import (
     LINEAR_MODEL_FILE,
+    ROUTER_CONFIDENCE_THRESHOLD,
     LinearIntentRouter,
 )
-from giperion_model.neural_engine import CONFIDENCE_THRESHOLD
-from giperion_model.training.char_tokenizer import (
-    CHAR_TOKENIZER_FILE,
-    CharTokenizer,
-)
-from giperion_model.training.model_charcnn import HybridTextClassifier
-from giperion_model.training.tokenizer import TOKENIZER_FILE, WordTokenizer
 from shared.text_tools import normalize_message
 
 EVAL_FILE = DATA_DIR / "eval_set.json"
-CLASSIFIER_FILE = MODELS_DIR / "hybrid.pt"
 REPORT_FILE = LOGS_DIR / "eval_report.txt"
 
-DEFAULT_MIN_TOP1 = 0.40
-DEFAULT_MIN_MACRO_F1 = 0.40
 ROUTER_MIN_TOP1 = 0.75
 ROUTER_MIN_MACRO_F1 = 0.70
-
-DEVICE = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
 
 
 def intent_patterns() -> set[str]:
@@ -95,98 +79,6 @@ def load_examples(
         examples.append({"text": text, "label": label})
 
     return examples, notes
-
-
-def build_model(
-    path: Path | None = None,
-) -> tuple[HybridTextClassifier, list[str], int]:
-    """Загружает гибридный классификатор из чекпоинта."""
-
-    checkpoint = torch.load(
-        path or CLASSIFIER_FILE,
-        map_location=DEVICE,
-        weights_only=True,
-    )
-
-    word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
-    char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
-
-    model = HybridTextClassifier(
-        vocab_size=word_tokenizer.vocab_size,
-        char_vocab_size=char_tokenizer.vocab_size,
-        num_classes=len(checkpoint["labels"]),
-        pad_id=word_tokenizer.pad_id,
-    ).to(DEVICE)
-
-    model.load_state_dict(checkpoint["model_state"])
-    model.eval()
-
-    return model, checkpoint["labels"], checkpoint["max_len"]
-
-
-def classify(
-    model: HybridTextClassifier,
-    labels: list[str],
-    max_len: int,
-    text: str,
-    word_tokenizer: WordTokenizer,
-    char_tokenizer: CharTokenizer,
-) -> tuple[str, float]:
-    """Возвращает предсказанный тег и уверенность модели."""
-
-    ids = word_tokenizer.encode(text)[:max_len]
-    ids = ids + [word_tokenizer.pad_id] * (max_len - len(ids))
-
-    chars = char_tokenizer.encode(text)
-
-    tokens = torch.tensor([ids], dtype=torch.long, device=DEVICE)
-    char_tensor = torch.tensor(
-        [chars],
-        dtype=torch.long,
-        device=DEVICE,
-    )
-
-    with torch.no_grad():
-        logits = model(tokens, char_tensor)
-        probabilities = torch.softmax(logits, dim=1)
-
-    index = int(probabilities.argmax(dim=1).item())
-
-    return labels[index], float(probabilities[0, index].item())
-
-
-def predict_all(
-    model: HybridTextClassifier,
-    labels: list[str],
-    max_len: int,
-    examples: list[dict],
-    word_tokenizer: WordTokenizer,
-    char_tokenizer: CharTokenizer,
-) -> list[dict]:
-    """Классифицирует весь набор и сохраняет уверенность."""
-
-    rows = []
-
-    for example in examples:
-        predicted, confidence = classify(
-            model,
-            labels,
-            max_len,
-            example["text"],
-            word_tokenizer,
-            char_tokenizer,
-        )
-
-        rows.append(
-            {
-                "text": example["text"],
-                "label": example["label"],
-                "predicted": predicted,
-                "confidence": confidence,
-            }
-        )
-
-    return rows
 
 
 def predict_with_router(
@@ -283,7 +175,7 @@ def build_report(
     lines = [
         "=== Оценка классификатора Giperion ===",
         f"Модель: {model_name}",
-        f"Устройство: {DEVICE}",
+        "Устройство: CPU-роутер",
         f"Фраз в проверке: {len(rows)}",
         f"Классов: {len(per_class)}",
         f"Верных ответов: {correct}",
@@ -343,26 +235,18 @@ def parse_args(
     """Разбирает ключи запуска."""
 
     parser = argparse.ArgumentParser(
-        description=(
-            "Оценка классификатора намерений на отложенном наборе."
-        )
+        description="Оценка линейного роутера на отложенном наборе."
     )
     parser.add_argument(
         "--router",
         action="store_true",
-        help="оценивать линейный роутер вместо CNN",
+        help="оставлен для совместимости: оценивается роутер",
     )
     parser.add_argument(
         "--subset",
         choices=("natural", "template", "all"),
         default="natural",
         help="какие фразы проверять",
-    )
-    parser.add_argument(
-        "--model",
-        type=Path,
-        default=None,
-        help="путь к CNN-чекпоинту вместо hybrid.pt",
     )
     parser.add_argument(
         "--fail",
@@ -377,81 +261,45 @@ def parse_args(
     parser.add_argument(
         "--min-top1",
         type=float,
-        default=None,
+        default=ROUTER_MIN_TOP1,
         help="минимальная точность top-1",
     )
     parser.add_argument(
         "--min-macro-f1",
         type=float,
-        default=None,
+        default=ROUTER_MIN_MACRO_F1,
         help="минимальный macro-F1",
     )
     parser.add_argument(
         "--bootstrap",
         type=int,
         default=0,
-        help="число bootstrap-итераций для доверительных интервалов",
+        help="число bootstrap-итераций",
     )
 
-    args = parser.parse_args(argv)
-
-    if args.min_top1 is None:
-        args.min_top1 = (
-            ROUTER_MIN_TOP1 if args.router else DEFAULT_MIN_TOP1
-        )
-
-    if args.min_macro_f1 is None:
-        args.min_macro_f1 = (
-            ROUTER_MIN_MACRO_F1
-            if args.router
-            else DEFAULT_MIN_MACRO_F1
-        )
-
-    return args
+    return parser.parse_args(argv)
 
 
 def evaluate_model(
     args: argparse.Namespace,
 ) -> tuple[list[dict], list[str], str | None, float]:
-    """Готовит предсказания выбранной модели и её порог."""
+    """Готовит предсказания роутера и его порог."""
 
-    if args.router:
-        router = LinearIntentRouter.load()
+    router = LinearIntentRouter.load()
 
-        if router is None:
-            return [], [], None, CONFIDENCE_THRESHOLD
+    if router is None:
+        return [], [], None, ROUTER_CONFIDENCE_THRESHOLD
 
-        examples, notes = load_examples(
-            set(router.labels),
-            args.subset,
-        )
-
-        return (
-            predict_with_router(router, examples),
-            notes,
-            f"{LINEAR_MODEL_FILE.name} [{args.subset}]",
-            router.threshold,
-        )
-
-    model, labels, max_len = build_model(args.model)
-    word_tokenizer = WordTokenizer.load(TOKENIZER_FILE)
-    char_tokenizer = CharTokenizer.load(CHAR_TOKENIZER_FILE)
-    examples, notes = load_examples(set(labels), args.subset)
-
-    rows = predict_all(
-        model,
-        labels,
-        max_len,
-        examples,
-        word_tokenizer,
-        char_tokenizer,
+    examples, notes = load_examples(
+        set(router.labels),
+        args.subset,
     )
 
     return (
-        rows,
+        predict_with_router(router, examples),
         notes,
-        f"{(args.model or CLASSIFIER_FILE).name} [{args.subset}]",
-        CONFIDENCE_THRESHOLD,
+        f"{LINEAR_MODEL_FILE.name} [{args.subset}]",
+        router.threshold,
     )
 
 

@@ -1,6 +1,6 @@
-# GiperionModel/tests/test_neural_gating.py                           v001
-# Порог уверенности выбирается по модели, которая дала ответ.
-# Последнее изменение: первый вариант — роутер и CNN раздельно.
+# GiperionModel/tests/test_neural_gating.py                           v002
+# Порог уверенности роутера и поведение без генератора.
+# Последнее изменение: CNN удалена из рантайма.
 
 from giperion_model.neural_engine import NeuralEngine
 
@@ -45,27 +45,23 @@ def test_router_at_threshold_answers() -> None:
     )
 
 
-def test_missing_router_uses_cnn_threshold() -> None:
-    """Без роутера порог берётся из CNN-константы."""
+def test_missing_router_abstains() -> None:
+    """Без роутера движок не угадывает намерение."""
 
     engine = make_engine(None)
-    engine._classify_cnn = lambda text: ("joke", 0.44)
 
-    assert engine._gated_classification("шутка") is None
-
-    engine._classify_cnn = lambda text: ("joke", 0.46)
-
-    assert engine._gated_classification("шутка") == ("joke", 0.46)
+    assert engine.classify("привет") == ("", 0.0)
+    assert engine._gated_classification("привет") is None
 
 
-def test_router_answers_without_cnn() -> None:
-    """Роутер отвечает, даже если CNN не загружена."""
+def test_router_answers_without_generator() -> None:
+    """Роутер отвечает, даже если seq2seq не загружен."""
 
     engine = make_engine(FakeRouter(("greeting", 0.8)))
-    engine.classifier = None
-    engine.word_tokenizer = None
-    engine.char_tokenizer = None
     engine.generator = None
+    engine.word_tokenizer = None
+    engine.max_src_len = 0
+    engine.max_tgt_len = 0
 
     assert engine.classify("привет") == ("greeting", 0.8)
     assert engine.generate("привет") is None

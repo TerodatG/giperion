@@ -1,6 +1,6 @@
-# GiperionModel/giperion_model/neural_engine.py                       v007
-# Нейросетевой движок: намерение классификатора и сгенерированный ответ.
-# Последнее изменение: CNN и генератор стали необязательными.
+# GiperionModel/giperion_model/neural_engine.py                       v008
+# Нейросетевой движок: роутер намерений и сгенерированный ответ.
+# Последнее изменение: CNN удалена из рантайма.
 
 import random
 import threading
@@ -9,13 +9,8 @@ from collections import Counter
 import torch
 
 from giperion_model.language.linear_intent import LinearIntentRouter
-from giperion_model.training.char_tokenizer import CharTokenizer
-from giperion_model.training.model_charcnn import HybridTextClassifier
 from giperion_model.training.model_seq2seq import Seq2Seq
 from giperion_model.training.tokenizer import WordTokenizer
-
-# Ниже порога диагнозу не верим — отвечать пусть правила.
-CONFIDENCE_THRESHOLD = 0.45
 
 # Выше порога отвечаем сгенерированным текстом,
 # между порогами — готовым ответом намерения.
@@ -52,124 +47,60 @@ def has_repetition(text: str) -> bool:
 
 
 class NeuralEngine:
-    """Держит модели в памяти и отвечает на два вопроса:
+    """Держит роутер и генератор и отвечает на два вопроса:
 
-    «какое это намерение?» (классификатор) и
+    «какое это намерение?» (роутер) и
     «что на это ответить?» (генератор или готовый ответ).
     """
 
     def __init__(
         self,
-        classifier: HybridTextClassifier | None,
         generator: Seq2Seq | None,
         word_tokenizer: WordTokenizer | None,
-        char_tokenizer: CharTokenizer | None,
-        labels: list[str],
         responses_by_tag: dict[str, list[str]],
         device: torch.device,
-        max_word_len: int,
         max_src_len: int,
         max_tgt_len: int,
         router: LinearIntentRouter | None = None,
     ) -> None:
-        self.classifier = classifier
         self.router = router
         self.generator = generator
         self.word_tokenizer = word_tokenizer
-        self.char_tokenizer = char_tokenizer
-        self.labels = labels
         self.responses_by_tag = responses_by_tag
         self.device = device
-        self.max_word_len = max_word_len
         self.max_src_len = max_src_len
         self.max_tgt_len = max_tgt_len
 
     def classify(self, text: str) -> tuple[str, float]:
         """Возвращает тег намерения и уверенность (0..1)."""
 
-        if self.router is not None:
-            result = self.router.predict(text)
+        if self.router is None:
+            return "", 0.0
 
-            if result is not None:
-                return result
+        result = self.router.predict(text)
 
-        return self._classify_cnn(text)
+        return result if result is not None else ("", 0.0)
 
     def _gated_classification(
         self,
         message: str,
     ) -> tuple[str, float] | None:
-        """Отсекает ответы ниже порога выбранной модели."""
+        """Отсекает ответы ниже порога роутера."""
 
-        if self.router is not None:
-            result = self.router.predict(message)
+        if self.router is None:
+            return None
 
-            if result is not None:
-                label, confidence = result
+        result = self.router.predict(message)
 
-                if confidence < self.router.threshold:
-                    return None
+        if result is None:
+            return None
 
-                return label, confidence
+        label, confidence = result
 
-        label, confidence = self._classify_cnn(message)
-
-        if confidence < CONFIDENCE_THRESHOLD:
+        if confidence < self.router.threshold:
             return None
 
         return label, confidence
-
-    def _classify_cnn(self, text: str) -> tuple[str, float]:
-        """Классифицирует текст гибридной CNN."""
-
-        if (
-            self.classifier is None
-            or self.word_tokenizer is None
-            or self.char_tokenizer is None
-        ):
-            return "", 0.0
-
-        ids = self.word_tokenizer.encode(
-            text,
-        )[: self.max_word_len]
-
-        ids = ids + [self.word_tokenizer.pad_id] * (
-            self.max_word_len - len(ids)
-        )
-
-        chars = self.char_tokenizer.encode(text)
-
-        tokens = torch.tensor(
-            [ids],
-            dtype=torch.long,
-            device=self.device,
-        )
-
-        char_tensor = torch.tensor(
-            [chars],
-            dtype=torch.long,
-            device=self.device,
-        )
-
-        with torch.no_grad():
-            logits = self.classifier(
-                tokens,
-                char_tensor,
-            )
-
-            probabilities = torch.softmax(
-                logits,
-                dim=1,
-            )
-
-        index = int(
-            probabilities.argmax(dim=1).item()
-        )
-
-        return (
-            self.labels[index],
-            float(probabilities[0, index].item()),
-        )
 
     def generate(self, text: str) -> str | None:
         """Придумывает ответ seq2seq; None, если вывод не годится."""
