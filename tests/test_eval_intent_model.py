@@ -11,6 +11,7 @@ from tools.eval_intent_model import (
 )
 from tools.intent_metrics import (
     bootstrap_metrics,
+    calibration_metrics,
     class_metrics,
     macro_f1,
     percentile,
@@ -119,6 +120,33 @@ def test_percentile_edges() -> None:
 
     assert percentile([1.0, 2.0, 3.0], 0.0) == 1.0
     assert percentile([1.0, 2.0, 3.0], 1.0) == 3.0
+
+
+def test_calibration_perfect_confidence() -> None:
+    """Идеальные ответы с уверенностью 1 дают нулевые ошибки."""
+
+    assert calibration_metrics([1.0, 1.0], [True, True]) == (
+        0.0,
+        0.0,
+    )
+
+
+def test_calibration_penalizes_overconfidence() -> None:
+    """Уверенная ошибка увеличивает ECE и Brier."""
+
+    ece, brier = calibration_metrics([0.9, 0.9], [True, False])
+
+    assert ece > 0
+    assert brier > 0
+
+    assert calibration_metrics([], []) == (0.0, 0.0)
+
+
+def test_calibration_rejects_length_mismatch() -> None:
+    """Разные длины входов — ошибка."""
+
+    with pytest.raises(ValueError):
+        calibration_metrics([0.5], [True, False])
 
 
 @pytest.mark.skipif(

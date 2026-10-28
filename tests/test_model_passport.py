@@ -68,7 +68,7 @@ def test_sections_cover_passport_and_quality() -> None:
     ]
     assert "2,9 млн" in rows["Параметры"]
     assert rows["Точность (top-1)"].startswith("87,0 %")
-    assert rows["Калибровка (ECE)"] == "не измерено"
+    assert rows["Калибровка (ECE)"] == "3,4 %"
     assert rows["p95 ответа"] == "1,6 мс"
 
 

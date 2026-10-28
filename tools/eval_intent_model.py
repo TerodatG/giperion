@@ -110,6 +110,7 @@ def predict_with_router(
 
 from tools.intent_metrics import (
     bootstrap_metrics,
+    calibration_metrics,
     class_metrics,
     macro_f1,
     selective_metrics,
@@ -144,6 +145,17 @@ def build_report(
         predictions,
         confidences,
         threshold,
+    )
+    ece, brier = calibration_metrics(
+        confidences,
+        [
+            truth == predicted
+            for truth, predicted in zip(
+                truths,
+                predictions,
+                strict=False,
+            )
+        ],
     )
 
     confusions = Counter(
@@ -185,6 +197,8 @@ def build_report(
         f"Покрытие (уверенность ≥ {threshold:.2f}): "
         f"{coverage:.3f}",
         f"Точность на покрытых: {selective:.3f}",
+        f"ECE: {ece:.3f}",
+        f"Brier: {brier:.3f}",
         "",
         "--- Слабые классы (F1 < 1.0) ---",
     ]
@@ -225,6 +239,8 @@ def build_report(
         "selective_accuracy": selective,
         "correct": float(correct),
         "errors": float(len(errors)),
+        "ece": ece,
+        "brier": brier,
     }
 
     return "\n".join(lines), metrics

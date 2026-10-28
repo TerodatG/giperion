@@ -12,6 +12,8 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
+from sklearn.pipeline import Pipeline
 
 from config import DATA_DIR, MODELS_DIR
 from giperion_model.language.intent_handler import load_intents
@@ -27,6 +29,7 @@ from giperion_model.training.build_dataset import CLASSIFICATION_FILE
 from shared.text_tools import normalize_message
 from tools.intent_metrics import (
     bootstrap_metrics,
+    calibration_metrics,
     class_metrics,
     macro_f1,
 )
@@ -210,6 +213,17 @@ def measure_artifact(
         if covered
         else 0.0
     )
+    ece, brier = calibration_metrics(
+        confidences,
+        [
+            expected == predicted
+            for expected, predicted in zip(
+                labels,
+                predictions,
+                strict=False,
+            )
+        ],
+    )
 
     return {
         "top1": correct / len(labels) if labels else 0.0,
@@ -218,6 +232,8 @@ def measure_artifact(
         "ci": (interval["top1_high"] - interval["top1_low"]) / 2,
         "coverage": coverage,
         "selective": selective,
+        "ece": ece,
+        "brier": brier,
     }
 
 
@@ -285,6 +301,105 @@ def evaluate(
     return accuracy, float(macro), correct
 
 
+def calibration_scores(
+    model: LogisticRegression,
+    matrix,
+    labels: list[str],
+    temperature: float,
+) -> tuple[float, float]:
+    """Считает ECE и Brier для калиброванных вероятностей."""
+
+    scores = np.asarray(model.decision_function(matrix))
+    scaled = scores / temperature
+    scaled -= scaled.max(axis=1, keepdims=True)
+    exponents = np.exp(scaled)
+    probabilities = exponents / exponents.sum(
+        axis=1,
+        keepdims=True,
+    )
+    confidence = probabilities.max(axis=1)
+    predicted = model.classes_[probabilities.argmax(axis=1)]
+    correct = [
+        str(expected) == str(actual)
+        for expected, actual in zip(
+            labels,
+            predicted,
+            strict=False,
+        )
+    ]
+
+    return calibration_metrics(
+        confidence.tolist(),
+        correct,
+    )
+
+
+def fit_temperature(
+    texts: list[str],
+    labels: list[str],
+    penalty_c: float,
+) -> float:
+    """Подбирает температуру по OOF-вероятностям."""
+
+    pipeline = Pipeline(
+        [
+            (
+                "tfidf",
+                TfidfVectorizer(
+                    analyzer="char_wb",
+                    ngram_range=NGRAM_RANGE,
+                    sublinear_tf=True,
+                ),
+            ),
+            (
+                "clf",
+                LogisticRegression(
+                    max_iter=2000,
+                    C=penalty_c,
+                    class_weight="balanced",
+                ),
+            ),
+        ]
+    )
+    probabilities = cross_val_predict(
+        pipeline,
+        texts,
+        labels,
+        cv=StratifiedKFold(
+            n_splits=5,
+            shuffle=True,
+            random_state=42,
+        ),
+        method="predict_proba",
+    )
+    classes = sorted(set(labels))
+    truth = np.array(
+        [classes.index(label) for label in labels]
+    )
+    scores = np.log(probabilities + 1e-12)
+    rows = np.arange(len(truth))
+    best_temperature = 1.0
+    best_nll = float("inf")
+
+    for temperature in np.arange(0.5, 3.01, 0.05):
+        scaled = scores / temperature
+        scaled -= scaled.max(axis=1, keepdims=True)
+        exponents = np.exp(scaled)
+        normalized = exponents / exponents.sum(
+            axis=1,
+            keepdims=True,
+        )
+        nll = -np.log(
+            normalized[rows, truth] + 1e-12
+        ).mean()
+
+        if nll < best_nll:
+            best_nll = float(nll)
+            best_temperature = float(temperature)
+
+    return best_temperature
+
+
 def coefficient_rows(
     model: LogisticRegression,
 ) -> tuple[list[np.ndarray], list[float]]:
@@ -336,6 +451,7 @@ def export_router(
     output: Path,
     top_weights: int,
     meta: dict,
+    temperature: float,
 ) -> None:
     """Пишет компактный JSON, пригодный для чистого Python."""
 
@@ -351,6 +467,7 @@ def export_router(
             "classes": len(model.classes_),
             "ngram_range": list(NGRAM_RANGE),
             "top_weights": top_weights,
+            "temperature": round(temperature, 4),
             **meta,
         },
         "labels": [str(label) for label in model.classes_],
@@ -432,6 +549,7 @@ def main(argv: list[str] | None = None) -> int:
         load_eval_data(set(labels), "template")
     )
     vectorizer, model = fit_router(texts, labels, args.c)
+    temperature = fit_temperature(texts, labels, args.c)
     accuracy, macro, correct = evaluate(
         vectorizer,
         model,
@@ -455,6 +573,12 @@ def main(argv: list[str] | None = None) -> int:
         iterations=300,
     )
     eval_ci = (interval["top1_high"] - interval["top1_low"]) / 2
+    ece, brier = calibration_scores(
+        model,
+        vectorizer.transform(eval_texts),
+        eval_labels,
+        temperature,
+    )
 
     print(
         f"Обучено на {len(texts)} примерах, "
@@ -463,6 +587,8 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"natural: top-1 {accuracy:.3f}, macro-F1 {macro:.3f}"
     )
+    print(f"Температура: {temperature:.2f}")
+    print(f"ECE: {ece:.3f}, Brier: {brier:.3f}")
     print(
         f"template: top-1 {template_accuracy:.3f}, "
         f"macro-F1 {template_macro:.3f}"
@@ -503,6 +629,8 @@ def main(argv: list[str] | None = None) -> int:
             "eval_macro_f1": round(macro, 4),
             "eval_correct": correct,
             "eval_ci": round(eval_ci, 4),
+            "eval_ece": round(ece, 4),
+            "eval_brier": round(brier, 4),
             "template_size": len(template_texts),
             "template_top1": round(template_accuracy, 4),
             "template_macro_f1": round(template_macro, 4),
@@ -513,6 +641,7 @@ def main(argv: list[str] | None = None) -> int:
             "dataset_sha256": file_sha256(CLASSIFICATION_FILE),
             "eval_sha256": file_sha256(EVAL_FILE),
         },
+        temperature,
     )
 
     natural = measure_artifact(
@@ -539,6 +668,8 @@ def main(argv: list[str] | None = None) -> int:
                 natural["selective"],
                 4,
             ),
+            "eval_ece": round(natural["ece"], 4),
+            "eval_brier": round(natural["brier"], 4),
             "template_top1": round(template["top1"], 4),
             "template_macro_f1": round(template["macro_f1"], 4),
             "template_correct": int(template["correct"]),

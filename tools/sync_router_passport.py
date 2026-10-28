@@ -56,7 +56,8 @@ def build_quality(meta: dict) -> dict:
         "template_accuracy": meta.get("template_top1"),
         "template_macro_f1": meta.get("template_macro_f1"),
         "template_coverage": meta.get("template_coverage"),
-        "ece": None,
+        "ece": meta.get("eval_ece"),
+        "brier": meta.get("eval_brier"),
         "noise_accuracy": None,
         "ood_auroc": None,
     }

@@ -102,14 +102,19 @@ char n-grams и логистическую регрессию на чистом 
 ```powershell
 python -m tools.train_linear_intent
 python -m tools.eval_intent_model --router --fail
+python -m tools.retrain_router
+python -m tools.check_model_artifacts
+python -m tools.benchmark_runtime
+python -m tools.active_learning --apply
 ```
 
 Артефакт хранится в `models/` приложения и в пакет не входит.
 
 На отложенном наборе из 2310 фраз (20 natural и 10 template на
 класс) роутер даёт top-1 **0.870** и macro-F1 **0.874** на natural-
-подвыборке. При пороге 0.50 покрытие составляет **0.760**, точность
-на покрытых — **0.948**. На template-подвыборке — 0.912/0.917.
+подвыборке. После калибровки температуры (0.75) при пороге 0.70
+покрытие составляет **0.785**, точность на покрытых — **0.955**,
+ECE 0.034, Brier 0.084. На template-подвыборке — 0.912/0.917.
 
 CNN удалена из рантайма: пониманием занимается только роутер.
 Код обучения CNN (`train_charcnn`, `diagnose_hybrid`) остаётся

@@ -37,6 +37,7 @@ def test_router_matches_sklearn(tmp_path) -> None:
         output,
         top_weights=0,
         meta={"train_size": len(TEXTS)},
+        temperature=1.0,
     )
 
     router = LinearIntentRouter.load(output)

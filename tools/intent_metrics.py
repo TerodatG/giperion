@@ -132,6 +132,58 @@ def percentile(values: list[float], fraction: float) -> float:
     return ordered[max(0, min(index, len(ordered) - 1))]
 
 
+def calibration_metrics(
+    confidences: list[float],
+    correct: list[bool],
+    bins: int = 10,
+) -> tuple[float, float]:
+    """Возвращает ECE и Brier score для уверенности модели."""
+
+    if not confidences:
+        return 0.0, 0.0
+
+    if len(confidences) != len(correct):
+        raise ValueError("confidences и correct разной длины")
+
+    brier = sum(
+        (confidence - int(is_correct)) ** 2
+        for confidence, is_correct in zip(
+            confidences,
+            correct,
+            strict=False,
+        )
+    ) / len(confidences)
+    buckets = [[] for _ in range(bins)]
+
+    for confidence, is_correct in zip(
+        confidences,
+        correct,
+        strict=False,
+    ):
+        index = min(int(confidence * bins), bins - 1)
+        buckets[index].append((confidence, is_correct))
+
+    ece = 0.0
+
+    for bucket in buckets:
+        if not bucket:
+            continue
+
+        average_confidence = sum(
+            item[0] for item in bucket
+        ) / len(bucket)
+        accuracy = sum(
+            int(item[1]) for item in bucket
+        ) / len(bucket)
+        ece += (
+            len(bucket)
+            / len(confidences)
+            * abs(average_confidence - accuracy)
+        )
+
+    return ece, brier
+
+
 def bootstrap_metrics(
     truths: list[str],
     predictions: list[str],

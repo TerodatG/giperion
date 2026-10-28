@@ -14,8 +14,9 @@ LINEAR_MODEL_FILE = MODELS_DIR / "linear_intent.json"
 NGRAM_MIN = 3
 NGRAM_MAX = 5
 
-# Порог выбран на natural-подвыборке: покрытие ~0.76 при точности ~0.95.
-ROUTER_CONFIDENCE_THRESHOLD = 0.50
+# Калиброванная температура 0.75; порог 0.70 даёт ~0.785 покрытия
+# при точности ~0.955 на natural-подвыборке.
+ROUTER_CONFIDENCE_THRESHOLD = 0.70
 
 LOGGER = logging.getLogger(__name__)
 
@@ -86,6 +87,7 @@ class LinearIntentRouter:
         intercept: list[float],
         weights: list[list[tuple[int, float]]],
         threshold: float = ROUTER_CONFIDENCE_THRESHOLD,
+        temperature: float = 1.0,
     ) -> None:
         self.labels = labels
         self.vocabulary = vocabulary
@@ -93,6 +95,7 @@ class LinearIntentRouter:
         self.intercept = intercept
         self.weights = weights
         self.threshold = threshold
+        self.temperature = temperature
 
     @classmethod
     def load(
@@ -119,6 +122,7 @@ class LinearIntentRouter:
             return None
 
         try:
+            metadata = document.get("meta", {})
             router = cls(
                 labels=[str(item) for item in document["labels"]],
                 vocabulary={
@@ -138,6 +142,9 @@ class LinearIntentRouter:
                     ]
                     for row in document["weights"]
                 ],
+                temperature=float(
+                    metadata.get("temperature", 1.0) or 1.0
+                ),
             )
         except (KeyError, TypeError, ValueError) as error:
             LOGGER.warning(
@@ -163,6 +170,7 @@ class LinearIntentRouter:
 
         return (
             classes > 0
+            and self.temperature > 0
             and len(self.idf) == len(self.vocabulary)
             and len(self.intercept) == classes
             and len(self.weights) == classes
@@ -196,7 +204,10 @@ class LinearIntentRouter:
 
             scores.append(score)
 
-        probabilities = _softmax(scores)
+        scaled = [
+            score / self.temperature for score in scores
+        ]
+        probabilities = _softmax(scaled)
         best = max(
             range(len(probabilities)),
             key=probabilities.__getitem__,
