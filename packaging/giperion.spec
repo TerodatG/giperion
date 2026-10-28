@@ -1,7 +1,11 @@
-# Giperion/packaging/giperion.spec                                     v001
-# PyInstaller one-dir сборка GUI Giperion.
-# Запуск: python -m tools.build_release
+﻿# Giperion/packaging/giperion.spec                                     v002
+# PyInstaller one-dir СЃР±РѕСЂРєР° GUI Giperion.
+# Р—Р°РїСѓСЃРє: python -m tools.build_release
+#
+# РњРѕРґРµР»СЊ РІС‹РЅРµСЃРµРЅР° РІ РѕС‚РґРµР»СЊРЅС‹Р№ РїСЂРѕРµРєС‚ Kraper Рё СЃС‚Р°РІРёС‚СЃСЏ РєР°Рє РїР°РєРµС‚
+# kraper_model (pip install -e ../Kraper).
 
+import os
 import sys
 from pathlib import Path
 
@@ -9,12 +13,14 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = Path(SPECPATH).resolve().parent
 
-# Пакет giperion_model лежит в model/, а не в корне: без этого он
-# не попадает в сборку и приложение падает с ModuleNotFoundError.
-MODEL = ROOT / "model"
+# Kraper СЃС‚Р°РІРёС‚СЃСЏ РєР°Рє РїР°РєРµС‚ kraper_model. Editable-СѓСЃС‚Р°РЅРѕРІРєСѓ PyInstaller
+# РЅРµ РІРёРґРёС‚, РїРѕСЌС‚РѕРјСѓ РґРѕР±Р°РІР»СЏРµРј РёСЃС…РѕРґРЅРёРєРё СЃРѕСЃРµРґРЅРµРіРѕ РїСЂРѕРµРєС‚Р° РІ sys.path.
+KRAPER = Path(os.environ.get("KRAPER_PATH", ROOT.parent / "Kraper"))
 
-if str(MODEL) not in sys.path:
-    sys.path.insert(0, str(MODEL))
+if KRAPER.is_dir() and str(KRAPER) not in sys.path:
+    sys.path.insert(0, str(KRAPER))
+
+pathex = [str(ROOT)] + ([str(KRAPER)] if KRAPER.is_dir() else [])
 
 datas = [
     (str(ROOT / "skins"), "skins"),
@@ -22,23 +28,26 @@ datas = [
     (str(ROOT / "docs"), "docs"),
     (str(ROOT / "assets"), "assets"),
     (str(ROOT / "main_window.ui"), "."),
-    # Веса модели и стартовый каталог интентов: без них GUI запускается,
-    # но не отвечает на сообщения.
-    (str(ROOT / "models"), "models"),
+    # РЎС‚Р°СЂС‚РѕРІС‹Р№ РєР°С‚Р°Р»РѕРі РёРЅС‚РµРЅС‚РѕРІ: Р±РµР· РЅРµРіРѕ Р°СЃСЃРёСЃС‚РµРЅС‚ РЅРµ РѕС‚РІРµС‡Р°РµС‚.
     (str(ROOT / "data" / "intents.json"), "data"),
+    (str(ROOT / "models"), "models"),
 ]
 
-for package in ("giperion_model", "terminal", "shared"):
+for package in ("kraper_model", "terminal", "shared"):
     datas += collect_data_files(package)
 
 hiddenimports = []
 
-for package in ("giperion_model", "terminal", "shared"):
+for package in ("kraper_model", "terminal", "shared"):
     hiddenimports += collect_submodules(package)
+
+# Импортируется как `from tools import knowledge_add` — PyInstaller
+# такой подмодуль сам не находит.
+hiddenimports += ["tools.knowledge_add"]
 
 a = Analysis(
     [str(ROOT / "gui.py")],
-    pathex=[str(ROOT), str(MODEL)],
+    pathex=pathex,
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
@@ -84,7 +93,7 @@ coll = COLLECT(
     name="Giperion",
 )
 
-# На macOS собираем настоящий .app: его ждёт packaging/macos/build_dmg.sh.
+# РќР° macOS СЃРѕР±РёСЂР°РµРј РЅР°СЃС‚РѕСЏС‰РёР№ .app: РµРіРѕ Р¶РґС‘С‚ packaging/macos/build_dmg.sh.
 if sys.platform == "darwin":
     app = BUNDLE(
         coll,
@@ -95,3 +104,5 @@ if sys.platform == "darwin":
             "CFBundleShortVersionString": "1.0.0",
         },
     )
+
+

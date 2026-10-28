@@ -28,8 +28,21 @@ jobs:
     env:
       PYTHONIOENCODING: utf-8
 
+    # Giperion лежит в app/giperion, Kraper — рядом в app/Kraper:
+    # модель ставится как пакет kraper_model из соседней папки.
+    defaults:
+      run:
+        working-directory: app/giperion
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: app/giperion
+
+      - uses: actions/checkout@v4
+        with:
+          repository: TerodatG/kraper
+          path: app/Kraper
 
       - name: Версия
         id: version
@@ -45,12 +58,17 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
+          cache-dependency-path: |
+            app/giperion/requirements.txt
+            app/giperion/requirements-dev.txt
+            app/Kraper/pyproject.toml
 
       - name: Зависимости
         run: |
           python -m pip install --upgrade pip
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements-dev.txt
+          python -m pip install -e ../Kraper
           python -m pip install pyinstaller
 
       - name: Inno Setup (Windows)
@@ -93,12 +111,12 @@ jobs:
         with:
           name: giperion-${{ matrix.target }}
           path: |
-            dist/*.exe
-            dist/*.zip
-            dist/*.deb
-            dist/*.AppImage
-            dist/*.tar.gz
-            dist/*.dmg
+            app/giperion/dist/*.exe
+            app/giperion/dist/*.zip
+            app/giperion/dist/*.deb
+            app/giperion/dist/*.AppImage
+            app/giperion/dist/*.tar.gz
+            app/giperion/dist/*.dmg
           if-no-files-found: error
 
   publish:
