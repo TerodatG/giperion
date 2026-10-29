@@ -1,5 +1,5 @@
 # Giperion/terminal/core/update_rollback.py                            v001
-# Откат обновления: вернуть файлы из резервной копии.
+# Откат обновления: вернуть файлы из снимка.
 
 import shutil
 from pathlib import Path
@@ -8,12 +8,12 @@ from terminal.core.update_types import ApplyResult, UpdateError
 
 
 def rollback_backup(root: Path, backup: Path | str) -> ApplyResult:
-    """Возвращает файлы из резервной копии обратно в проект."""
+    """Возвращает файлы из снимка обратно в проект."""
 
     source = Path(backup)
 
     if not source.is_dir():
-        raise UpdateError(f"резервная копия не найдена: {source}")
+        raise UpdateError(f"снимок не найдена: {source}")
 
     restored: list[str] = []
 
@@ -28,7 +28,7 @@ def rollback_backup(root: Path, backup: Path | str) -> ApplyResult:
         restored.append(relative.as_posix())
 
     if not restored:
-        raise UpdateError("в резервной копии нет файлов")
+        raise UpdateError("в снимка нет файлов")
 
     return ApplyResult(
         version="rollback",
@@ -39,7 +39,7 @@ def rollback_backup(root: Path, backup: Path | str) -> ApplyResult:
 
 
 def last_backup(updates_dir: Path) -> Path | None:
-    """Самая свежая резервная копия в updates/backup."""
+    """Самая свежая снимок в updates/backup."""
 
     folder = Path(updates_dir) / "backup"
 
@@ -60,6 +60,6 @@ def rollback_last(root: Path, updates_dir: Path) -> ApplyResult:
     backup = last_backup(updates_dir)
 
     if backup is None:
-        raise UpdateError("резервных копий нет")
+        raise UpdateError("снимков нет")
 
     return rollback_backup(root, backup)
