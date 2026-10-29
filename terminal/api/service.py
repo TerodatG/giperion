@@ -51,6 +51,7 @@ def run_task(
     project: str = ".",
     steps: int = config.DEFAULT_STEPS,
     policy: str = "read",
+    should_stop=None,
 ) -> dict:
     """Выполняет задачу и возвращает итог и трейс."""
 
@@ -79,6 +80,7 @@ def run_task(
         Path(root),
         max_steps=limit,
         policy=normalize_policy(policy),
+        should_stop=should_stop,
     )
 
     return {

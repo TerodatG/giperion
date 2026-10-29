@@ -3,6 +3,7 @@
 
 import json
 import threading
+import time
 
 import pytest
 
@@ -46,6 +47,7 @@ def api(tmp_path, monkeypatch):
 
     monkeypatch.setenv(config.TOKEN_ENV, TOKEN)
     monkeypatch.setenv(config.ROOTS_ENV, str(tmp_path))
+    monkeypatch.setattr(config, "JOURNAL", tmp_path / "api_calls.jsonl")
     monkeypatch.setattr(service, "build_brain", lambda: FakeBrain())
 
     httpd = server.make_server("127.0.0.1", 0)
@@ -139,3 +141,54 @@ def test_unknown_path_returns_404(api) -> None:
         _client(api)._request("GET", "/nope")
 
     assert "404" in str(error.value)
+
+
+def test_async_run_is_polled_to_done(api) -> None:
+    """Фоновый прогон доступен по id и доходит до результата."""
+
+    _, project = api
+    client = _client(api)
+
+    started = client._request(
+        "POST",
+        "/run",
+        {"task": "что в папке?", "project": str(project), "wait": False},
+    )
+
+    assert started["id"]
+    run_id = started["id"]
+    state = {}
+
+    for _ in range(100):
+        state = client._request("GET", f"/run/{run_id}")
+
+        if state["status"] in ("done", "failed", "cancelled"):
+            break
+
+        time.sleep(0.05)
+
+    assert state["status"] == "done"
+    assert state["result"]["answer"] == "готово"
+
+
+def test_unknown_run_returns_404(api) -> None:
+    """Неизвестный id прогона — 404."""
+
+    with pytest.raises(ClientError) as error:
+        _client(api)._request("GET", "/run/nope")
+
+    assert "404" in str(error.value)
+
+
+def test_calls_are_journalled(api, tmp_path) -> None:
+    """Каждый вызов попадает в журнал."""
+
+    _client(api).version()
+
+    journal = tmp_path / "api_calls.jsonl"
+    lines = [
+        json.loads(line)
+        for line in journal.read_text(encoding="utf-8").splitlines()
+    ]
+
+    assert any(item["path"] == "/version" for item in lines)

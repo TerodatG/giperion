@@ -18,6 +18,9 @@ ROOTS_ENV = "GIPERION_API_ROOTS"
 
 TOKEN_FILE = DATA_DIR / "api_token.txt"
 
+# Журнал вызовов API: строка JSON на запрос.
+JOURNAL = DATA_DIR / "api_calls.jsonl"
+
 # Ограничения, чтобы один вызов не съел память и время.
 MAX_TASK_CHARS = 8000
 MAX_BODY_BYTES = 64 * 1024
