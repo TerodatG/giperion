@@ -96,3 +96,4 @@ data/plugin_signing.key
 data/agent_dashboard.html
 debug.log
 .orchestra/session-progress.md
+data/api_token.txt
