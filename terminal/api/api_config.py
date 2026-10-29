@@ -1,5 +1,5 @@
 # Giperion/terminal/api/config.py                                      v001
-# Настройки HTTP-API: адрес, токен, разрешённые проекты и лимиты.
+# Параметры HTTP-API: адрес, токен, разрешённые проекты и лимиты.
 
 import os
 import secrets
@@ -26,7 +26,7 @@ DEFAULT_STEPS = 12
 
 
 class ApiConfigError(RuntimeError):
-    """Понятная человеку ошибка настройки API."""
+    """Понятная ошибка параметров API."""
 
 
 def api_host() -> str:

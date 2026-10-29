@@ -16,8 +16,10 @@ MAX_FILES = 4000
 MAX_CHUNK_CHARS = 2400
 MAX_CHUNK_LINES = 80
 TEXT_WINDOW = 60
-SKIP_PREFIXES = ("data/", ".agent_worktrees/", "archive/")
-EXTRA_SKIP_DIRS = {"data", ".agent_worktrees"}
+# terminal/api/ — тонкий HTTP-слой: в поиске по знаниям проекта он только
+# забивает выдачу словами вроде «настройки», «проект», «лимиты».
+SKIP_PREFIXES = ("data/", ".agent_worktrees/", "archive/", "terminal/api/")
+EXTRA_SKIP_DIRS = {"data", ".agent_worktrees", ".orchestra"}
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
 _MEMORY: dict[tuple[str, str], dict] = {}

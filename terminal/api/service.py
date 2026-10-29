@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from terminal.api import config
+from terminal.api import api_config as config
 from terminal.core.agent.loop import run_agent
 from terminal.core.agent.native_brain import NativeBrain
 from terminal.core.agent.providers import provider_chain

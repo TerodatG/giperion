@@ -6,7 +6,8 @@ import threading
 
 import pytest
 
-from terminal.api import config, server, service
+from terminal.api import api_config as config
+from terminal.api import server, service
 from terminal.api.client import Client, ClientError
 
 TOKEN = "test-token"

@@ -5,7 +5,8 @@ import argparse
 import json
 import sys
 
-from terminal.api import config, server
+from terminal.api import api_config as config
+from terminal.api import server
 from terminal.api.client import Client, ClientError
 
 if hasattr(sys.stdout, "reconfigure"):

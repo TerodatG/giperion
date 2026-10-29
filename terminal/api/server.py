@@ -7,7 +7,8 @@ import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from terminal.api import config, service
+from terminal.api import api_config as config
+from terminal.api import service
 from terminal.core.app_version import current_version
 
 # Пути, доступные без токена: мониторинг живости.
