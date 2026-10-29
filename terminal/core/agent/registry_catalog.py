@@ -207,6 +207,31 @@ TOOL_SPECS = (
         required=(),
     ),
     ToolSpec(
+        name="lsp_symbols",
+        description=(
+            "Список функций, классов и методов файла с номерами строк. "
+            "Удобно, чтобы быстро понять структуру модуля."
+        ),
+        args={"path": "путь к файлу относительно проекта"},
+        required=("path",),
+        permissions=("fs:read",),
+    ),
+    ToolSpec(
+        name="lsp_hover",
+        description=(
+            "Подсказка типа или документация символа в позиции "
+            "(строка и колонка с единицы)."
+        ),
+        args={
+            "path": "путь к файлу относительно проекта",
+            "line": "номер строки с единицы",
+            "character": "номер колонки с единицы",
+        },
+        types={"line": "integer", "character": "integer"},
+        required=("path", "line", "character"),
+        permissions=("fs:read",),
+    ),
+    ToolSpec(
         name="remember",
         description=(
             "Записать важное решение, ограничение или договорённость в "

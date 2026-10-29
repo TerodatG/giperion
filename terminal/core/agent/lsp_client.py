@@ -350,6 +350,35 @@ class LspClient:
             )
         )
 
+    def symbols(self, path: Path) -> list[dict]:
+        """Символы файла: функции, классы, методы."""
+
+        uri = self.open_document(path)
+
+        return _as_list(
+            self.request(
+                "textDocument/documentSymbol",
+                {"textDocument": {"uri": uri}},
+            )
+        )
+
+    def hover(self, path: Path, line: int, character: int) -> dict:
+        """Подсказка типа или документация в позиции."""
+
+        uri = self.open_document(path)
+        result = self.request(
+            "textDocument/hover",
+            {
+                "textDocument": {"uri": uri},
+                "position": {
+                    "line": max(0, line - 1),
+                    "character": max(0, character - 1),
+                },
+            },
+        )
+
+        return result if isinstance(result, dict) else {}
+
 
 def _as_list(result) -> list[dict]:
     """Приводит ответ LSP к списку."""

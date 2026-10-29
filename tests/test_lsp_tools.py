@@ -76,3 +76,23 @@ def test_no_server_is_reported(monkeypatch) -> None:
 
     assert result.ok is False
     assert "LSP-сервер не найден" in result.text
+
+
+def test_symbols_lists_functions_and_classes(project) -> None:
+    """Символы печатаются с видом и строкой."""
+
+    result = lsp_tools.symbols(project, "a.py")
+
+    assert result.ok is True
+    assert "Символов: 2" in result.text
+    assert "функция main" in result.text
+    assert "класс Helper" in result.text
+
+
+def test_hover_returns_type(project) -> None:
+    """Подсказка типа приходит текстом."""
+
+    result = lsp_tools.hover(project, "a.py", 1, 1)
+
+    assert result.ok is True
+    assert "def main() -> None" in result.text

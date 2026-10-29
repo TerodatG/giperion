@@ -417,11 +417,17 @@ def _special_tool(root: Path, call: ToolCall) -> ToolResult | None:
         if call.tool == "lsp_diagnostics":
             return lsp_tools.diagnostics(root, path)
 
+        if call.tool == "lsp_symbols":
+            return lsp_tools.symbols(root, path)
+
         line = _int_arg(call, "line")
         character = _int_arg(call, "character")
 
         if call.tool == "lsp_definition":
             return lsp_tools.definition(root, path, line, character)
+
+        if call.tool == "lsp_hover":
+            return lsp_tools.hover(root, path, line, character)
 
         return lsp_tools.references(root, path, line, character)
 

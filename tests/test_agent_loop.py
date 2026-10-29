@@ -198,6 +198,8 @@ def test_registry_has_read_write_and_exec_tools() -> None:
         "lsp_diagnostics": "read",
         "lsp_definition": "read",
         "lsp_references": "read",
+        "lsp_symbols": "read",
+        "lsp_hover": "read",
         "apply_patch": "write",
         "write_file": "write",
         "run_tests": "exec",

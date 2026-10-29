@@ -152,6 +152,93 @@ def references(root: Path, path: str, line: int, character: int) -> ToolResult:
     return ToolResult(True, _format_locations(root, items))
 
 
+def symbols(root: Path, path: str) -> ToolResult:
+    """Список символов файла."""
+
+    try:
+        relative = _relative(root, Path(path))
+        client = client_for(root)
+        items = client.symbols(Path(root) / relative)
+    except LspError as error:
+        return ToolResult(False, str(error))
+
+    if not items:
+        return ToolResult(True, f"Символов не найдено: {relative}")
+
+    lines = [f"Символов: {len(items)} · {relative}"]
+
+    for item in items:
+        name = str(item.get("name") or "")
+        kind = SYMBOL_KINDS.get(int(item.get("kind", 0)), "символ")
+        start = (item.get("range") or item.get("location", {}).get("range") or {}).get("start", {})
+        line = int(start.get("line", 0)) + 1
+
+        lines.append(f"{relative}:{line}: {kind} {name}")
+
+    return ToolResult(True, "\n".join(lines))
+
+
+def hover(root: Path, path: str, line: int, character: int) -> ToolResult:
+    """Подсказка типа или документация в позиции."""
+
+    try:
+        relative = _relative(root, Path(path))
+        client = client_for(root)
+        result = client.hover(Path(root) / relative, line, character)
+    except LspError as error:
+        return ToolResult(False, str(error))
+
+    text = _hover_text(result)
+
+    if not text:
+        return ToolResult(True, "Подсказки нет.")
+
+    return ToolResult(True, text)
+
+
+def _hover_text(result: dict) -> str:
+    """Достаёт текст из ответа hover."""
+
+    contents = result.get("contents")
+
+    if isinstance(contents, str):
+        return contents.strip()
+
+    if isinstance(contents, dict):
+        return str(contents.get("value") or "").strip()
+
+    if isinstance(contents, list):
+        parts = []
+
+        for item in contents:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                parts.append(str(item.get("value") or ""))
+
+        return "\n".join(part for part in parts if part).strip()
+
+    return ""
+
+
+SYMBOL_KINDS = {
+    1: "файл",
+    2: "модуль",
+    3: "пространство имён",
+    4: "пакет",
+    5: "класс",
+    6: "метод",
+    7: "свойство",
+    8: "поле",
+    9: "конструктор",
+    10: "перечисление",
+    11: "интерфейс",
+    12: "функция",
+    13: "переменная",
+    14: "константа",
+}
+
+
 def _format_locations(root: Path, items: list[dict]) -> str:
     """Печатает locations в виде «файл:строка:колонка»."""
 

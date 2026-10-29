@@ -132,6 +132,45 @@ def main():
                     ],
                 }
             )
+        elif method == "textDocument/documentSymbol":
+            uri = (params.get("textDocument") or {}).get("uri", "")
+            write_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": [
+                        {
+                            "name": "main",
+                            "kind": 12,
+                            "range": {
+                                "start": {"line": 0, "character": 0},
+                                "end": {"line": 3, "character": 0},
+                            },
+                        },
+                        {
+                            "name": "Helper",
+                            "kind": 5,
+                            "range": {
+                                "start": {"line": 5, "character": 0},
+                                "end": {"line": 9, "character": 0},
+                            },
+                        },
+                    ],
+                }
+            )
+        elif method == "textDocument/hover":
+            write_message(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "contents": {
+                            "kind": "markdown",
+                            "value": "def main() -> None",
+                        }
+                    },
+                }
+            )
         elif method == "shutdown":
             write_message(
                 {"jsonrpc": "2.0", "id": request_id, "result": None}
