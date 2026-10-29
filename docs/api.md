@@ -43,7 +43,31 @@ python -m terminal.api.cli serve --port 8777
 `policy`: `read` (по умолчанию, только чтение), `confirm` (спрашивать
 некого — фактически read), `trust` (разрешить запись и команды).
 
-Ответ: `ok`, `answer`, `steps` (трейс), `error`, `project`, `version`.
+Ответ: `ok`, `answer`, `steps` (трейс), `usage`, `cost`, `error`,
+`project`, `version`.
+
+### Фоновый запуск и отмена
+
+```json
+{"task": "...", "project": ".", "wait": false}
+```
+
+Ответ `202` с `id`. Дальше:
+
+```
+GET  /run/{id}          — статус и результат
+POST /run/{id}/cancel   — попросить остановиться
+```
+
+Статусы: `queued`, `running`, `cancelling`, `done`, `failed`,
+`cancelled`.
+
+### Журнал и лимиты
+
+Каждый запрос пишется в `data/api_calls.jsonl` (время, путь, код,
+миллисекунды). Лимит частоты — 60 запросов в минуту на токен, сверх
+него `429`.
+
 
 ## SDK
 

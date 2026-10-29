@@ -89,9 +89,29 @@ def run_task(
         "error": str(result.error or ""),
         "cancelled": bool(result.cancelled),
         "steps": [_step_payload(step) for step in result.steps],
+        "usage": list(result.usage or []),
+        "cost": _total_cost(brain, result.usage),
         "project": str(root),
         "version": current_version(),
     }
+
+
+def _total_cost(brain, usage: list[dict] | None) -> float:
+    """Суммарная стоимость прогона по расходу токенов."""
+
+    from terminal.core.agent.cost import estimate_cost
+
+    model = str(getattr(getattr(brain, "provider", None), "model", "") or "")
+
+    if not model:
+        import os
+
+        model = os.environ.get("AGENT_MODEL", "").strip()
+
+    return round(
+        sum(estimate_cost(model, item) for item in (usage or [])),
+        6,
+    )
 
 
 def _step_payload(step) -> dict:

@@ -14,6 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from config import BASE_DIR, DATA_DIR
+from terminal.core import update_rollback
 from terminal.core.app_version import (
     APP_NAME,
     current_released,
@@ -500,6 +501,18 @@ def _extract_patch(
             applied.append(relative.as_posix())
 
     return sorted(applied), (backup_root if backed_up else None)
+
+
+def rollback_backup(backup: Path | str) -> ApplyResult:
+    """Возвращает файлы из резервной копии обратно в проект."""
+
+    return update_rollback.rollback_backup(PROJECT_ROOT, backup)
+
+
+def rollback_last() -> ApplyResult:
+    """Откатывает последнее обновление."""
+
+    return update_rollback.rollback_last(PROJECT_ROOT, UPDATES_DIR)
 
 
 def apply_update(

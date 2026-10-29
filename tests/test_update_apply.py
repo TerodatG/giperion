@@ -115,3 +115,29 @@ def test_skip_remembers_version(sandbox) -> None:
     app_version.set_skipped("1.2.0")
 
     assert app_version.skipped_version() == "1.2.0"
+
+
+def test_rollback_restores_backup(sandbox) -> None:
+    """Откат возвращает файлы из резервной копии."""
+
+    root, updates = sandbox
+    (root / "pkg").mkdir()
+    (root / "pkg" / "module.py").write_bytes(b"old")
+
+    patch = root.parent / "patch.zip"
+    _patch(patch, {"pkg/module.py": b"new"})
+
+    result = update_service.apply_update(patch, _release(patch))
+    assert (root / "pkg" / "module.py").read_bytes() == b"new"
+
+    restored = update_service.rollback_backup(result.backup_dir)
+
+    assert (root / "pkg" / "module.py").read_bytes() == b"old"
+    assert restored.files == ["pkg/module.py"]
+
+
+def test_rollback_without_backup_fails(sandbox) -> None:
+    """Без резервных копий откат сообщает об ошибке."""
+
+    with pytest.raises(update_service.UpdateError):
+        update_service.rollback_last()

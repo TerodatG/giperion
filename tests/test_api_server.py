@@ -50,6 +50,8 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "JOURNAL", tmp_path / "api_calls.jsonl")
     monkeypatch.setattr(service, "build_brain", lambda: FakeBrain())
 
+    server._RATE.clear()
+
     httpd = server.make_server("127.0.0.1", 0)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -186,9 +188,33 @@ def test_calls_are_journalled(api, tmp_path) -> None:
     _client(api).version()
 
     journal = tmp_path / "api_calls.jsonl"
-    lines = [
-        json.loads(line)
-        for line in journal.read_text(encoding="utf-8").splitlines()
-    ]
+    lines: list[dict] = []
+
+    for _ in range(50):
+        if journal.is_file():
+            lines = [
+                json.loads(line)
+                for line in journal.read_text(encoding="utf-8").splitlines()
+            ]
+
+            if lines:
+                break
+
+        time.sleep(0.02)
 
     assert any(item["path"] == "/version" for item in lines)
+
+
+def test_rate_limit_returns_429(api, monkeypatch) -> None:
+    """Превышение лимита частоты даёт 429."""
+
+    monkeypatch.setattr(server, "RATE_LIMIT", 2)
+
+    client = _client(api)
+    client.version()
+    client.version()
+
+    with pytest.raises(ClientError) as error:
+        client.version()
+
+    assert "429" in str(error.value)
